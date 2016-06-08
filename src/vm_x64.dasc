@@ -492,6 +492,7 @@ static void build_subroutines(BuildCtx *ctx)
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  mov L:RB, SAVE_L
   |  mov GL:RB, L:RB->glref
+  |  mov [GL:RB->cur_L], L:RB
   |  mov dword GL:RB->vmstate, ~LJ_VMST_C
   |  jmp ->vm_leave_unw
   |
@@ -519,6 +520,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov [BASE-16], RA			// Prepend false to error message.
   |  mov [BASE-8], RB
   |  mov RA, -16			// Results start at BASE+RA = BASE-16.
+  |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
   |  set_vmstate INTERP
   |  jmp ->vm_returnc			// Increments RD/MULTRES and returns.
   |
