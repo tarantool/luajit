@@ -13,6 +13,18 @@
 #include "lj_char.h"
 #include "lj_prng.h"
 
+#if LUAJIT_USE_ASAN
+/* These functions may read past a buffer end, that's ok. */
+GCstr *lj_str_new(lua_State *L, const char *str, size_t lenx)
+  __attribute__((no_sanitize_address));
+
+int32_t LJ_FASTCALL lj_str_cmp(GCstr *a, GCstr *b)
+  __attribute__((no_sanitize_address));
+
+static LJ_AINLINE int str_fastcmp(const char *a, const char *b, MSize len)
+  __attribute__((no_sanitize_address));
+#endif
+
 /* -- String helpers ------------------------------------------------------ */
 
 /* Ordered compare of strings. Assumes string data is 4-byte aligned. */
