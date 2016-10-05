@@ -35,6 +35,10 @@
 #include <io.h>
 #endif
 
+#if LUAJIT_USE_ASAN
+int __lsan_is_turned_off() { return 1; } /* leaks are ok */
+#endif
+
 /* ------------------------------------------------------------------------ */
 
 /* DynASM glue definitions. */
