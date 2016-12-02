@@ -1058,7 +1058,20 @@ static void cp_decl_gccattribute(CPState *cp, CPDecl *decl)
   while (cp->tok != ')') {
     if (cp->tok == CTOK_IDENT) {
       GCstr *attrstr = cp->str;
+      const char *c = strdata(cp->str);
       cp_next(cp);
+#if LUAJIT_SMART_STRINGS
+      /*
+       * Sadly, several option __name__-s exceed 12 bytes hence they
+       * could've been interned using the full hash.  Strip "__" to stay
+       * within limits.
+       */
+      if (attrstr->len > 12 && c[0]=='_' && c[1]=='_' && c[2] != '_' &&
+	  c[attrstr->len-2]=='_' && c[attrstr->len-1]=='_')
+	attrstr = lj_str_new(cp->L, c+2, attrstr->len-4);
+#else
+      (void)c;
+#endif
       switch (attrstr->hash) {
       case H_(64a9208e,8ce14319): case H_(8e6331b2,95a282af):  /* aligned */
 	cp_decl_align(cp, decl);
