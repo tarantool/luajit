@@ -490,9 +490,9 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov eax, CARG2d			// Error return status for vm_pcall.
   |  mov rsp, CARG1
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
-  |  mov L:RB, SAVE_L
-  |  mov GL:RB, L:RB->glref
-  |  mov [GL:RB->cur_L], L:RB
+  |  mov L:DISPATCH, SAVE_L
+  |  mov GL:RB, L:DISPATCH->glref
+  |  mov GL:RB->cur_L, L:DISPATCH
   |  mov dword GL:RB->vmstate, ~LJ_VMST_C
   |  jmp ->vm_leave_unw
   |
@@ -516,11 +516,11 @@ static void build_subroutines(BuildCtx *ctx)
   |  add DISPATCH, GG_G2DISP
   |  mov PC, [BASE-8]			// Fetch PC of previous frame.
   |  mov_false RA
+  |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
   |  mov RB, [BASE]
   |  mov [BASE-16], RA			// Prepend false to error message.
   |  mov [BASE-8], RB
   |  mov RA, -16			// Results start at BASE+RA = BASE-16.
-  |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
   |  set_vmstate INTERP
   |  jmp ->vm_returnc			// Increments RD/MULTRES and returns.
   |
