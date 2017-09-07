@@ -15,6 +15,7 @@ LJ_FUNC int32_t LJ_FASTCALL lj_str_cmp(GCstr *a, GCstr *b);
 LJ_FUNC const char *lj_str_find(const char *s, const char *f,
 				MSize slen, MSize flen);
 LJ_FUNC int lj_str_haspattern(GCstr *s);
+StrHash hash_sparse(uint64_t seed, const char *str, MSize len);
 
 /* String interning. */
 LJ_FUNC void lj_str_resize(lua_State *L, MSize newmask);

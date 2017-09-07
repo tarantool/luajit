@@ -11,6 +11,7 @@
 
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdint.h>
 
 
 #include "luaconf.h"
@@ -148,6 +149,7 @@ LUA_API lua_Number      (lua_tonumber) (lua_State *L, int idx);
 LUA_API lua_Integer     (lua_tointeger) (lua_State *L, int idx);
 LUA_API int             (lua_toboolean) (lua_State *L, int idx);
 LUA_API const char     *(lua_tolstring) (lua_State *L, int idx, size_t *len);
+LUA_API uint32_t        (lua_hashstring) (lua_State *L, int idx);
 LUA_API size_t          (lua_objlen) (lua_State *L, int idx);
 LUA_API lua_CFunction   (lua_tocfunction) (lua_State *L, int idx);
 LUA_API void	       *(lua_touserdata) (lua_State *L, int idx);
@@ -244,6 +246,12 @@ LUA_API void  (lua_concat) (lua_State *L, int n);
 
 LUA_API lua_Alloc (lua_getallocf) (lua_State *L, void **ud);
 LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
+
+/*
+** Calculate a hash for a specified string. Hash is the same as
+** for luajit string objects (see lj_str_new()).
+*/
+LUA_API uint32_t (lua_hash) (lua_State *L, const char *str, uint32_t len);
 
 
 

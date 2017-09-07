@@ -85,7 +85,7 @@ int lj_str_haspattern(GCstr *s)
 /* -- String hashing ------------------------------------------------------ */
 
 /* Keyed sparse ARX string hash. Constant time. */
-static StrHash hash_sparse(uint64_t seed, const char *str, MSize len)
+StrHash hash_sparse(uint64_t seed, const char *str, MSize len)
 {
   /* Constants taken from lookup3 hash by Bob Jenkins. */
   StrHash a, b, h = len ^ (StrHash)seed;

@@ -520,6 +520,14 @@ LUA_API const char *lua_tolstring(lua_State *L, int idx, size_t *len)
   return strdata(s);
 }
 
+LUA_API uint32_t lua_hashstring(lua_State *L, int idx)
+{
+  TValue *o = index2adr(L, idx);
+  lj_assertL(tvisstr(o), "given object is not a GCstr");
+  GCstr *s = strV(o);
+  return s->hash;
+}
+
 LUALIB_API const char *luaL_checklstring(lua_State *L, int idx, size_t *len)
 {
   TValue *o = index2adr(L, idx);
@@ -1311,3 +1319,7 @@ LUA_API void lua_setallocf(lua_State *L, lua_Alloc f, void *ud)
   g->allocf = f;
 }
 
+LUA_API uint32_t lua_hash(lua_State *L, const char *str, uint32_t len)
+{
+  return (uint32_t)hash_sparse(G(L)->str.seed, str, len);
+}
