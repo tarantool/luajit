@@ -6,7 +6,6 @@ local tap = require('tap')
 -- conversions.
 -- See also https://github.com/LuaJIT/LuaJIT/issues/408,
 -- https://github.com/LuaJIT/LuaJIT/pull/412,
--- https://github.com/LuaJIT/LuaJIT/pull/412,
 -- https://github.com/tarantool/tarantool/issues/7655.
 local test = tap.test('lj-408-tonumber-cdata-record')
 
@@ -14,15 +13,6 @@ local NULL = ffi.cast('void *', 0)
 
 test:plan(4)
 
--- This test won't fail for GC64 on x86_64. This happens due to
--- wrong instruction emitting for SLOAD IR -- we always exit by
--- the assertion guard on the argument type check. See also
--- https://github.com/LuaJIT/LuaJIT/pull/350.
--- The test fails without fix in the current commit, if the
--- following commit is backported:
--- https://github.com/LuaJIT/LuaJIT/commit/05fbdf56
--- Feel free to remove this comment after backporting of the
--- aforementioned commit.
 local function check(x)
   -- Don't use a tail call to avoid "leaving loop in root trace"
   -- error, so the trace will be compiled.
