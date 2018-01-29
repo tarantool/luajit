@@ -2188,9 +2188,12 @@ static void asm_setup_regsp(ASMState *as)
 	if (ir->op2 != REF_NIL && as->evenspill < 4)
 	  as->evenspill = 4;  /* lj_cdata_newv needs 4 args. */
       }
+      /* fallthrough */
 #else
+      /* fallthrough */
     case IR_CNEW:
 #endif
+      /* fallthrough */
     case IR_TNEW: case IR_TDUP: case IR_CNEWI: case IR_TOSTR:
     case IR_BUFSTR:
       ir->prev = REGSP_HINT(RID_RET);
@@ -2217,7 +2220,7 @@ static void asm_setup_regsp(ASMState *as)
 	continue;
 #endif
       }
-      /* fallthrough for integer POW */
+      /* fallthrough */ /* for integer POW */
     case IR_DIV: case IR_MOD:
       if (!irt_isnum(ir->t)) {
 	ir->prev = REGSP_HINT(RID_RET);
