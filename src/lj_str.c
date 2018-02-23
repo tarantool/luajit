@@ -180,7 +180,11 @@ GCstr *lj_str_new(lua_State *L, const char *str, size_t lenx)
   g = G(L);
   /* Compute string hash. Constants taken from lookup3 hash by Bob Jenkins. */
   MSize h = lua_hash(str, len);
-  if (h == 0)
+  /*
+  ** Calculated hash can equal zero not only for an empty string. Thus within
+  ** condition below we also need to get a string length into consideration.
+  **/
+  if (len == 0 && h == 0)
     return &g->strempty;
   /* Check if the string has already been interned. */
   o = gcref(g->strhash[h & g->strmask]);
