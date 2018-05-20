@@ -1,0 +1,1 @@
+BuildTestCLib(libtestxor testxor.c)
