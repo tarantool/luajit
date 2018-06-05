@@ -452,8 +452,8 @@
 #error "No support for ILP32 model on ARM64"
 #endif
 #elif LJ_TARGET_PPC
-#if !LJ_ARCH_PPC64 && LJ_ARCH_ENDIAN == LUAJIT_LE
-#error "No support for little-endian PPC32"
+#if defined(_LITTLE_ENDIAN) && (!defined(_BYTE_ORDER) || (_BYTE_ORDER == _LITTLE_ENDIAN))
+#error "No support for little-endian PowerPC"
 #endif
 #if LJ_ARCH_PPC64
 #error "No support for PowerPC 64 bit mode (yet)"
