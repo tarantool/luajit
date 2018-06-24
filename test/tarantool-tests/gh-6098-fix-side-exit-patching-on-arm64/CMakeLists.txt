@@ -1,0 +1,1 @@
+BuildTestCLib(libproxy libproxy.c)
