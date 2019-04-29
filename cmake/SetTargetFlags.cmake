@@ -8,6 +8,12 @@
 
 include(CheckUnwindTables)
 
+# Clang does not recognize comment markers.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU"
+    AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "7.1")
+  AppendFlags(TARGET_C_FLAGS -Wimplicit-fallthrough)
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   set(BUILDVM_MODE machasm)
 else() # Linux and FreeBSD.
