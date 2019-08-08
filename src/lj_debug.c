@@ -432,12 +432,16 @@ int lj_debug_getinfo(lua_State *L, const char *what, lj_Debug *ar, int ext)
   TValue *frame = NULL;
   TValue *nextframe = NULL;
   GCfunc *fn;
-  if (*what == '>') {
-    TValue *func = L->top - 1;
-    if (!tvisfunc(func)) return 0;
-    fn = funcV(func);
-    L->top--;
-    what++;
+  if (*what == '>') { /* we have to have an extra arg on stack */
+    if (lua_gettop(L) > 2) {
+      TValue *func = L->top - 1;
+      lj_checkapi(tvisfunc(func), "top slot is not a GCfunc");
+      fn = funcV(func);
+      L->top--;
+      what++;
+    } else { /* need better error to display? */
+      return 0;
+    }
   } else {
     uint32_t offset = (uint32_t)ar->i_ci & 0xffff;
     uint32_t size = (uint32_t)ar->i_ci >> 16;
