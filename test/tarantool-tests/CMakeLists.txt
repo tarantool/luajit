@@ -60,10 +60,12 @@ add_subdirectory(gh-4427-ffi-sandwich)
 add_subdirectory(lj-601-fix-gc-finderrfunc)
 add_subdirectory(lj-flush-on-trace)
 
-# Auxiliary tests-related modules are located in the current
-# directory (but tests are run in the binary directory), so
-# LUA_PATH need to be updated.
-set(LUA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/?.lua")
+# JIT, profiler and bytecode toolchains are located in src/
+# directory and auxiliary tests-related modules are located in
+# the current directory (but tests are run in the binary
+# directory), so LUA_PATH need to be updated.
+set(LUA_PATH
+  "${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${PROJECT_SOURCE_DIR}/src/?.lua")
 set(LUA_TEST_SUFFIX .test.lua)
 set(LUA_TEST_FLAGS --failures --shuffle)
 set(LUA_TEST_ENV
