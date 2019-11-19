@@ -1375,7 +1375,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov TAB:RB, [BASE]
   |  mov TMPR, TAB:RB
   |  checktab TAB:RB, ->fff_fallback
-#if LJ_52
+#if LJ_PAIRSMM
   |  cmp aword TAB:RB->metatable, 0; jne ->fff_fallback
 #endif
   |  mov CFUNC:RD, [BASE-16]
@@ -1446,7 +1446,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov TAB:RB, [BASE]
   |  mov TMPR, TAB:RB
   |  checktab TAB:RB, ->fff_fallback
-#if LJ_52
+#if LJ_PAIRSMM
   |  cmp aword TAB:RB->metatable, 0; jne ->fff_fallback
 #endif
   |  mov CFUNC:RD, [BASE-16]

@@ -713,4 +713,11 @@ extern void *LJ_WIN_LOADLIBA(const char *path);
 #define LJ_SECURITY_MODESTRING \
   "\004prng\007strhash\005strid\005mcode"
 
+/* Enabling pairs/ipairs metamethods for Lua 5.1 */
+#if defined(LUAJIT_ENABLE_PAIRSMM) || defined (LUAJIT_ENABLE_LUA52COMPAT)
+#define LJ_PAIRSMM                     1
+#else
+#define LJ_PAIRSMM                     0
+#endif
+
 #endif

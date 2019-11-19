@@ -1288,7 +1288,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  li AT, LJ_TTAB
   |  bne SFARG1HI, AT, ->fff_fallback
   |.  lw PC, FRAME_PC(BASE)
-#if LJ_52
+#if LJ_PAIRSMM
   |  lw TAB:TMP2, TAB:SFARG1LO->metatable
   |  lw TMP0, CFUNC:RB->upvalue[0].u32.hi
   |   lw TMP1, CFUNC:RB->upvalue[0].u32.lo
@@ -1354,7 +1354,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  li AT, LJ_TTAB
   |  bne SFARG1HI, AT, ->fff_fallback
   |.  lw PC, FRAME_PC(BASE)
-#if LJ_52
+#if LJ_PAIRSMM
   |  lw TAB:TMP2, TAB:SFARG1LO->metatable
   |  lw TMP0, CFUNC:RB->upvalue[0].u32.hi
   |   lw TMP1, CFUNC:RB->upvalue[0].u32.lo

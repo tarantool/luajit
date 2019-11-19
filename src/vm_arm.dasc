@@ -1128,12 +1128,12 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |.ffunc_1 pairs
   |  checktab CARG2, ->fff_fallback
-#if LJ_52
+#if LJ_PAIRSMM
   |  ldr TAB:RB, TAB:CARG1->metatable
 #endif
   |   ldrd CFUNC:CARG34, CFUNC:CARG3->upvalue[0]
   |    ldr PC, [BASE, FRAME_PC]
-#if LJ_52
+#if LJ_PAIRSMM
   |  cmp TAB:RB, #0
   |  bne ->fff_fallback
 #endif
@@ -1178,12 +1178,12 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |.ffunc_1 ipairs
   |  checktab CARG2, ->fff_fallback
-#if LJ_52
+#if LJ_PAIRSMM
   |  ldr TAB:RB, TAB:CARG1->metatable
 #endif
   |   ldrd CFUNC:CARG34, CFUNC:CARG3->upvalue[0]
   |    ldr PC, [BASE, FRAME_PC]
-#if LJ_52
+#if LJ_PAIRSMM
   |  cmp TAB:RB, #0
   |  bne ->fff_fallback
 #endif

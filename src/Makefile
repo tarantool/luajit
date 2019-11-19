@@ -101,6 +101,9 @@ XCFLAGS=
 # Note: this does not provide full compatibility with Lua 5.2 at this time.
 #XCFLAGS+= -DLUAJIT_ENABLE_LUA52COMPAT
 #
+#Enable pairs/ipairs methametods from  Lua 5.2.
+#XCFLAGS+= -DLUAJIT_ENABLE_PAIRSMM
+#
 # Disable the JIT compiler, i.e. turn LuaJIT into a pure interpreter.
 #XCFLAGS+= -DLUAJIT_DISABLE_JIT
 #

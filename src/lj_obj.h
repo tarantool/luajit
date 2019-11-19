@@ -545,7 +545,7 @@ enum {
 #define MMDEF_FFI(_)
 #endif
 
-#if LJ_52 || LJ_HASFFI
+#if LJ_PAIRSMM || LJ_HASFFI
 #define MMDEF_PAIRS(_) _(pairs) _(ipairs)
 #else
 #define MMDEF_PAIRS(_)
