@@ -1,0 +1,1 @@
+BuildTestCLib(mydlerror mydlerror.c)
