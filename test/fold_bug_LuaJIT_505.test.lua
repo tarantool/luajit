@@ -1,8 +1,8 @@
 #!/usr/bin/env tarantool
 
-tap = require('tap')
+local tap = require('tap')
 
-test = tap.test("505")
+local test = tap.test("lj-505-fold-icorrect-behavior")
 test:plan(1)
 
 -- Test file to demonstrate Lua fold machinery icorrect behavior, details:
@@ -16,5 +16,6 @@ for _ = 1, 20 do
     local pos_b = string.find(value2, "b", 2, true)
     assert(pos_b == 2, "FAIL: position of 'b' is " .. pos_b)
 end
+test:ok(true, "string.find offset aritmetics wasn't broken while recording")
 
-test:ok("PASS")
+os.exit(test:check() and 0 or 1)

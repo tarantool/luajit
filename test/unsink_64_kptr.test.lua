@@ -1,8 +1,8 @@
 #!/usr/bin/env tarantool
 
-tap = require('tap')
+local tap = require('tap')
 
-test = tap.test("232")
+local test = tap.test("or-232-unsink-64-kptr")
 test:plan(1)
 
 --- From: Thibault Charbonnier <thibaultcha@me.com>
@@ -40,5 +40,6 @@ end
 for i = 1, 1000 do
     fn(i)
 end
+test:ok(true, "allocation is unsunk at the trace exit (no platform failures)")
 
-test:ok("PASS")
+os.exit(test:check() and 0 or 1)

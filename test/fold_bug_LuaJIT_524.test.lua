@@ -3,7 +3,7 @@
 local tap = require('tap')
 local ffi = require('ffi')
 
-local test = tap.test("LuaJIT 524")
+local test = tap.test("or-524-fold-icorrect-behavior")
 test:plan(1)
 
 -- Test file to demonstrate LuaJIT folding machinery incorrect behaviour,
@@ -21,4 +21,4 @@ end
 
 test:is(tonumber(sq), math.fmod(math.pow(42, 8), math.pow(2, 32)))
 
-test:check()
+os.exit(test:check() and 0 or 1)

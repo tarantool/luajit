@@ -1,8 +1,8 @@
 #!/usr/bin/env tarantool
 
-tap = require('tap')
+local tap = require('tap')
 
-test = tap.test("494")
+local test = tap.test("lj-494-table-chain-infinite-loop")
 test:plan(1)
 
 -- Test file to demonstrate Lua table hash chain bugs discussed in
@@ -11,19 +11,19 @@ test:plan(1)
 --     https://gist.github.com/corsix/1fc9b13a2dd5f3659417b62dd54d4500
 
 --- Plumbing
-ffi = require"ffi"
-ffi.cdef"char* strstr(const char*, const char*)"
-strstr = ffi.C.strstr
-cast = ffi.cast
-str_hash_offset = cast("uint32_t*", strstr("*", ""))[-2] == 1 and 3 or 2
+local ffi = require("ffi")
+ffi.cdef("char* strstr(const char*, const char*)")
+local strstr = ffi.C.strstr
+local cast = ffi.cast
+local str_hash_offset = cast("uint32_t*", strstr("*", ""))[-2] == 1 and 3 or 2
 function str_hash(s)
     return cast("uint32_t*", strstr(s, "")) - str_hash_offset
 end
-table_new = require"table.new"
+local table_new = require("table.new")
 
 --- Prepare some objects
-victims = {}
-orig_hash = {}
+local victims = {}
+local orig_hash = {}
 for c in ("abcdef"):gmatch"." do
     v = c .. "{09add58a-13a4-44e0-a52c-d44d0f9b2b95}"
     victims[c] = v
@@ -174,5 +174,6 @@ collectgarbage()
 for c, v in pairs(victims) do
     str_hash(v)[0] = orig_hash[c]
 end
+test:ok(true, "table keys collisions are resolved properly (no assertions failed)")
 
-test:ok("PASS")
+os.exit(test:check() and 0 or 1)

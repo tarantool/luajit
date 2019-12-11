@@ -1,8 +1,8 @@
 #!/usr/bin/env tarantool
 
-tap = require('tap')
+local tap = require('tap')
 
-test = tap.test("fix-string-find-recording")
+local test = tap.test("gh-4476-fix-string-find-recording")
 test:plan(1)
 
 local err = [[module 'kit.1.10.3-136' not found:
@@ -76,4 +76,4 @@ until not e
 
 test:is(count_vm, count_jit)
 
-test:check()
+os.exit(test:check() and 0 or 1)
