@@ -64,6 +64,11 @@ elseif(LUAJIT_ARCH STREQUAL "mips")
   endif()
 endif()
 
+string(FIND "${TESTARCH}" "LJ_TARGET_MIPSR6" FOUND)
+if(NOT FOUND EQUAL -1)
+  AppendFlags(DYNASM_FLAGS -D MIPSR6)
+endif()
+
 string(FIND "${TESTARCH}" "LJ_LE 1" FOUND)
 if(NOT FOUND EQUAL -1)
   list(APPEND DYNASM_FLAGS -D ENDIAN_LE)
