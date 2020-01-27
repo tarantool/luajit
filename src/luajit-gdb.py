@@ -3,6 +3,15 @@
 
 import re
 import gdb
+import sys
+
+# make script compatible with the ancient Python {{{
+
+if re.match(r'^2\.', sys.version):
+    int = long
+    range = xrange
+
+# }}}
 
 gtype_cache = {}
 
@@ -47,7 +56,8 @@ def i2notu32(val):
     return ~int(val) & 0xFFFFFFFF
 
 def strx64(val):
-    return hex(cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF)
+    return re.sub('L?$', '',
+                  hex(int(cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF)))
 
 # Types {{{
 
@@ -167,7 +177,9 @@ def gcval(obj):
 
 def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
-    for l in (L, *map(lambda l: lookup(l), (
+    # XXX Fragile: though the loop initialization looks like a crap but it
+    # respects both Python 2 and Python 3.
+    for l in [ L ] + list(map(lambda l: lookup(l), (
         # LuaJIT main coro (see luajit/src/luajit.c)
         'globalL',
         # Tarantool main coro (see tarantool/src/lua/init.h)
@@ -232,7 +244,10 @@ def tvislightud(o):
 
 def strdata(obj):
     # String is printed with pointer to it, thanks to gdb. Just strip it.
-    return str(cast('char *', cast('GCstr *', obj) + 1))[len(PADDING):]
+    try:
+        return str(cast('char *', cast('GCstr *', obj) + 1))[len(PADDING):]
+    except UnicodeEncodeError:
+        return "<luajit-gdb: error occured while rendering non-ascii slot>"
 
 def itypemap(o):
     if LJ_64 and not LJ_GC64:
@@ -447,7 +462,9 @@ def dump_gc(g):
 class LJBase(gdb.Command):
 
     def __init__(self, name):
-        super(__class__, self).__init__(name, gdb.COMMAND_DATA)
+        # XXX Fragile: though the command initialization looks like a crap but
+        # it respects both Python 2 and Python 3.
+        gdb.Command.__init__(self, name, gdb.COMMAND_DATA)
         gdb.write('{} command initialized\n'.format(name))
 
 class LJDumpArch(LJBase):
