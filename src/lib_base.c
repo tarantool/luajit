@@ -83,12 +83,12 @@ LJLIB_ASM(next)			LJLIB_REC(.)
   return FFH_UNREACHABLE;
 }
 
-#if LJ_PAIRSMM || LJ_HASFFI
+#if LJ_52 || LJ_HASFFI
 static int ffh_pairs(lua_State *L, MMS mm)
 {
   TValue *o = lj_lib_checkany(L, 1);
   cTValue *mo = lj_meta_lookup(L, o, mm);
-  if ((LJ_PAIRSMM || tviscdata(o)) && !tvisnil(mo)) {
+  if ((LJ_52 || tviscdata(o)) && !tvisnil(mo)) {
     L->top = o+1;  /* Only keep one argument. */
     copyTV(L, L->base-1-LJ_FR2, mo);  /* Replace callable. */
     return FFH_TAILCALL;

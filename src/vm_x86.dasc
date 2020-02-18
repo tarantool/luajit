@@ -1708,7 +1708,7 @@ static void build_subroutines(BuildCtx *ctx)
   |.ffunc_1 pairs
   |  mov TAB:RB, [BASE]
   |  cmp dword [BASE+4], LJ_TTAB;  jne ->fff_fallback
-#if LJ_PAIRSMM
+#if LJ_52
   |  cmp dword TAB:RB->metatable, 0; jne ->fff_fallback
 #endif
   |  mov CFUNC:RB, [BASE-8]
@@ -1777,7 +1777,7 @@ static void build_subroutines(BuildCtx *ctx)
   |.ffunc_1 ipairs
   |  mov TAB:RB, [BASE]
   |  cmp dword [BASE+4], LJ_TTAB;  jne ->fff_fallback
-#if LJ_PAIRSMM
+#if LJ_52
   |  cmp dword TAB:RB->metatable, 0; jne ->fff_fallback
 #endif
   |  mov CFUNC:RB, [BASE-8]
