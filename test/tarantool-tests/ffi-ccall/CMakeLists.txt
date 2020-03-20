@@ -1,0 +1,1 @@
+BuildTestCLib(libfficcall libfficcall.c)
