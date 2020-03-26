@@ -110,6 +110,7 @@ ERRDEF(NOJIT,	"JIT compiler permanently disabled by build option")
 #endif
 ERRDEF(JITOPT,	"unknown or malformed optimization flag " LUA_QS)
 ERRDEF(JITCALL,	"Lua VM re-entrancy is detected while executing the trace")
+ERRDEF(JITMODE,	"JIT mode change is detected while executing the trace")
 
 /* Lexer/parser errors. */
 ERRDEF(XMODE,	"attempt to load chunk with wrong mode")

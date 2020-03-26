@@ -246,6 +246,12 @@ int luaJIT_setmode(lua_State *L, int idx, int mode)
 {
   global_State *g = G(L);
   int mm = mode & LUAJIT_MODE_MASK;
+  /* Forbid JIT state change while running the trace */
+  if (tvref(g->jit_base)) {
+    setstrV(L, L->top++, lj_err_str(L, LJ_ERR_JITMODE));
+    if (g->panic) g->panic(L);
+    exit(EXIT_FAILURE);
+  }
   lj_trace_abort(g);  /* Abort recording on any state change. */
   /* Avoid pulling the rug from under our own feet. */
   if ((g->hookmask & HOOK_GC))
