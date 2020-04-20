@@ -16,7 +16,7 @@ ffi.cdef("char* strstr(const char*, const char*)")
 local strstr = ffi.C.strstr
 local cast = ffi.cast
 local str_hash_offset = cast("uint32_t*", strstr("*", ""))[-2] == 1 and 3 or 2
-function str_hash(s)
+local function str_hash(s)
     return cast("uint32_t*", strstr(s, "")) - str_hash_offset
 end
 local table_new = require("table.new")
@@ -25,17 +25,17 @@ local table_new = require("table.new")
 local victims = {}
 local orig_hash = {}
 for c in ("abcdef"):gmatch"." do
-    v = c .. "{09add58a-13a4-44e0-a52c-d44d0f9b2b95}"
+    local v = c .. "{09add58a-13a4-44e0-a52c-d44d0f9b2b95}"
     victims[c] = v
     orig_hash[c] = str_hash(v)[0]
 end
 collectgarbage()
 
 do --- Basic version of the problem
-    for k, v in pairs(victims) do
+    for _, v in pairs(victims) do
         str_hash(v)[0] = 0
     end
-    t = table_new(0, 8)
+    local t = table_new(0, 8)
     -- Make chain a -> b -> c -> d, all with a as primary
     t[victims.a] = true
     t[victims.d] = true
@@ -59,10 +59,10 @@ end
 collectgarbage()
 
 do --- Just `mn != freenode` can lead to infinite loops
-    for k, v in pairs(victims) do
+    for _, v in pairs(victims) do
         str_hash(v)[0] = 0
     end
-    t = table_new(0, 8)
+    local t = table_new(0, 8)
     -- Make chain a -> b -> c -> d, all with a as primary
     t[victims.a] = true
     t[victims.d] = true
@@ -85,10 +85,10 @@ end
 collectgarbage()
 
 do --- Just `mn != nn` can lead to infinite loops
-    for k, v in pairs(victims) do
+    for _, v in pairs(victims) do
         str_hash(v)[0] = 0
     end
-    t = table_new(0, 8)
+    local t = table_new(0, 8)
     -- Make chain a -> b -> c -> d -> e, all with a as primary
     t[victims.a] = true
     t[victims.e] = true
@@ -113,10 +113,10 @@ end
 for i = 0, 10 do --- Non-strings can need rechaining too
     collectgarbage()
 
-    k = tonumber((("0x%xp-1074"):format(i)))
+    local k = tonumber((("0x%xp-1074"):format(i)))
     str_hash(victims.a)[0] = 0
     str_hash(victims.b)[0] = 0
-    t = table_new(0, 4)
+    local t = table_new(0, 4)
     -- a -> b, both with a as primary
     t[victims.a] = true
     t[victims.b] = true
@@ -140,10 +140,10 @@ end
 for i = 0, 10 do --- Non-strings can be moved to freenode
     collectgarbage()
 
-    k = false
+    local k = false
     str_hash(victims.a)[0] = 0
     str_hash(victims.b)[0] = 0
-    t = table_new(0, 4)
+    local t = table_new(0, 4)
     -- a -> k -> b, all with a as primary
     t[victims.a] = true
     t[victims.b] = true
@@ -160,7 +160,7 @@ end
 collectgarbage()
 
 do --- Do not forget to advance freenode in the not-string case
-    t = table_new(0, 4)
+    local t = table_new(0, 4)
     -- Chain of colliding numbers
     t[0x0p-1074] = true
     t[0x4p-1074] = true

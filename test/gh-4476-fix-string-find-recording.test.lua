@@ -51,13 +51,13 @@ local err = [[module 'kit.1.10.3-136' not found:
 	no file '/usr/local/lib64/lua/5.1/kit.so'
 	no file '/usr/lib64/lua/5.1/kit.so']]
 
-local at, s, e
+local at, _, e
 local count_vm = 0
 
 jit.off()
 
 repeat
-  s, e = err:find("\n\t", at, true)
+  _, e = err:find("\n\t", at, true)
   at = e
   count_vm = count_vm + 1
 until not e
@@ -68,7 +68,7 @@ jit.on()
 jit.opt.start(0, 'hotloop=1')
 
 repeat
-  s, e = err:find("\n\t", at, true)
+  _, e = err:find("\n\t", at, true)
   at = e
   count_jit = count_jit + 1
   assert(count_jit <= count_vm, "Trace goes in cycles")

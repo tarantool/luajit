@@ -31,6 +31,7 @@ local array = ffi.new("struct { int x; } [1]")
 
 local function fn(i)
     local struct = array[0]     -- Load pointer that the JIT will constify.
+    -- luacheck: ignore
     if i == 1000 then end       -- Force trace exit when i==1000.
     struct.x = 0                -- Ensure that 'struct' is live after exit.
 end
