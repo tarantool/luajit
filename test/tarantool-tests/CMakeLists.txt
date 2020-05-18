@@ -61,11 +61,12 @@ add_subdirectory(lj-flush-on-trace)
 add_subdirectory(misclib-getmetrics-capi)
 
 # The part of the memory profiler toolchain is located in tools
-# directory and auxiliary tests-related modules are located in the
-# current directory (but tests are run in the binary directory),
-# so LUA_PATH need to be updated.
+# directory, jit, profiler, and bytecode toolchains are located
+# in src/ directory and auxiliary tests-related modules are
+# located in the current directory (but tests are run in the
+# binary directory), so LUA_PATH need to be updated.
 set(LUA_PATH
-  "${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${PROJECT_SOURCE_DIR}/tools/?.lua"
+  "${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${PROJECT_SOURCE_DIR}/tools/?.lua\;${PROJECT_SOURCE_DIR}/src/?.lua"
 )
 set(LUA_TEST_SUFFIX .test.lua)
 set(LUA_TEST_FLAGS --failures --shuffle)
