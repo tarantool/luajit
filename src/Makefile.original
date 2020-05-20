@@ -621,7 +621,6 @@ E= @echo
 default all:	$(TARGET_T)
 
 amalg:
-	@grep "^[+|]" ljamalg.c
 	$(MAKE) -f Makefile.original all "LJCORE_O=ljamalg.o"
 
 clean:
