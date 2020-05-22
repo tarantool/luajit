@@ -49,8 +49,8 @@ double lj_vm_foldarith(double x, double y, int op)
   case IR_ABS - IR_ADD: return fabs(x); break;
 #if LJ_HASJIT
   case IR_LDEXP - IR_ADD: return ldexp(x, (int)y); break;
-  case IR_MIN - IR_ADD: return x > y ? y : x; break;
-  case IR_MAX - IR_ADD: return x < y ? y : x; break;
+  case IR_MIN - IR_ADD: return x < y ? x : y; break;
+  case IR_MAX - IR_ADD: return x > y ? x : y; break;
 #endif
   default: return x;
   }
