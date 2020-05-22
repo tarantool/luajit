@@ -1390,7 +1390,6 @@ static void asm_neg(ASMState *as, IRIns *ir)
 }
 
 #define asm_abs(as, ir)		asm_fpunary(as, ir, PPCI_FABS)
-#define asm_atan2(as, ir)	asm_callid(as, ir, IRCALL_atan2)
 #define asm_ldexp(as, ir)	asm_callid(as, ir, IRCALL_ldexp)
 
 static void asm_arithov(ASMState *as, IRIns *ir, PPCIns pi)
