@@ -7,7 +7,7 @@
 
 -- XXX: Some tests in PUC Rio Lua 5.1 test suite clean `arg`
 -- variable, so evaluate this once and use later.
-local path_to_sources = arg[0]:gsub("[^/]+$", "")
+local path_to_sources = arg[0] and arg[0]:gsub("[^/]+$", "") or ""
 
 -- luacheck: no global
 function _loadfile(filename)

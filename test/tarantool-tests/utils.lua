@@ -34,7 +34,7 @@ function M.gcisblack(obj)
   return bit.band(marked, LJ_GC_BLACK) == LJ_GC_BLACK
 end
 
-local function luacmd(args)
+function M.luacmd(args)
   -- arg[-1] is guaranteed to be not nil.
   local idx = -2
   while args[idx] do
@@ -68,7 +68,7 @@ function M.selfrun(arg, checks)
 
   local libext = package.cpath:match('?.(%a+);')
   local vars = {
-    LUABIN = luacmd(arg),
+    LUABIN = M.luacmd(arg),
     SCRIPT = arg[0],
     PATH   = arg[0]:gsub('%.test%.lua', ''),
     SUFFIX = libext,
