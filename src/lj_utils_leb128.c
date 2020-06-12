@@ -9,6 +9,7 @@
 #define LUA_CORE
 
 #include "lj_utils.h"
+#include "lj_obj.h"
 
 #define LINK_BIT          (0x80)
 #define MIN_TWOBYTE_VALUE (0x80)
@@ -112,7 +113,7 @@ size_t LJ_FASTCALL lj_utils_write_leb128(uint8_t *buffer, int64_t value)
   /* Omit LINK_BIT in case of overflow. */
   buffer[i++] = (uint8_t)(value & PAYLOAD_MASK);
 
-  lua_assert(i <= LEB128_U64_MAXSIZE);
+  lj_assertX(i <= LEB128_U64_MAXSIZE, "bad leb128 size");
 
   return i;
 }
@@ -126,7 +127,7 @@ size_t LJ_FASTCALL lj_utils_write_uleb128(uint8_t *buffer, uint64_t value)
 
   buffer[i++] = (uint8_t)value;
 
-  lua_assert(i <= LEB128_U64_MAXSIZE);
+  lj_assertX(i <= LEB128_U64_MAXSIZE, "bad uleb128 size");
 
   return i;
 }

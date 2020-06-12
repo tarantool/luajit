@@ -36,8 +36,8 @@ void lj_symtab_dump_trace(struct lj_wbuf *out, const GCtrace *trace)
   BCLine lineno = 0;
 
   const BCIns *startpc = mref(trace->startpc, const BCIns);
-  lua_assert(startpc >= proto_bc(pt) &&
-             startpc < proto_bc(pt) + pt->sizebc);
+  lj_assertX(startpc >= proto_bc(pt) && startpc < proto_bc(pt) + pt->sizebc,
+	     "start trace PC out of range");
 
   lineno = lj_debug_line(pt, proto_bcpos(pt, startpc));
 
@@ -354,8 +354,9 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
   ** Assertion was taken from the GLIBC tests:
   ** https://code.woboq.org/userspace/glibc/elf/tst-dlmodcount.c.html#37
   */
-  lua_assert(info_size > offsetof(struct dl_phdr_info, dlpi_subs)
-      + sizeof(info->dlpi_subs));
+  lj_assertL(info_size > offsetof(struct dl_phdr_info, dlpi_subs)
+			 + sizeof(info->dlpi_subs),
+	     "bad dlpi_subs");
 
   lib_cnt = info->dlpi_adds - *conf->lib_adds;
 
@@ -401,7 +402,7 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
       ** sysprof, unless someone have deleted the LuaJIT binary
       ** right after the start.
       */
-      lua_assert(0);
+      lj_assertL(0, "bad executed binary symtab section");
   }
 
   /*

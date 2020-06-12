@@ -109,7 +109,7 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
   const void *data = *buf_addr;
   size_t write_total = 0;
 
-  lua_assert(len <= STREAM_BUFFER_SIZE);
+  lj_assertX(len <= STREAM_BUFFER_SIZE, "stream buffer overflow");
 
   for (;;) {
     const ssize_t written = write(fd, data, len - write_total);
@@ -127,7 +127,7 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
     }
 
     write_total += written;
-    lua_assert(write_total <= len);
+    lj_assertX(write_total <= len, "invalid stream buffer write");
 
     if (write_total == len)
       break;
@@ -168,7 +168,7 @@ static int on_stop_cb_default(void *opt, uint8_t *buf)
 static int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
   struct profile_ctx *ctx = opt->ctx;
   int fd = 0;
-  lua_assert(path != NULL);
+  lj_assertX(path != NULL, "no file to open by sysprof");
   fd = open(path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
   if(fd == -1) {
     return PROFILE_ERRIO;
@@ -280,7 +280,7 @@ static int sysprof_error(lua_State *L, int status)
       return luaL_fileresult(L, 0, NULL);
 #endif
     default:
-      lua_assert(0);
+      lj_assertL(0, "bad sysprof error %d", status);
       return 0;
   }
 }
@@ -401,7 +401,7 @@ LJLIB_CF(misc_memprof_start)
       return luaL_fileresult(L, 0, fname);
 #endif
     default:
-      lua_assert(0);
+      lj_assertL(0, "bad memprof error %d", memprof_status);
       return 0;
     }
   }
@@ -430,7 +430,7 @@ LJLIB_CF(misc_memprof_stop)
       return luaL_fileresult(L, 0, NULL);
 #endif
     default:
-      lua_assert(0);
+      lj_assertL(0, "bad memprof error %d", status);
       return 0;
     }
   }

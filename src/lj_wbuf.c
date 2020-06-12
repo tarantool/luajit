@@ -10,6 +10,7 @@
 
 #include <errno.h>
 
+#include "lj_obj.h"
 #include "lj_wbuf.h"
 #include "lj_utils.h"
 
@@ -52,7 +53,7 @@ void LJ_FASTCALL lj_wbuf_terminate(struct lj_wbuf *buf)
 
 static LJ_AINLINE void wbuf_reserve(struct lj_wbuf *buf, size_t n)
 {
-  lua_assert(n <= buf->size);
+  lj_assertX(n <= buf->size, "wbuf overflow");
   if (LJ_UNLIKELY(wbuf_left(buf) < n))
     lj_wbuf_flush(buf);
 }

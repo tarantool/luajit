@@ -59,6 +59,7 @@ make_source_list(SOURCES_FRONTEND
 make_source_list(SOURCES_UTILS
   SOURCES
     lj_alloc.c
+    lj_assert.c
     lj_char.c
     lj_utils_leb128.c
     lj_vmmath.c

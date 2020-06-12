@@ -144,7 +144,7 @@ static void memprof_write_func(struct memprof *mp, uint8_t aevent)
   else if (iscfunc(fn))
     memprof_write_cfunc(out, aevent, fn, L, &mp->lib_adds);
   else
-    lua_assert(0);
+    lj_assertL(0, "unknown function type to write by memprof");
 }
 
 #if LJ_HASJIT
@@ -164,7 +164,7 @@ static void memprof_write_trace(struct memprof *mp, uint8_t aevent)
 {
   UNUSED(mp);
   UNUSED(aevent);
-  lua_assert(0);
+  lj_assertX(0, "write trace memprof event without JIT");
 }
 
 #endif
@@ -215,10 +215,12 @@ static void *memprof_allocf(void *ud, void *ptr, size_t osize, size_t nsize)
   struct lj_wbuf *out = &mp->out;
   void *nptr;
 
-  lua_assert(MPS_PROFILE == mp->state);
-  lua_assert(oalloc->allocf != memprof_allocf);
-  lua_assert(oalloc->allocf != NULL);
-  lua_assert(ud == oalloc->state);
+  lj_assertX(MPS_PROFILE == mp->state, "bad memprof profile state");
+  lj_assertX(oalloc->allocf != memprof_allocf,
+	     "unexpected memprof old alloc function");
+  lj_assertX(oalloc->allocf != NULL,
+	     "uninitialized memprof old alloc function");
+  lj_assertX(ud == oalloc->state, "bad old memprof profile state");
 
   nptr = oalloc->allocf(ud, ptr, osize, nsize);
 
@@ -252,10 +254,10 @@ int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
   struct alloc *oalloc = &mp->orig_alloc;
   const size_t ljm_header_len = sizeof(ljm_header) / sizeof(ljm_header[0]);
 
-  lua_assert(opt->writer != NULL);
-  lua_assert(opt->on_stop != NULL);
-  lua_assert(opt->buf != NULL);
-  lua_assert(opt->len != 0);
+  lj_assertL(opt->writer != NULL, "uninitialized memprof writer");
+  lj_assertL(opt->on_stop != NULL, "uninitialized on stop memprof callback");
+  lj_assertL(opt->buf != NULL, "uninitialized memprof writer buffer");
+  lj_assertL(opt->len != 0, "bad memprof writer buffer lenght");
 
   if (mp->state != MPS_IDLE) {
     /* Clean up resourses. Ignore possible errors. */
@@ -293,8 +295,9 @@ int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
 
   /* Override allocating function. */
   oalloc->allocf = lua_getallocf(L, &oalloc->state);
-  lua_assert(oalloc->allocf != NULL);
-  lua_assert(oalloc->allocf != memprof_allocf);
+  lj_assertL(oalloc->allocf != NULL, "uninitialized memprof old alloc function");
+  lj_assertL(oalloc->allocf != memprof_allocf,
+	     "unexpected memprof old alloc function");
   lua_setallocf(L, memprof_allocf, oalloc->state);
 
   return PROFILE_SUCCESS;
@@ -323,10 +326,12 @@ int lj_memprof_stop(struct lua_State *L)
 
   mp->state = MPS_IDLE;
 
-  lua_assert(mp->g != NULL);
+  lj_assertL(mp->g != NULL, "uninitialized global state in memprof state");
 
-  lua_assert(memprof_allocf == lua_getallocf(L, NULL));
-  lua_assert(oalloc->allocf != NULL);
+  lj_assertL(memprof_allocf == lua_getallocf(L, NULL),
+	     "bad current allocator function on memprof stop");
+  lj_assertL(oalloc->allocf != NULL,
+	     "uninitialized old alloc function on memprof stop");
   lua_setallocf(L, oalloc->allocf, oalloc->state);
 
   if (LJ_UNLIKELY(lj_wbuf_test_flag(out, STREAM_STOP))) {
