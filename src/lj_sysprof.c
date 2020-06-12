@@ -111,9 +111,9 @@ static void stream_epilogue(struct sysprof *sp)
 
 static void stream_lfunc(struct lj_wbuf *buf, const GCfunc *func)
 {
-  lua_assert(isluafunc(func));
+  lj_assertX(isluafunc(func), "bad lua function in sysprof stream");
   const GCproto *pt = funcproto(func);
-  lua_assert(pt != NULL);
+  lj_assertX(pt != NULL, "bad lua function prototype in sysprof stream");
   lj_wbuf_addbyte(buf, LJP_FRAME_LFUNC);
   lj_wbuf_addu64(buf, (uintptr_t)pt);
   lj_wbuf_addu64(buf, (uint64_t)pt->firstline);
@@ -121,14 +121,14 @@ static void stream_lfunc(struct lj_wbuf *buf, const GCfunc *func)
 
 static void stream_cfunc(struct lj_wbuf *buf, const GCfunc *func)
 {
-  lua_assert(iscfunc(func));
+  lj_assertX(iscfunc(func), "bad C function in sysprof stream");
   lj_wbuf_addbyte(buf, LJP_FRAME_CFUNC);
   lj_wbuf_addu64(buf, (uintptr_t)func->c.f);
 }
 
 static void stream_ffunc(struct lj_wbuf *buf, const GCfunc *func)
 {
-  lua_assert(isffunc(func));
+  lj_assertX(isffunc(func), "bad fast function in sysprof stream");
   lj_wbuf_addbyte(buf, LJP_FRAME_FFUNC);
   lj_wbuf_addu64(buf, func->c.ffid);
 }
@@ -136,7 +136,7 @@ static void stream_ffunc(struct lj_wbuf *buf, const GCfunc *func)
 static void stream_frame_lua(struct lj_wbuf *buf, const cTValue *frame)
 {
   const GCfunc *func = frame_func(frame);
-  lua_assert(func != NULL);
+  lj_assertX(func != NULL, "bad function in sysprof stream");
   if (isluafunc(func))
     stream_lfunc(buf, func);
   else if (isffunc(func))
@@ -145,7 +145,7 @@ static void stream_frame_lua(struct lj_wbuf *buf, const cTValue *frame)
     stream_cfunc(buf, func);
   else
     /* Unreachable. */
-    lua_assert(0);
+    lj_assertX(0, "bad function type in sysprof stream");
 }
 
 static void stream_backtrace_lua(struct sysprof *sp)
@@ -155,9 +155,9 @@ static void stream_backtrace_lua(struct sysprof *sp)
   cTValue *top_frame = NULL, *frame = NULL, *bot = NULL;
   lua_State *L = NULL;
 
-  lua_assert(g != NULL);
+  lj_assertX(g != NULL, "uninitialized global state in sysprof state");
   L = gco2th(gcref(g->cur_L));
-  lua_assert(L != NULL);
+  lj_assertG(L != NULL, "uninitialized Lua state in sysprof state");
 
   top_frame = g->top_frame - 1; //(1 + LJ_FR2)
 
@@ -200,7 +200,7 @@ static void default_backtrace_host(void *(writer)(int frame_no, void *addr))
   const int depth = backtrace(backtrace_buf, max_depth);
   int level;
 
-  lua_assert(depth <= max_depth);
+  lj_assertX(depth <= max_depth, "depth of C stack is too big");
   for (level = SYSPROF_HANDLER_STACK_DEPTH; level < depth; ++level) {
     if (!writer(level - SYSPROF_HANDLER_STACK_DEPTH + 1, backtrace_buf[level]))
       return;
@@ -209,7 +209,7 @@ static void default_backtrace_host(void *(writer)(int frame_no, void *addr))
 
 static void stream_backtrace_host(struct sysprof *sp)
 {
-  lua_assert(sp->backtracer != NULL);
+  lj_assertX(sp->backtracer != NULL, "uninitialized sysprof backtracer");
   sp->backtracer(stream_frame_host);
   lj_wbuf_addu64(&sp->out, (uintptr_t)LJP_FRAME_HOST_LAST);
 }
@@ -268,9 +268,9 @@ static void stream_event(struct sysprof *sp, uint32_t vmstate)
 {
   event_streamer stream = NULL;
 
-  lua_assert(vmstfit4(vmstate));
+  lj_assertX(vmstfit4(vmstate), "vmstate don't fit in 4 bits");
   stream = event_streamers[vmstate];
-  lua_assert(NULL != stream);
+  lj_assertX(stream != NULL, "uninitialized sysprof stream");
   stream(sp, vmstate);
 }
 
@@ -282,7 +282,8 @@ static void sysprof_record_sample(struct sysprof *sp, siginfo_t *info)
   uint32_t _vmstate = ~(uint32_t)(g->vmstate);
   uint32_t vmstate = _vmstate < LJ_VMST_TRACE ? _vmstate : LJ_VMST_TRACE;
 
-  lua_assert(pthread_self() == sp->thread);
+  lj_assertX(pthread_self() == sp->thread,
+	     "bad thread during sysprof record sample");
 
   /* Caveat: order of counters must match vmstate order in <lj_obj.h>. */
   ((uint64_t *)&sp->counters)[vmstate]++;
@@ -317,7 +318,7 @@ static void sysprof_signal_handler(int sig, siginfo_t *info, void *ctx)
       break;
 
     default:
-      lua_assert(0);
+      lj_assertX(0, "bad sysprof profiler state");
       break;
   }
 }
@@ -344,7 +345,7 @@ static int sysprof_validate(struct sysprof *sp,
       return PROFILE_ERRRUN;
 
     default:
-      lua_assert(0);
+      lj_assertX(0, "bad sysprof profiler state");
       break;
   }
 

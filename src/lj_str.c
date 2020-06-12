@@ -53,8 +53,9 @@ int32_t LJ_FASTCALL lj_str_cmp(GCstr *a, GCstr *b)
 static LJ_AINLINE int str_fastcmp(const char *a, const char *b, MSize len)
 {
   MSize i = 0;
-  lua_assert(len > 0);
-  lua_assert((((uintptr_t)a+len-1) & (LJ_PAGESIZE-1)) <= LJ_PAGESIZE-4);
+  lj_assertX(len > 0, "fast string compare with zero length");
+  lj_assertX((((uintptr_t)a+len-1) & (LJ_PAGESIZE-1)) <= LJ_PAGESIZE-4,
+	     "fast string compare crossing page boundary");
   do {  /* Note: innocuous access up to end of string + 3. */
     uint32_t v = lj_getu32(a+i) ^ *(const uint32_t *)(b+i);
     if (v) {
@@ -138,7 +139,7 @@ lj_fullhash(const uint8_t *v, MSize len)
   MSize c = 0xcafedead;
   MSize d = 0xdeadbeef;
   MSize h = len;
-  lua_assert(len >= 12);
+  lj_assertX(len >= 12, "full hash calculation for too short (%d) string", len);
   for(; len>8; len-=8, v+=8) {
     a ^= lj_getu32(v);
     b ^= lj_getu32(v+4);

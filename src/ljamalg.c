@@ -28,6 +28,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+#include "lj_assert.c"
 #include "lj_gc.c"
 #include "lj_err.c"
 #include "lj_char.c"

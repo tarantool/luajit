@@ -28,7 +28,7 @@ LUAMISC_API void luaM_metrics(lua_State *L, struct luam_Metrics *metrics)
   jit_State *J = G2J(g);
 #endif
 
-  lua_assert(metrics != NULL);
+  lj_assertL(metrics != NULL, "uninitialized metrics struct");
 
   metrics->strhash_hit = g->strhash_hit;
   metrics->strhash_miss = g->strhash_miss;
