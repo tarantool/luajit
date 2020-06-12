@@ -22,6 +22,7 @@ include(SetDynASMFlags)
 # Core runtime.
 make_source_list(SOURCES_RUNTIME
   SOURCES
+    lj_assert.c
     lj_api.c
     lj_bc.c
     lj_buf.c

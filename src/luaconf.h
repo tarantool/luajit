@@ -146,7 +146,7 @@
 #define LUALIB_API	LUA_API
 #define LUAMISC_API	LUA_API
 
-/* Support for internal assertions. */
+/* Compatibility support for assertions. */
 #if defined(LUA_USE_ASSERT) || defined(LUA_USE_APICHECK)
 #include <assert.h>
 #endif
