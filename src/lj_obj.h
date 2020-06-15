@@ -681,6 +681,7 @@ typedef struct global_State {
   GCRef mem_L;		/* Currently allocating lua_State. */
   MRef jit_base;	/* Current JIT code L->base or NULL. */
   MRef ctype_state;	/* Pointer to C type state. */
+  PRNGState prng;	/* Global PRNG state. */
   GCRef gcroot[GCROOT_MAX];  /* GC roots. */
 #ifdef LJ_HASSYSPROF
   struct lj_sysprof_topframe top_frame_info;	/* Top frame info for sysprof. */
