@@ -35,6 +35,7 @@ jobs:
         BUILDTYPE: [Debug, Release]
         GC64: [ON, OFF]
         OS: [Linux, macOS]
+        CC: [gcc, clang]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -45,12 +46,18 @@ jobs:
             GC64: OFF
           - OS: macOS
             GC64: OFF
+          - OS: macOS
+            CC: gcc
+          - ARCH: ARM64
+            OS: Linux
+            CC: clang
     runs-on: [self-hosted, regular, '${{ matrix.OS }}', '${{ matrix.ARCH }}']
     name: >
       LuaJIT
       (${{ matrix.OS }}/${{ matrix.ARCH }})
       ${{ matrix.BUILDTYPE }}
       GC64:${{ matrix.GC64 }}
+      CC:${{ matrix.CC }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -64,6 +71,7 @@ jobs:
         if: ${{ matrix.OS == 'macOS' }}
       - name: configure
         run: >
+          CC=${{ matrix.CC }}
           cmake -S . -B ${{ env.BUILDDIR }}
           -G Ninja
           ${{ matrix.CMAKEFLAGS }}
