@@ -7,7 +7,10 @@ import sys
 
 # make script compatible with the ancient Python {{{
 
-if re.match(r'^2\.', sys.version):
+LEGACY = re.match(r'^2\.', sys.version)
+
+if LEGACY:
+    CONNECTED = False
     int = long
     range = xrange
 
@@ -662,18 +665,41 @@ The command requires no args and dumps current GC stats:
 def init(commands):
     global LJ_64, LJ_GC64, LJ_FR2
 
+    # XXX Fragile: though connecting the callback looks like a crap but it
+    # respects both Python 2 and Python 3 (see #4828).
+    def connect(callback):
+        if LEGACY:
+            global CONNECTED
+            CONNECTED = True
+        gdb.events.new_objfile.connect(callback)
+
+    # XXX Fragile: though disconnecting the callback looks like a crap but it
+    # respects both Python 2 and Python 3 (see #4828).
+    def disconnect(callback):
+        if LEGACY:
+            global CONNECTED
+            if not CONNECTED:
+                return
+            CONNECTED = False
+        gdb.events.new_objfile.disconnect(callback)
+
     try:
+        # Try to remove the callback at first to not append duplicates to
+        # gdb.events.new_objfile internal list.
+        disconnect(load)
+    except:
+        # Callback is not connected.
+        pass
+
+    try:
+        # Detect whether libluajit objfile is loaded.
         gdb.parse_and_eval('luaJIT_setmode')
     except:
         gdb.write('luajit-gdb.py initialization is postponed '
                   'until libluajit objfile is loaded\n')
-        gdb.events.new_objfile.connect(load)
+        # Add a callback to be executed when the next objfile is loaded.
+        connect(load)
         return
-
-    try:
-        gdb.events.new_objfile.disconnect(load)
-    except:
-        pass # was not connected
 
     try:
         LJ_64 = str(gdb.parse_and_eval('IRT_PTR')) == 'IRT_P64'
