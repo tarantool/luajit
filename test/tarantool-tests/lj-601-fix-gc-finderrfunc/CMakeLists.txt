@@ -1,0 +1,1 @@
+BuildTestCLib(libmixcframe mixcframe.c)
