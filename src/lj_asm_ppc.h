@@ -1231,6 +1231,9 @@ static void asm_cnew(ASMState *as, IRIns *ir)
     return;
   }
 
+  emit_setgl(as, RID_TMP, gc.cdatanum);
+  emit_tai(as, PPCI_ADDIC, RID_TMP, RID_TMP, 1);
+  emit_getgl(as, RID_TMP, gc.cdatanum);
   /* Initialize gct and ctypeid. lj_mem_newgco() already sets marked. */
   emit_tai(as, PPCI_STB, RID_RET+1, RID_RET, offsetof(GCcdata, gct));
   emit_tai(as, PPCI_STH, RID_TMP, RID_RET, offsetof(GCcdata, ctypeid));

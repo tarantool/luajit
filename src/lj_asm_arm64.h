@@ -1267,9 +1267,16 @@ static void asm_cnew(ASMState *as, IRIns *ir)
   /* Initialize gct and ctypeid. lj_mem_newgco() already sets marked. */
   {
     Reg r = (id < 65536) ? RID_X1 : ra_allock(as, id, allow);
+    allow = rset_exclude(allow, r);
+    Reg gr = ra_allock(as, i64ptr(J2G(as->J)), allow);
     emit_lso(as, A64I_STRB, RID_TMP, RID_RET, offsetof(GCcdata, gct));
     emit_lso(as, A64I_STRH, r, RID_RET, offsetof(GCcdata, ctypeid));
     emit_d(as, A64I_MOVZw | A64F_U16(~LJ_TCDATA), RID_TMP);
+    emit_lso(as, A64I_STRx, RID_TMP, gr,
+	     (int32_t)offsetof(global_State, gc.cdatanum));
+    emit_dn(as, (A64I_ADDx^A64I_K12) | A64F_U12(1), RID_TMP, RID_TMP);
+    emit_lso(as, A64I_LDRx, RID_TMP, gr,
+	     (int32_t)offsetof(global_State, gc.cdatanum));
     if (id < 65536) emit_d(as, A64I_MOVZw | A64F_U16(id), RID_X1);
   }
   args[0] = ASMREF_L;     /* lua_State *L */

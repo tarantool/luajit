@@ -345,6 +345,7 @@ GCstr *lj_str_new(lua_State *L, const char *str, size_t lenx)
       if (sx->hash == hash && sx->len == len) {
 	if (memcmp(str, strdata(sx), len) == 0) {
 	  if (isdead(g, o)) flipwhite(o);  /* Resurrect if dead. */
+	  g->strhash_hit++;
 	  return sx;  /* Return existing string. */
 	}
 	coll++;
@@ -358,6 +359,7 @@ GCstr *lj_str_new(lua_State *L, const char *str, size_t lenx)
       return lj_str_rehash_chain(L, hash, str, len);
     }
 #endif
+    g->strhash_miss++;
     /* Otherwise allocate a new string. */
     return lj_str_alloc(L, str, len, hash, hashalg);
   } else {

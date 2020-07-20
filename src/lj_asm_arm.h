@@ -1328,9 +1328,16 @@ static void asm_cnew(ASMState *as, IRIns *ir)
   {
     uint32_t k = emit_isk12(ARMI_MOV, id);
     Reg r = k ? RID_R1 : ra_allock(as, id, allow);
+    allow = rset_exclude(allow, r);
+    Reg gr = ra_allock(as, i32ptr(J2G(as->J)), allow);
     emit_lso(as, ARMI_STRB, RID_TMP, RID_RET, offsetof(GCcdata, gct));
     emit_lsox(as, ARMI_STRH, r, RID_RET, offsetof(GCcdata, ctypeid));
     emit_d(as, ARMI_MOV|ARMI_K12|~LJ_TCDATA, RID_TMP);
+    emit_lso(as, ARMI_STR, RID_TMP, gr,
+	     (int32_t)offsetof(global_State, gc.cdatanum));
+    emit_dn(as, ARMI_ADD|ARMI_K12|1, RID_TMP, RID_TMP);
+    emit_lso(as, ARMI_LDR, RID_TMP, gr,
+	     (int32_t)offsetof(global_State, gc.cdatanum));
     if (k) emit_d(as, ARMI_MOV^k, RID_R1);
   }
   args[0] = ASMREF_L;     /* lua_State *L */

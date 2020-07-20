@@ -8,11 +8,6 @@
 
 #include "lj_obj.h"
 
-/* Garbage collector states. Order matters. */
-enum {
-  GCSpause, GCSpropagate, GCSatomic, GCSsweepstring, GCSsweep, GCSfinalize
-};
-
 /* Bitmasks for marked field of GCobj. */
 #define LJ_GC_WHITE0	0x01
 #define LJ_GC_WHITE1	0x02
@@ -119,6 +114,7 @@ LJ_FUNC void *lj_mem_grow(lua_State *L, void *p,
 static LJ_AINLINE void lj_mem_free(global_State *g, void *p, size_t osize)
 {
   g->gc.total -= (GCSize)osize;
+  g->gc.freed += osize;
   g->allocf(g->allocd, p, osize, 0);
 }
 

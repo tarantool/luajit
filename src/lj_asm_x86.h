@@ -1876,6 +1876,10 @@ static void asm_cnew(ASMState *as, IRIns *ir)
     return;
   }
 
+  /* Increment cdatanum counter by address directly. */
+  emit_i8(as, 1);
+  emit_rmro(as, XO_ARITHi8, XOg_ADD, RID_NONE,
+	    ptr2addr(&J2G(as->J)->gc.cdatanum));
   /* Combine initialization of marked, gct and ctypeid. */
   emit_movtomro(as, RID_ECX, RID_RET, offsetof(GCcdata, marked));
   emit_gri(as, XG_ARITHi(XOg_OR), RID_ECX,

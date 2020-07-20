@@ -1633,7 +1633,9 @@ static void asm_cnew(ASMState *as, IRIns *ir)
   CTInfo info = lj_ctype_info(cts, id, &sz);
   const CCallInfo *ci = &lj_ir_callinfo[IRCALL_lj_mem_newgco];
   IRRef args[4];
+  RegSet allow = (RSET_GPR & ~RSET_SCRATCH);
   RegSet drop = RSET_SCRATCH;
+  Reg tmp;
   lj_assertA(sz != CTSIZE_INVALID || (ir->o == IR_CNEW && ir->op2 != REF_NIL),
 	     "bad CNEW/CNEWI operands");
 
@@ -1646,7 +1648,6 @@ static void asm_cnew(ASMState *as, IRIns *ir)
 
   /* Initialize immutable cdata object. */
   if (ir->o == IR_CNEWI) {
-    RegSet allow = (RSET_GPR & ~RSET_SCRATCH);
 #if LJ_32
     int32_t ofs = sizeof(GCcdata);
     if (sz == 8) {
@@ -1677,11 +1678,16 @@ static void asm_cnew(ASMState *as, IRIns *ir)
     return;
   }
 
+  tmp = ra_scratch(as, allow);
+  /* Code incrementing cdatanum is sparse to avoid mips data hazards. */
+  emit_setgl(as, tmp, gc.cdatanum);
   /* Initialize gct and ctypeid. lj_mem_newgco() already sets marked. */
   emit_tsi(as, MIPSI_SB, RID_RET+1, RID_RET, offsetof(GCcdata, gct));
   emit_tsi(as, MIPSI_SH, RID_TMP, RID_RET, offsetof(GCcdata, ctypeid));
+  emit_tsi(as, MIPSI_AADDIU, tmp, tmp, 1);
   emit_ti(as, MIPSI_LI, RID_RET+1, ~LJ_TCDATA);
   emit_ti(as, MIPSI_LI, RID_TMP, id); /* Lower 16 bit used. Sign-ext ok. */
+  emit_getgl(as, tmp, gc.cdatanum);
   args[0] = ASMREF_L;     /* lua_State *L */
   args[1] = ASMREF_TMP1;  /* MSize size   */
   asm_gencall(as, ci, args);

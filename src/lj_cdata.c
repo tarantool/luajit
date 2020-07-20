@@ -46,6 +46,7 @@ GCcdata *lj_cdata_newv(lua_State *L, CTypeID id, CTSize sz, CTSize align)
   cd->marked |= 0x80;
   cd->gct = ~LJ_TCDATA;
   cd->ctypeid = id;
+  g->gc.cdatanum++;
   return cd;
 }
 
@@ -82,6 +83,7 @@ void LJ_FASTCALL lj_cdata_free(global_State *g, GCcdata *cd)
   } else {
     lj_mem_free(g, memcdatav(cd), sizecdatav(cd));
   }
+  g->gc.cdatanum--;
 }
 
 void lj_cdata_setfin(lua_State *L, GCcdata *cd, GCobj *obj, uint32_t it)

@@ -508,6 +508,9 @@ typedef struct jit_State {
   MCode *mcbot;		/* Bottom of current mcode area. */
   size_t szmcarea;	/* Size of current mcode area. */
   size_t szallmcarea;	/* Total size of all allocated mcode areas. */
+  size_t tracenum;	/* Overall number of traces. */
+  size_t nsnaprestore;	/* Overall number of snap restores. */
+  size_t ntraceabort;	/* Overall number of abort traces. */
 
   TValue errinfo;	/* Additional info element for trace errors. */
 
