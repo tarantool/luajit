@@ -22,10 +22,6 @@ static void yield(lua_State *L, lua_Debug *ar)
 		lua_yield(L, 0);
 }
 
-/*
- * XXX: This test still leads to a core dump in the GC64 mode.
- * This will be fixed in the next commit.
- */
 static int yield_in_c_hook(void *test_state)
 {
 	lua_State *L = test_state;
