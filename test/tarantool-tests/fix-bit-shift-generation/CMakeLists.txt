@@ -1,0 +1,1 @@
+BuildTestCLib(libtestbitshift libtestbitshift.c)

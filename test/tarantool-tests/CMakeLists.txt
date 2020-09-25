@@ -54,6 +54,7 @@ macro(BuildTestCLib lib sources)
 endmacro()
 
 add_subdirectory(ffi-ccall)
+add_subdirectory(fix-bit-shift-generation)
 add_subdirectory(gh-4427-ffi-sandwich)
 add_subdirectory(gh-5813-resolving-of-c-symbols/both)
 add_subdirectory(gh-5813-resolving-of-c-symbols/hash)
