@@ -469,6 +469,7 @@ DASM_FLAGS= $(DASM_XFLAGS) $(DASM_AFLAGS)
 DASM_DASC= vm_$(DASM_ARCH).dasc
 
 UTILS_O= utils/leb128.o
+PROFILE_O= profile/ljp_write.o
 BUILDVM_O= host/buildvm.o host/buildvm_asm.o host/buildvm_peobj.o \
 	   host/buildvm_lib.o host/buildvm_fold.o
 BUILDVM_T= host/buildvm
@@ -499,7 +500,7 @@ LJCORE_O= lj_gc.o lj_err.o lj_char.o lj_bc.o lj_obj.o lj_buf.o \
 	  lj_ctype.o lj_cdata.o lj_cconv.o lj_ccall.o lj_ccallback.o \
 	  lj_carith.o lj_clib.o lj_cparse.o \
 	  lj_lib.o lj_alloc.o lib_aux.o \
-	  $(LJLIB_O) lib_init.o $(UTILS_O)
+	  $(LJLIB_O) lib_init.o $(UTILS_O) $(PROFILE_O)
 
 LJVMCORE_O= $(LJVM_O) $(LJCORE_O)
 LJVMCORE_DYNO= $(LJVMCORE_O:.o=_dyn.o)
@@ -517,7 +518,7 @@ ALL_HDRGEN= lj_bcdef.h lj_ffdef.h lj_libdef.h lj_recdef.h lj_folddef.h \
 	    host/buildvm_arch.h
 ALL_GEN= $(LJVM_S) $(ALL_HDRGEN) $(LIB_VMDEFP)
 WIN_RM= *.obj *.lib *.exp *.dll *.exe *.manifest *.pdb *.ilk
-ALL_RM= $(ALL_T) $(ALL_GEN) *.o host/*.o utils/*.o $(WIN_RM)
+ALL_RM= $(ALL_T) $(ALL_GEN) *.o host/*.o utils/*.o profile/*.o $(WIN_RM)
 
 ##############################################################################
 # Build mode handling.
