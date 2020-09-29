@@ -156,6 +156,8 @@ XCFLAGS+= -DLUAJIT_SMART_STRINGS=1
 # You probably don't need to change anything below this line!
 ##############################################################################
 
+SRC_DIR=.
+
 ##############################################################################
 # Host system detection.
 ##############################################################################
@@ -225,7 +227,7 @@ TARGET_XSHLDFLAGS= -shared -fPIC -Wl,-soname,$(TARGET_SONAME)
 TARGET_DYNXLDOPTS=
 
 TARGET_LFSFLAGS= -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
-TARGET_XCFLAGS= $(TARGET_LFSFLAGS) -U_FORTIFY_SOURCE
+TARGET_XCFLAGS= $(TARGET_LFSFLAGS) -U_FORTIFY_SOURCE -I$(SRC_DIR)
 TARGET_XLDFLAGS=
 TARGET_XLIBS= -lm
 TARGET_TCFLAGS= $(CCOPTIONS) $(TARGET_XCFLAGS) $(TARGET_FLAGS) $(TARGET_CFLAGS)
