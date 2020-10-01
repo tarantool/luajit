@@ -127,13 +127,13 @@ enum { LJ_CONT_TAILCALL, LJ_CONT_FFI_CALLBACK };  /* Special continuations. */
 #define CFRAME_SIZE		(16*4)
 #define CFRAME_SHIFT_MULTRES	0
 #else
-#define CFRAME_OFS_ERRF		(15*4)
-#define CFRAME_OFS_NRES		(14*4)
-#define CFRAME_OFS_PREV		(13*4)
-#define CFRAME_OFS_L		(12*4)
+#define CFRAME_OFS_ERRF		(19*4)
+#define CFRAME_OFS_NRES		(18*4)
+#define CFRAME_OFS_PREV		(17*4)
+#define CFRAME_OFS_L		(16*4)
 #define CFRAME_OFS_PC		(6*4)
 #define CFRAME_OFS_MULTRES	(5*4)
-#define CFRAME_SIZE		(12*4)
+#define CFRAME_SIZE		(16*4)
 #define CFRAME_SHIFT_MULTRES	0
 #endif
 #elif LJ_TARGET_X64
@@ -156,7 +156,7 @@ enum { LJ_CONT_TAILCALL, LJ_CONT_FFI_CALLBACK };  /* Special continuations. */
 #define CFRAME_SIZE_JIT		(CFRAME_SIZE + 9*16 + 4*8)
 #define CFRAME_SHIFT_MULTRES	0
 #else
-#define CFRAME_OFS_PREV		(4*8)
+#define CFRAME_OFS_PREV		(6*8)
 #if LJ_GC64
 #define CFRAME_OFS_PC		(3*8)
 #define CFRAME_OFS_L		(2*8)
@@ -171,9 +171,9 @@ enum { LJ_CONT_TAILCALL, LJ_CONT_FFI_CALLBACK };  /* Special continuations. */
 #define CFRAME_OFS_MULTRES	(1*4)
 #endif
 #if LJ_NO_UNWIND
-#define CFRAME_SIZE		(12*8)
+#define CFRAME_SIZE		(14*8)
 #else
-#define CFRAME_SIZE		(10*8)
+#define CFRAME_SIZE		(12*8)
 #endif
 #define CFRAME_SIZE_JIT		(CFRAME_SIZE + 16)
 #define CFRAME_SHIFT_MULTRES	0

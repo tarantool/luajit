@@ -527,7 +527,9 @@ typedef struct GCtab {
 /* VM states. */
 enum {
   LJ_VMST_INTERP,	/* Interpreter. */
-  LJ_VMST_C,		/* C function. */
+  LJ_VMST_LFUNC,	/* Lua function. */
+  LJ_VMST_FFUNC,	/* Fast function. */
+  LJ_VMST_CFUNC,	/* C function. */
   LJ_VMST_GC,		/* Garbage collector. */
   LJ_VMST_EXIT,		/* Trace exit handler. */
   LJ_VMST_RECORD,	/* Trace recorder. */
@@ -535,6 +537,13 @@ enum {
   LJ_VMST_ASM,		/* Assembler. */
   LJ_VMST__MAX
 };
+
+/*
+** In fact, when VM executes a trace, vmstate is set to the trace number,
+** but we set the boundary to group all traces in a single pseudo-vmstate.
+*/
+
+#define LJ_VMST_TRACE		(LJ_VMST__MAX)
 
 #define setvmstate(g, st)	((g)->vmstate = ~LJ_VMST_##st)
 

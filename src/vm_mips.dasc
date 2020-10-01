@@ -403,7 +403,7 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |  addiu TMP1, RD, -8
   |   sw TMP2, L->base
-  |    li_vmstate C
+  |    li_vmstate CFUNC
   |   lw TMP2, SAVE_NRES
   |   addiu BASE, BASE, -8
   |    st_vmstate
@@ -473,7 +473,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  move CRET1, CARG2
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  lw L, SAVE_L
-  |   li TMP0, ~LJ_VMST_C
+  |   li TMP0, ~LJ_VMST_CFUNC
   |  lw GL:TMP1, L->glref
   |  b ->vm_leave_unw
   |.  sw TMP0, GL:TMP1->vmstate
@@ -5213,7 +5213,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  sw BASE, L->base
     |  sltu AT, TMP2, TMP1
     |   sw RC, L->top
-    |    li_vmstate C
+    |    li_vmstate CFUNC
     if (op == BC_FUNCCW) {
       |  lw CARG2, CFUNC:RB->f
     }

@@ -553,7 +553,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  // TMP0 = PC & FRAME_TYPE
   |  cmpwi TMP0, FRAME_C
   |   rlwinm TMP2, PC, 0, 0, 28
-  |    li_vmstate C
+  |    li_vmstate CFUNC
   |   sub TMP2, BASE, TMP2		// TMP2 = previous base.
   |  bney ->vm_returnp
   |
@@ -639,7 +639,7 @@ static void build_subroutines(BuildCtx *ctx)
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  lwz L, SAVE_L
   |  .toc ld TOCREG, SAVE_TOC
-  |   li TMP0, ~LJ_VMST_C
+  |   li TMP0, ~LJ_VMST_CFUNC
   |  lwz GL:TMP1, L->glref
   |   stw TMP0, GL:TMP1->vmstate
   |  b ->vm_leave_unw
@@ -5853,7 +5853,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   stp BASE, L->base
     |   cmplw TMP1, TMP2
     |    stp RC, L->top
-    |     li_vmstate C
+    |     li_vmstate CFUNC
     |.if TOC
     |  mtctr TMP3
     |.else

@@ -333,7 +333,7 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |  str RB, L->base
   |   ldrsw CARG2, SAVE_NRES		// CARG2 = nresults+1.
-  |    mv_vmstate TMP0w, C
+  |    mv_vmstate TMP0w, CFUNC
   |   sub BASE, BASE, #16
   |  subs TMP2, RC, #8
   |    st_vmstate TMP0w
@@ -392,7 +392,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov CRET1, CARG2
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  ldr L, SAVE_L
-  |   mv_vmstate TMP0w, C
+  |   mv_vmstate TMP0w, CFUNC
   |  ldr GL, L->glref
   |   st_vmstate TMP0w
   |  b ->vm_leave_unw
@@ -3895,7 +3895,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     if (op == BC_FUNCCW) {
       |  ldr CARG2, CFUNC:CARG3->f
     }
-    |    mv_vmstate TMP0w, C
+    |    mv_vmstate TMP0w, CFUNC
     |  mov CARG1, L
     |   bhi ->vm_growstack_c		// Need to grow stack.
     |    st_vmstate TMP0w
