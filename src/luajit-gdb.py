@@ -206,12 +206,14 @@ def J(g):
 def vm_state(g):
     return {
         i2notu32(0): 'INTERP',
-        i2notu32(1): 'C',
-        i2notu32(2): 'GC',
-        i2notu32(3): 'EXIT',
-        i2notu32(4): 'RECORD',
-        i2notu32(5): 'OPT',
-        i2notu32(6): 'ASM',
+        i2notu32(1): 'LFUNC',
+        i2notu32(2): 'FFUNC',
+        i2notu32(3): 'CFUNC',
+        i2notu32(4): 'GC',
+        i2notu32(5): 'EXIT',
+        i2notu32(6): 'RECORD',
+        i2notu32(7): 'OPT',
+        i2notu32(8): 'ASM',
     }.get(int(tou32(g['vmstate'])), 'TRACE')
 
 def gc_state(g):

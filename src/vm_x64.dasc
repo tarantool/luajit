@@ -140,7 +140,7 @@
 |//-----------------------------------------------------------------------
 |.else			// x64/POSIX stack layout
 |
-|.define CFRAME_SPACE,	aword*5			// Delta for rsp (see <--).
+|.define CFRAME_SPACE,	qword*7			// Delta for rsp (see <--).
 |.macro saveregs_
 |  push rbx; push r15; push r14
 |.if NO_UNWIND
@@ -161,26 +161,29 @@
 |
 |//----- 16 byte aligned,
 |.if NO_UNWIND
-|.define SAVE_RET,	aword [rsp+aword*11]	//<-- rsp entering interpreter.
-|.define SAVE_R4,	aword [rsp+aword*10]
-|.define SAVE_R3,	aword [rsp+aword*9]
-|.define SAVE_R2,	aword [rsp+aword*8]
-|.define SAVE_R1,	aword [rsp+aword*7]
-|.define SAVE_RU2,	aword [rsp+aword*6]
-|.define SAVE_RU1,	aword [rsp+aword*5]	//<-- rsp after register saves.
+|.define SAVE_RET,	qword [rsp+qword*13]	//<-- rsp entering interpreter.
+|.define SAVE_R4,	qword [rsp+qword*12]
+|.define SAVE_R3,	qword [rsp+qword*11]
+|.define SAVE_R2,	qword [rsp+qword*10]
+|.define SAVE_R1,	qword [rsp+qword*9]
+|.define SAVE_RU2,	qword [rsp+qword*8]
+|.define SAVE_RU1,	qword [rsp+qword*7]	//<-- rsp after register saves.
 |.else
-|.define SAVE_RET,	aword [rsp+aword*9]	//<-- rsp entering interpreter.
-|.define SAVE_R4,	aword [rsp+aword*8]
-|.define SAVE_R3,	aword [rsp+aword*7]
-|.define SAVE_R2,	aword [rsp+aword*6]
-|.define SAVE_R1,	aword [rsp+aword*5]	//<-- rsp after register saves.
+|.define SAVE_RET,	qword [rsp+qword*11]	//<-- rsp entering interpreter.
+|.define SAVE_R4,	qword [rsp+qword*10]
+|.define SAVE_R3,	qword [rsp+qword*9]
+|.define SAVE_R2,	qword [rsp+qword*8]
+|.define SAVE_R1,	qword [rsp+qword*7]	//<-- rsp after register saves.
 |.endif
-|.define SAVE_CFRAME,	aword [rsp+aword*4]
-|.define SAVE_PC,	aword [rsp+aword*3]
-|.define SAVE_L,	aword [rsp+aword*2]
+|.define SAVE_CFRAME,	qword [rsp+qword*6]
+|.define SAVE_UNUSED2,	qword [rsp+qword*5]
+|.define SAVE_UNUSED1,	dword [rsp+dword*8]
+|.define SAVE_VMSTATE,	dword [rsp+dword*8]
+|.define SAVE_PC,	qword [rsp+qword*3]
+|.define SAVE_L,	qword [rsp+qword*2]
 |.define SAVE_ERRF,	dword [rsp+dword*3]
 |.define SAVE_NRES,	dword [rsp+dword*2]
-|.define TMP1,		aword [rsp]		//<-- rsp while in interpreter.
+|.define TMP1,		qword [rsp]		//<-- rsp while in interpreter.
 |//----- 16 byte aligned
 |
 |.define TMP1d,		dword [rsp]
@@ -342,6 +345,20 @@
 |  mov dword [DISPATCH+DISPATCH_GL(vmstate)], ~LJ_VMST_..st
 |.endmacro
 |
+|.if not WIN
+|// Save vmstate through register.
+|.macro save_vmstate_through, reg
+|  mov reg, dword [DISPATCH+DISPATCH_GL(vmstate)]
+|  mov SAVE_VMSTATE, reg
+|.endmacro
+|
+|// Restore vmstate through register.
+|.macro restore_vmstate_through, reg
+|  mov reg, SAVE_VMSTATE
+|  mov dword [DISPATCH+DISPATCH_GL(vmstate)], reg
+|.endmacro
+|.endif // WIN
+|
 |.macro fpop1; fstp st1; .endmacro
 |
 |// Synthesize SSE FP constants.
@@ -416,7 +433,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  jnz ->vm_returnp
   |
   |  // Return to C.
-  |  set_vmstate C
+  |  set_vmstate CFUNC
   |  and PC, -8
   |  sub PC, BASE
   |  neg PC				// Previous base = BASE - delta.
@@ -448,6 +465,10 @@ static void build_subroutines(BuildCtx *ctx)
   |  xor eax, eax			// Ok return status for vm_pcall.
   |
   |->vm_leave_unw:
+  |.if not WIN
+  |  // DISPATCH required to set properly.
+  |  restore_vmstate_through RAd
+  |.endif
   |  restoreregs
   |  ret
   |
@@ -493,7 +514,9 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov L:DISPATCH, SAVE_L
   |  mov GL:RB, L:DISPATCH->glref
   |  mov GL:RB->cur_L, L:DISPATCH
-  |  mov dword GL:RB->vmstate, ~LJ_VMST_C
+  |  mov dword GL:RB->vmstate, ~LJ_VMST_CFUNC
+  |  mov DISPATCH, L:DISPATCH->glref	// Setup pointer to dispatch table.
+  |  add DISPATCH, GG_G2DISP
   |  jmp ->vm_leave_unw
   |
   |->vm_unwind_rethrow:
@@ -521,7 +544,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov [BASE-16], RA			// Prepend false to error message.
   |  mov [BASE-8], RB
   |  mov RA, -16			// Results start at BASE+RA = BASE-16.
-  |  set_vmstate INTERP
+  |  set_vmstate INTERP // INTERP until jump to BC_RET* or return to C
   |  jmp ->vm_returnc			// Increments RD/MULTRES and returns.
   |
   |//-----------------------------------------------------------------------
@@ -575,6 +598,9 @@ static void build_subroutines(BuildCtx *ctx)
   |  lea KBASE, [esp+CFRAME_RESUME]
   |  mov DISPATCH, L:RB->glref		// Setup pointer to dispatch table.
   |  add DISPATCH, GG_G2DISP
+  |.if not WIN
+  |  save_vmstate_through TMPRd
+  |.endif
   |  mov SAVE_PC, RD			// Any value outside of bytecode is ok.
   |  mov SAVE_CFRAME, RD
   |  mov SAVE_NRES, RDd
@@ -585,7 +611,7 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |  // Resume after yield (like a return).
   |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
-  |  set_vmstate INTERP
+  |  set_vmstate INTERP // INTERP until jump to BC_RET* or vm_return
   |  mov byte L:RB->status, RDL
   |  mov BASE, L:RB->base
   |  mov RD, L:RB->top
@@ -622,11 +648,14 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov SAVE_CFRAME, KBASE
   |  mov SAVE_PC, L:RB			// Any value outside of bytecode is ok.
   |  add DISPATCH, GG_G2DISP
+  |.if not WIN
+  |  save_vmstate_through RDd
+  |.endif
   |  mov L:RB->cframe, rsp
   |
   |2:  // Entry point for vm_resume/vm_cpcall (RA = base, RB = L, PC = ftype).
   |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
-  |  set_vmstate INTERP
+  |  set_vmstate INTERP // vm_resume: INTERP until executing BC_IFUNC*
   |  mov BASE, L:RB->base		// BASE = old base (used in vmeta_call).
   |  add PC, RA
   |  sub PC, BASE			// PC = frame delta + frame type
@@ -658,6 +687,9 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov SAVE_ERRF, 0			// No error function.
   |  mov SAVE_NRES, KBASEd		// Neg. delta means cframe w/o frame.
   |   add DISPATCH, GG_G2DISP
+  |.if not WIN
+  |  save_vmstate_through KBASEd
+  |.endif
   |  // Handler may change cframe_nres(L->cframe) or cframe_errfunc(L->cframe).
   |
   |  mov KBASE, L:RB->cframe		// Add our C frame to cframe chain.
@@ -697,6 +729,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  cleartp LFUNC:KBASE
   |  mov KBASE, LFUNC:KBASE->pc
   |  mov KBASE, [KBASE+PC2PROTO(k)]
+  |  set_vmstate LFUNC			// LFUNC after KBASE restoration
   |  // BASE = base, RC = result, RB = meta base
   |  jmp RA				// Jump to continuation.
   |
@@ -1137,15 +1170,16 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |.macro .ffunc, name
   |->ff_ .. name:
+  |  set_vmstate FFUNC
   |.endmacro
   |
   |.macro .ffunc_1, name
-  |->ff_ .. name:
+  |  .ffunc name
   |  cmp NARGS:RDd, 1+1;  jb ->fff_fallback
   |.endmacro
   |
   |.macro .ffunc_2, name
-  |->ff_ .. name:
+  |  .ffunc name
   |  cmp NARGS:RDd, 2+1;  jb ->fff_fallback
   |.endmacro
   |
@@ -1578,7 +1612,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov L:PC, TMP1
   |  mov BASE, L:RB->base
   |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
-  |  set_vmstate INTERP
+  |  set_vmstate INTERP // INTERP until jump to BC_RET* or vm_return
   |
   |  cmp eax, LUA_YIELD
   |  ja >8
@@ -1717,6 +1751,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  movzx RAd, PC_RA
   |  neg RA
   |  lea BASE, [BASE+RA*8-16]		// base = base - (RA+2)*8
+  |  set_vmstate LFUNC			// LFUNC state after BASE restoration
   |  ins_next
   |
   |6:  // Fill up results with nil.
@@ -2481,7 +2516,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov KBASE, [KBASE+PC2PROTO(k)]
   |  mov L:RB->base, BASE
   |  mov qword [DISPATCH+DISPATCH_GL(jit_base)], 0
-  |  set_vmstate INTERP
+  |  set_vmstate LFUNC			// LFUNC after BASE & KBASE restoration
   |  // Modified copy of ins_next which handles function header dispatch, too.
   |  mov RCd, [PC]
   |  movzx RAd, RCH
@@ -2697,8 +2732,8 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov CARG1, CTSTATE
   |  call extern lj_ccallback_enter	// (CTState *cts, void *cf)
   |  // lua_State * returned in eax (RD).
-  |  set_vmstate INTERP
   |  mov BASE, L:RD->base
+  |  set_vmstate LFUNC			// LFUNC after BASE restoration
   |  mov RD, L:RD->top
   |  sub RD, BASE
   |  mov LFUNC:RB, [BASE-16]
@@ -3974,6 +4009,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
 
   case BC_CALL: case BC_CALLM:
     |  ins_A_C	// RA = base, (RB = nresults+1,) RC = nargs+1 | extra_nargs
+    |  set_vmstate INTERP		// INTERP until a new BASE is setup
     if (op == BC_CALLM) {
       |  add NARGS:RDd, MULTRES
     }
@@ -3995,6 +4031,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  mov LFUNC:RB, [RA-16]
     |  checktp_nc LFUNC:RB, LJ_TFUNC, ->vmeta_call
     |->BC_CALLT_Z:
+    |  set_vmstate INTERP		// INTERP until a new BASE is setup
     |  mov PC, [BASE-8]
     |  test PCd, FRAME_TYPE
     |  jnz >7
@@ -4219,6 +4256,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
       |  shl RAd, 3
     }
     |1:
+    |  set_vmstate INTERP // INTERP until the old BASE & KBASE is restored
     |  mov PC, [BASE-8]
     |  mov MULTRES, RDd			// Save nresults+1.
     |  test PCd, FRAME_TYPE		// Check frame type marker.
@@ -4260,6 +4298,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  cleartp LFUNC:KBASE
     |  mov KBASE, LFUNC:KBASE->pc
     |  mov KBASE, [KBASE+PC2PROTO(k)]
+    |  set_vmstate LFUNC // LFUNC after the old BASE & KBASE is restored
     |  ins_next
     |
     |6:  // Fill up results with nil.
@@ -4551,6 +4590,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  ins_AD  // BASE = new base, RA = framesize, RD = nargs+1
     |  mov KBASE, [PC-4+PC2PROTO(k)]
     |  mov L:RB, SAVE_L
+    |  set_vmstate LFUNC		// LFUNC after KBASE restoration
     |  lea RA, [BASE+RA*8]		// Top of frame.
     |  cmp RA, L:RB->maxstack
     |  ja ->vm_growstack_f
@@ -4588,6 +4628,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  mov [RD-8], RB			// Store delta + FRAME_VARG.
     |  mov [RD-16], LFUNC:KBASE		// Store copy of LFUNC.
     |  mov L:RB, SAVE_L
+    |  set_vmstate LFUNC		// LFUNC after KBASE restoration
     |  lea RA, [RD+RA*8]
     |  cmp RA, L:RB->maxstack
     |  ja ->vm_growstack_v		// Need to grow stack.
@@ -4643,7 +4684,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
       |  mov CARG1, L:RB		// Caveat: CARG1 may be RA.
     }
     |  ja ->vm_growstack_c		// Need to grow stack.
-    |  set_vmstate C
+    |  set_vmstate CFUNC		// CFUNC before entering C function
     if (op == BC_FUNCC) {
       |  call KBASE			// (lua_State *L)
     } else {
@@ -4653,7 +4694,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  // nresults returned in eax (RD).
     |  mov BASE, L:RB->base
     |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
-    |  set_vmstate INTERP
+    |  set_vmstate INTERP // INTERP until jump to BC_RET* or vm_return
     |  lea RA, [BASE+RD*8]
     |  neg RA
     |  add RA, L:RB->top		// RA = (L->top-(L->base+nresults))*8

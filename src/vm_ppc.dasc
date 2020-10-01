@@ -520,10 +520,11 @@ static void build_subroutines(BuildCtx *ctx)
   |  // TMP0 = PC & FRAME_TYPE
   |  cmpwi TMP0, FRAME_C
   |   rlwinm TMP2, PC, 0, 0, 28
-  |    li_vmstate C
+  |    li_vmstate CFUNC
   |   sub TMP2, BASE, TMP2		// TMP2 = previous base.
   |  bney ->vm_returnp
   |
+  |  // Return to C
   |  addic. TMP1, RD, -8
   |   stp TMP2, L->base
   |   lwz TMP2, SAVE_NRES
@@ -596,7 +597,7 @@ static void build_subroutines(BuildCtx *ctx)
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  lwz L, SAVE_L
   |  .toc ld TOCREG, SAVE_TOC
-  |   li TMP0, ~LJ_VMST_C
+  |   li TMP0, ~LJ_VMST_CFUNC
   |  lwz GL:TMP1, L->glref
   |   stw TMP0, GL:TMP1->vmstate
   |  b ->vm_leave_unw
@@ -620,7 +621,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  li TMP1, LJ_TFALSE
   |     ori TMP3, TMP3, 0x0004		// TONUM = 2^52 + 2^51 + 2^31 (float).
   |     li TISNIL, LJ_TNIL
-  |    li_vmstate INTERP
+  |    li_vmstate INTERP // INTERP until jump to BC_RET* or return to C
   |     lfs TOBIT, TMPD
   |  lwz PC, FRAME_PC(BASE)		// Fetch PC of previous frame.
   |  la RA, -8(BASE)			// Results start at BASE-8.
@@ -628,7 +629,7 @@ static void build_subroutines(BuildCtx *ctx)
   |   addi DISPATCH, DISPATCH, GG_G2DISP
   |  stw TMP1, 0(RA)			// Prepend false to error message.
   |  li RD, 16				// 2 results: false + error message.
-  |    st_vmstate
+  |    st_vmstate // INTERP until jump to BC_RET* or return to C
   |     lfs TONUM, TMPD
   |  b ->vm_returnc
   |
@@ -700,9 +701,9 @@ static void build_subroutines(BuildCtx *ctx)
   |     lus TMP0, 0x4338		// Hiword of 2^52 + 2^51 (double)
   |   addi RD, RD, 8
   |     stw TMP0, TONUM_HI
-  |    li_vmstate INTERP
+  |    li_vmstate INTERP // INTERP until jump to BC_RET* or vm_return
   |     li ZERO, 0
-  |    st_vmstate
+  |    st_vmstate // INTERP until jump to BC_RET* or vm_return
   |  andix. TMP0, PC, FRAME_TYPE
   |   mr MULTRES, RD
   |     lfs TONUM, TMPD
@@ -750,10 +751,10 @@ static void build_subroutines(BuildCtx *ctx)
   |     lus TMP0, 0x4338		// Hiword of 2^52 + 2^51 (double)
   |   sub NARGS8:RC, TMP1, BASE
   |     stw TMP0, TONUM_HI
-  |    li_vmstate INTERP
+  |    li_vmstate INTERP // vm_resume: INTERP until executing BC_IFUNC*
   |     lfs TONUM, TMPD
   |     li TISNIL, LJ_TNIL
-  |    st_vmstate
+  |    st_vmstate // vm_resume: INTERP until executing BC_IFUNC*
   |
   |->vm_call_dispatch:
   |  // TMP2 = old base, BASE = new base, RC = nargs*8, PC = caller PC
@@ -807,12 +808,12 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->cont_dispatch:
   |  // BASE = meta base, RA = resultptr, RD = (nresults+1)*8
-  |  lwz TMP0, -12(BASE)		// Continuation.
+  |  lwz TMP3, -12(BASE)		// Continuation.
   |   mr RB, BASE
   |   mr BASE, TMP2			// Restore caller BASE.
   |    lwz LFUNC:TMP1, FRAME_FUNC(TMP2)
   |.if FFI
-  |  cmplwi TMP0, 1
+  |  cmplwi TMP3, 1
   |.endif
   |     lwz PC, -16(RB)			// Restore PC from [cont|PC].
   |   subi TMP2, RD, 8
@@ -821,9 +822,11 @@ static void build_subroutines(BuildCtx *ctx)
   |.if FFI
   |  ble >1
   |.endif
+  |     li_vmstate LFUNC		// LFUNC after KBASE restoration
   |    lwz KBASE, PC2PROTO(k)(TMP1)
   |  // BASE = base, RA = resultptr, RB = meta base
-  |  mtctr TMP0
+  |  mtctr TMP3
+  |     st_vmstate			// LFUNC after KBASE restoration
   |  bctr				// Jump to continuation.
   |
   |.if FFI
@@ -1222,21 +1225,27 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |.macro .ffunc, name
   |->ff_ .. name:
+  |  li_vmstate FFUNC
+  |  st_vmstate
   |.endmacro
   |
   |.macro .ffunc_1, name
   |->ff_ .. name:
+  |     li_vmstate FFUNC
   |  cmplwi NARGS8:RC, 8
   |   lwz CARG3, 0(BASE)
   |    lwz CARG1, 4(BASE)
+  |     st_vmstate
   |  blt ->fff_fallback
   |.endmacro
   |
   |.macro .ffunc_2, name
   |->ff_ .. name:
   |  cmplwi NARGS8:RC, 16
+  |     li_vmstate FFUNC
   |   lwz CARG3, 0(BASE)
   |    lwz CARG4, 8(BASE)
+  |     st_vmstate
   |   lwz CARG1, 4(BASE)
   |    lwz CARG2, 12(BASE)
   |  blt ->fff_fallback
@@ -1245,8 +1254,10 @@ static void build_subroutines(BuildCtx *ctx)
   |.macro .ffunc_n, name
   |->ff_ .. name:
   |  cmplwi NARGS8:RC, 8
+  |     li_vmstate FFUNC
   |   lwz CARG3, 0(BASE)
   |    lfd FARG1, 0(BASE)
+  |     st_vmstate
   |  blt ->fff_fallback
   |  checknum CARG3; bge ->fff_fallback
   |.endmacro
@@ -1254,8 +1265,10 @@ static void build_subroutines(BuildCtx *ctx)
   |.macro .ffunc_nn, name
   |->ff_ .. name:
   |  cmplwi NARGS8:RC, 16
+  |     li_vmstate FFUNC
   |   lwz CARG3, 0(BASE)
   |    lfd FARG1, 0(BASE)
+  |     st_vmstate
   |   lwz CARG4, 8(BASE)
   |    lfd FARG2, 8(BASE)
   |  blt ->fff_fallback
@@ -1646,10 +1659,10 @@ static void build_subroutines(BuildCtx *ctx)
   |  lp TMP2, L:SAVE0->base
   |   cmplwi CRET1, LUA_YIELD
   |  lp TMP3, L:SAVE0->top
-  |    li_vmstate INTERP
+  |    li_vmstate INTERP // INTERP until jump to BC_RET* or vm_return
   |  lp BASE, L->base
   |    stw L, DISPATCH_GL(cur_L)(DISPATCH)
-  |    st_vmstate
+  |    st_vmstate // INTERP until jump to BC_RET* or vm_return
   |   bgt >8
   |  sub RD, TMP3, TMP2
   |   lwz TMP0, L->maxstack
@@ -1777,11 +1790,13 @@ static void build_subroutines(BuildCtx *ctx)
   |  decode_RB8 RB, INS
   |5:
   |  cmplw RB, RD			// More results expected?
-  |   decode_RA8 TMP0, INS
+  |   decode_RA8 TMP2, INS
   |  bgt >6
+  |    li_vmstate LFUNC			// LFUNC state after BASE restoration
   |  ins_next1
   |  // Adjust BASE. KBASE is assumed to be set for the calling frame.
-  |   sub BASE, RA, TMP0
+  |   sub BASE, RA, TMP2
+  |    st_vmstate			// LFUNC state after BASE restoration
   |  ins_next2
   |
   |6:  // Fill up results with nil.
@@ -2671,11 +2686,11 @@ static void build_subroutines(BuildCtx *ctx)
   |    li TISNIL, LJ_TNIL
   |  stw TMP0, TONUM_HI
   |  lfs TONUM, TMPD
+  |    li_vmstate LFUNC			// LFUNC state after BASE restoration
   |  // Modified copy of ins_next which handles function header dispatch, too.
   |  lwz INS, 0(PC)
   |   addi PC, PC, 4
-  |    // Assumes TISNIL == ~LJ_VMST_INTERP == -1.
-  |    stw TISNIL, DISPATCH_GL(vmstate)(DISPATCH)
+  |    st_vmstate			// LFUNC state after BASE restoration
   |  decode_OPP TMP1, INS
   |   decode_RA8 RA, INS
   |  lpx TMP0, DISPATCH, TMP1
@@ -2817,11 +2832,11 @@ static void build_subroutines(BuildCtx *ctx)
   |     ori TMP3, TMP3, 0x0004		// TONUM = 2^52 + 2^51 + 2^31 (float).
   |     stw TMP0, TONUM_HI
   |     li TISNIL, LJ_TNIL
-  |    li_vmstate INTERP
+  |    li_vmstate LFUNC			// LFUNC after BASE restoration
   |     lfs TOBIT, TMPD
   |     stw TMP3, TMPD
   |  sub RC, RC, BASE
-  |    st_vmstate
+  |    st_vmstate			// LFUNC after BASE restoration
   |     lfs TONUM, TMPD
   |  ins_callt
   |.endif
@@ -4361,7 +4376,9 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     break;
   case BC_CALL:
     |  // RA = base*8, (RB = (nresults+1)*8,) RC = (nargs+1)*8
+    |  li_vmstate INTERP		// INTERP until a new BASE is setup
     |  mr TMP2, BASE
+    |  st_vmstate			// INTERP until a new BASE is setup
     |  lwzux TMP0, BASE, RA
     |   lwz LFUNC:RB, 4(BASE)
     |    subi NARGS8:RC, NARGS8:RC, 8
@@ -4385,9 +4402,11 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   addi RA, RA, 8
     |  bne ->vmeta_callt
     |->BC_CALLT_Z:
-    |  andix. TMP0, TMP1, FRAME_TYPE	// Caveat: preserve cr0 until the crand.
+    |  li_vmstate INTERP		// INTERP until a new BASE is setup
     |   lbz TMP3, LFUNC:RB->ffid
     |    xori TMP2, TMP1, FRAME_VARG
+    |  st_vmstate			// INTERP until a new BASE is setup
+    |  andix. TMP0, TMP1, FRAME_TYPE	// Caveat: preserve cr0 until the crand.
     |    cmplwi cr1, NARGS8:RC, 0
     |  bne >7
     |1:
@@ -4636,6 +4655,8 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   add RA, BASE, RA
     |    mr MULTRES, RD
     |1:
+    |  li_vmstate INTERP // INTERP until the old BASE & KBASE is restored
+    |  st_vmstate // INTERP until the old BASE & KBASE is restored
     |  andix. TMP0, PC, FRAME_TYPE
     |   xori TMP1, PC, FRAME_VARG
     |  bne ->BC_RETV_Z
@@ -4668,8 +4689,10 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   sub BASE, TMP2, RA
     |  lwz LFUNC:TMP1, FRAME_FUNC(BASE)
     |  ins_next1
+    |  li_vmstate LFUNC // LFUNC after the old BASE & KBASE is restored
     |  lwz TMP1, LFUNC:TMP1->pc
     |  lwz KBASE, PC2PROTO(k)(TMP1)
+    |  st_vmstate // LFUNC after the old BASE & KBASE is restored
     |  ins_next2
     |
     |6:  // Fill up results with nil.
@@ -4690,8 +4713,10 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
   case BC_RET0: case BC_RET1:
     |  // RA = results*8, RD = (nresults+1)*8
     |  lwz PC, FRAME_PC(BASE)
+    |  li_vmstate INTERP // INTERP until the old BASE & KBASE is restored
     |   add RA, BASE, RA
     |    mr MULTRES, RD
+    |  st_vmstate // INTERP until the old BASE & KBASE is restored
     |  andix. TMP0, PC, FRAME_TYPE
     |   xori TMP1, PC, FRAME_VARG
     |  bney ->BC_RETV_Z
@@ -4709,9 +4734,11 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |  bgt >6
     |   sub BASE, TMP2, RA
     |  lwz LFUNC:TMP1, FRAME_FUNC(BASE)
+    |  li_vmstate LFUNC // LFUNC after the old BASE & KBASE is restored
     |  ins_next1
     |  lwz TMP1, LFUNC:TMP1->pc
     |  lwz KBASE, PC2PROTO(k)(TMP1)
+    |  st_vmstate // LFUNC after the old BASE & KBASE is restored
     |  ins_next2
     |
     |6:  // Fill up results with nil.
@@ -4975,8 +5002,10 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
   case BC_IFUNCF:
     |  // BASE = new base, RA = BASE+framesize*8, RB = LFUNC, RC = nargs*8
     |  lwz TMP2, L->maxstack
+    |     li_vmstate LFUNC		// LFUNC after KBASE restoration
     |   lbz TMP1, -4+PC2PROTO(numparams)(PC)
     |    lwz KBASE, -4+PC2PROTO(k)(PC)
+    |     st_vmstate			// LFUNC after KBASE restoration
     |  cmplw RA, TMP2
     |   slwi TMP1, TMP1, 3
     |  bgt ->vm_growstack_l
@@ -5008,8 +5037,10 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
 
   case BC_IFUNCV:
     |  // BASE = new base, RA = BASE+framesize*8, RB = LFUNC, RC = nargs*8
+    |  li_vmstate LFUNC			// LFUNC after KBASE restoration
     |  lwz TMP2, L->maxstack
     |   add TMP1, BASE, RC
+    |  st_vmstate			// LFUNC after KBASE restoration
     |  add TMP0, RA, RC
     |   stw LFUNC:RB, 4(TMP1)		// Store copy of LFUNC.
     |   addi TMP3, RC, 8+FRAME_VARG
@@ -5060,7 +5091,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   stp BASE, L->base
     |   cmplw TMP1, TMP2
     |    stp RC, L->top
-    |     li_vmstate C
+    |     li_vmstate CFUNC		// CFUNC before entering C function
     |.if TOC
     |  mtctr TMP3
     |.else
@@ -5073,18 +5104,18 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   bgt ->vm_growstack_c		// Need to grow stack.
     |  .toc lp TOCREG, TOC_OFS(RD)
     |  .tocenv lp ENVREG, ENV_OFS(RD)
-    |     st_vmstate
+    |     st_vmstate			// CFUNC before entering C function
     |  bctrl				// (lua_State *L [, lua_CFunction f])
     |  // Returns nresults.
     |  lp BASE, L->base
     |  .toc ld TOCREG, SAVE_TOC
     |   slwi RD, CRET1, 3
     |  lp TMP1, L->top
-    |    li_vmstate INTERP
+    |    li_vmstate INTERP // INTERP until jump to BC_RET* or vm_return
     |  lwz PC, FRAME_PC(BASE)		// Fetch PC of caller.
     |    stw L, DISPATCH_GL(cur_L)(DISPATCH)
     |   sub RA, TMP1, RD		// RA = L->top - nresults*8
-    |    st_vmstate
+    |    st_vmstate // INTERP until jump to BC_RET* or vm_return
     |  b ->vm_returnc
     break;
 

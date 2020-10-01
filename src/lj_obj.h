@@ -512,7 +512,9 @@ typedef struct GCtab {
 /* VM states. */
 enum {
   LJ_VMST_INTERP,	/* Interpreter. */
-  LJ_VMST_C,		/* C function. */
+  LJ_VMST_LFUNC,	/* Lua function. */
+  LJ_VMST_FFUNC,	/* Fast function. */
+  LJ_VMST_CFUNC,	/* C function. */
   LJ_VMST_GC,		/* Garbage collector. */
   LJ_VMST_EXIT,		/* Trace exit handler. */
   LJ_VMST_RECORD,	/* Trace recorder. */
