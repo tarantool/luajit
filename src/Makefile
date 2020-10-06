@@ -469,7 +469,7 @@ DASM_FLAGS= $(DASM_XFLAGS) $(DASM_AFLAGS)
 DASM_DASC= vm_$(DASM_ARCH).dasc
 
 UTILS_O= utils/leb128.o
-PROFILE_O= profile/ljp_write.o
+PROFILE_O= profile/ljp_write.o profile/ljp_symtab.o
 BUILDVM_O= host/buildvm.o host/buildvm_asm.o host/buildvm_peobj.o \
 	   host/buildvm_lib.o host/buildvm_fold.o
 BUILDVM_T= host/buildvm
