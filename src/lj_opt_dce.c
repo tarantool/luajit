@@ -46,10 +46,7 @@ static void dce_propagate(jit_State *J)
       irt_clearmark(ir->t);
     } else if (!ir_sideeff(ir)) {
       *pchain[ir->o] = ir->prev;  /* Reroute original instruction chain. */
-      ir->t.irt = IRT_NIL;
-      ir->o = IR_NOP;  /* Replace instruction with NOP. */
-      ir->op1 = ir->op2 = 0;
-      ir->prev = 0;
+      lj_ir_nop(ir);
       continue;
     }
     pchain[ir->o] = &ir->prev;
