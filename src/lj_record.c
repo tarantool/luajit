@@ -570,10 +570,10 @@ static LoopEvent rec_iterl(jit_State *J, const BCIns iterins)
 }
 
 /* Record LOOP/JLOOP. Now, that was easy. */
-static LoopEvent rec_loop(jit_State *J, BCReg ra)
+static LoopEvent rec_loop(jit_State *J, BCReg ra, int skip)
 {
   if (ra < J->maxslot) J->maxslot = ra;
-  J->pc++;
+  J->pc += skip;
   return LOOPEV_ENTER;
 }
 
@@ -2441,7 +2441,7 @@ void lj_record_ins(jit_State *J)
     rec_loop_interp(J, pc, rec_iterl(J, *pc));
     break;
   case BC_LOOP:
-    rec_loop_interp(J, pc, rec_loop(J, ra));
+    rec_loop_interp(J, pc, rec_loop(J, ra, 1));
     break;
 
   case BC_JFORL:
@@ -2451,7 +2451,8 @@ void lj_record_ins(jit_State *J)
     rec_loop_jit(J, rc, rec_iterl(J, traceref(J, rc)->startins));
     break;
   case BC_JLOOP:
-    rec_loop_jit(J, rc, rec_loop(J, ra));
+    rec_loop_jit(J, rc, rec_loop(J, ra,
+				 !bc_isret(bc_op(traceref(J, rc)->startins))));
     break;
 
   case BC_IFORL:
