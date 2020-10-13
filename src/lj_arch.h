@@ -213,6 +213,8 @@
 #define LJ_ARCH_VERSION		50
 #endif
 
+#define LJ_ARCH_NOMEMPROF	1
+
 #elif LUAJIT_TARGET == LUAJIT_ARCH_ARM64
 
 #define LJ_ARCH_BITS		64
@@ -233,6 +235,8 @@
 #define LJ_ARCH_NUMMODE		LJ_NUMMODE_DUAL
 
 #define LJ_ARCH_VERSION		80
+
+#define LJ_ARCH_NOMEMPROF	1
 
 #elif LUAJIT_TARGET == LUAJIT_ARCH_PPC
 
@@ -299,6 +303,8 @@
 #define LJ_ARCH_XENON		1
 #endif
 
+#define LJ_ARCH_NOMEMPROF	1
+
 #elif LUAJIT_TARGET == LUAJIT_ARCH_MIPS32 || LUAJIT_TARGET == LUAJIT_ARCH_MIPS64
 
 #if defined(__MIPSEL__) || defined(__MIPSEL) || defined(_MIPSEL)
@@ -357,6 +363,8 @@
 #else
 #define LJ_ARCH_VERSION		10
 #endif
+
+#define LJ_ARCH_NOMEMPROF	1
 
 #else
 #error "No target architecture defined"
@@ -562,6 +570,20 @@
 #define LJ_52			1
 #else
 #define LJ_52			0
+#endif
+
+/* Disable or enable the memory profiler. */
+#if defined(LUAJIT_DISABLE_MEMPROF) || defined(LJ_ARCH_NOMEMPROF) || LJ_TARGET_WINDOWS || LJ_TARGET_CYGWIN || LJ_TARGET_PS3 || LJ_TARGET_PS4 || LJ_TARGET_XBOX360
+#define LJ_HASMEMPROF		0
+#else
+#define LJ_HASMEMPROF		1
+#endif
+
+/* Disable or enable the memory profiler's thread safety. */
+#if defined(LUAJIT_DISABLE_THREAD_SAFE) || LJ_TARGET_WINDOWS || LJ_TARGET_XBOX360
+#define LJ_THREAD_SAFE		0
+#else
+#define LJ_THREAD_SAFE		1
 #endif
 
 #endif

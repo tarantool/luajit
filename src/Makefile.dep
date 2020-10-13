@@ -248,6 +248,10 @@ host/buildvm_lib.o: host/buildvm_lib.c host/buildvm.h lj_def.h lua.h luaconf.h \
 host/buildvm_peobj.o: host/buildvm_peobj.c host/buildvm.h lj_def.h lua.h \
  luaconf.h lj_arch.h lj_bc.h lj_def.h lj_arch.h
 host/minilua.o: host/minilua.c
+profile/ljp_memprof.o: profile/ljp_memprof.c profile/ljp_memprof.h lmisclib.h \
+ lua.h luaconf.h lj_def.h lj_obj.h lj_arch.h lj_frame.h lj_bc.h lj_jit.h \
+ lj_ir.h lj_gc.h profile/ljp_symtab.h lj_debug.h profile/ljp_symtab.h \
+ profile/ljp_write.h
 profile/ljp_symtab.o: profile/ljp_symtab.c lj_obj.h lua.h luaconf.h lj_def.h \
  lj_arch.h profile/ljp_write.h profile/ljp_symtab.h
 profile/ljp_write.o: profile/ljp_write.c profile/ljp_write.h utils/leb128.h \

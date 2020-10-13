@@ -523,6 +523,14 @@ enum {
   LJ_VMST__MAX
 };
 
+/*
+** PROFILER HACK: VM is inside a trace. This is a pseudo-state used by profiler.
+** In fact, when VM executes a trace, vmstate is set to the trace number, but
+** we aggregate all such cases into one VM state during per-VM state profiling.
+*/
+
+#define LJ_VMST_TRACE		(LJ_VMST__MAX)
+
 #define setvmstate(g, st)	((g)->vmstate = ~LJ_VMST_##st)
 
 /* Metamethods. ORDER MM */

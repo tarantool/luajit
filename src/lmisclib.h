@@ -8,6 +8,7 @@
 #ifndef _LMISCLIB_H
 #define _LMISCLIB_H
 
+
 #include "lua.h"
 
 /* API for obtaining various platform metrics. */
@@ -59,6 +60,33 @@ struct luam_Metrics {
 };
 
 LUAMISC_API void luaM_metrics(lua_State *L, struct luam_Metrics *metrics);
+
+/* Profiler public API. */
+#define LUAM_PROFILE_SUCCESS 0
+#define LUAM_PROFILE_ERR     1
+#define LUAM_PROFILE_ERRMEM  2
+#define LUAM_PROFILE_ERRIO   3
+
+/* Profiler options. */
+struct luam_Prof_options {
+  /* Options for the profile writer and final callback. */
+  void *ctx;
+  /* Custom buffer to write data. */
+  uint8_t *buf;
+  /* The buffer's size. */
+  size_t len;
+  /*
+  ** Writer function for profile events.
+  ** Should return amount of written bytes on success or zero in case of error.
+  */
+  size_t (*writer)(const void **data, size_t len, void *ctx);
+  /*
+  ** Callback on profiler stopping. Required for correctly cleaning
+  ** at vm shoutdown when profiler still running.
+  ** Returns zero on success.
+  */
+  int (*on_stop)(void *ctx, uint8_t *buf);
+};
 
 #define LUAM_MISCLIBNAME "misc"
 LUALIB_API int luaopen_misc(lua_State *L);

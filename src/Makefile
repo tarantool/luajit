@@ -113,6 +113,12 @@ XCFLAGS=
 # Enable GC64 mode for x64.
 #XCFLAGS+= -DLUAJIT_ENABLE_GC64
 #
+# Disable the memory profiler.
+#XCFLAGS+= -DLUAJIT_DISABLE_MEMPROF
+#
+# Disable the thread safe profiler.
+#XCFLAGS+= -DLUAJIT_DISABLE_THREAD_SAFE
+#
 ##############################################################################
 
 ##############################################################################
@@ -469,7 +475,7 @@ DASM_FLAGS= $(DASM_XFLAGS) $(DASM_AFLAGS)
 DASM_DASC= vm_$(DASM_ARCH).dasc
 
 UTILS_O= utils/leb128.o
-PROFILE_O= profile/ljp_write.o profile/ljp_symtab.o
+PROFILE_O= profile/ljp_write.o profile/ljp_symtab.o profile/ljp_memprof.o
 BUILDVM_O= host/buildvm.o host/buildvm_asm.o host/buildvm_peobj.o \
 	   host/buildvm_lib.o host/buildvm_fold.o
 BUILDVM_T= host/buildvm
