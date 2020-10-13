@@ -115,6 +115,7 @@ static LJ_AINLINE void lj_mem_free(global_State *g, void *p, size_t osize)
 {
   g->gc.total -= (GCSize)osize;
   g->gc.freed += osize;
+  /* All deallocations are reported as internal. Not necessary to set mem_L. */
   g->allocf(g->allocd, p, osize, 0);
 }
 

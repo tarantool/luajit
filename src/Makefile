@@ -113,6 +113,9 @@ XCFLAGS=
 # Disable LJ_GC64 mode for x64.
 #XCFLAGS+= -DLUAJIT_DISABLE_GC64
 #
+# Disable the memory profiler.
+#XCFLAGS+= -DLUAJIT_DISABLE_MEMPROF
+#
 ##############################################################################
 
 ##############################################################################
@@ -492,7 +495,7 @@ LJCORE_O= lj_assert.o lj_gc.o lj_err.o lj_char.o lj_bc.o lj_obj.o lj_buf.o \
 	  lj_wbuf.o lj_str.o lj_tab.o lj_func.o lj_udata.o lj_meta.o \
 	  lj_debug.o lj_prng.o lj_state.o lj_dispatch.o lj_vmevent.o \
 	  lj_vmmath.o lj_strscan.o lj_strfmt.o lj_strfmt_num.o lj_serialize.o \
-	  lj_api.o lj_mapi.o lj_profile.o \
+	  lj_api.o lj_mapi.o lj_profile.o lj_memprof.o \
 	  lj_lex.o lj_parse.o lj_bcread.o lj_bcwrite.o lj_load.o \
 	  lj_ir.o lj_opt_mem.o lj_opt_fold.o lj_opt_narrow.o \
 	  lj_opt_dce.o lj_opt_loop.o lj_opt_split.o lj_opt_sink.o \

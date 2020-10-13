@@ -44,6 +44,7 @@
 #include "lj_api.c"
 #include "lj_mapi.c"
 #include "lj_profile.c"
+#include "lj_memprof.c"
 #include "lj_lex.c"
 #include "lj_parse.c"
 #include "lj_bcread.c"
