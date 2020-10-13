@@ -852,6 +852,8 @@ void *lj_mem_realloc(lua_State *L, void *p, GCSize osz, GCSize nsz)
 {
   global_State *g = G(L);
   lua_assert((osz == 0) == (p == NULL));
+
+  setgcref(g->mem_L, obj2gco(L));
   p = g->allocf(g->allocd, p, osz, nsz);
   if (p == NULL && nsz > 0)
     lj_err_mem(L);
