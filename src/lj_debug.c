@@ -128,7 +128,7 @@ BCLine LJ_FASTCALL lj_debug_line(GCproto *pt, BCPos pc)
 }
 
 /* Get line number for function/frame. */
-static BCLine debug_frameline(lua_State *L, GCfunc *fn, cTValue *nextframe)
+BCLine lj_debug_frameline(lua_State *L, GCfunc *fn, cTValue *nextframe)
 {
   BCPos pc = debug_framepc(L, fn, nextframe);
   if (pc != NO_BCPOS) {
@@ -353,7 +353,7 @@ void lj_debug_addloc(lua_State *L, const char *msg,
   if (frame) {
     GCfunc *fn = frame_func(frame);
     if (isluafunc(fn)) {
-      BCLine line = debug_frameline(L, fn, nextframe);
+      BCLine line = lj_debug_frameline(L, fn, nextframe);
       if (line >= 0) {
 	GCproto *pt = funcproto(fn);
 	char buf[LUA_IDSIZE];
@@ -470,7 +470,7 @@ int lj_debug_getinfo(lua_State *L, const char *what, lj_Debug *ar, int ext)
 	ar->what = "C";
       }
     } else if (*what == 'l') {
-      ar->currentline = frame ? debug_frameline(L, fn, nextframe) : -1;
+      ar->currentline = frame ? lj_debug_frameline(L, fn, nextframe) : -1;
     } else if (*what == 'u') {
       ar->nups = fn->c.nupvalues;
       if (ext) {
@@ -616,7 +616,7 @@ void lj_debug_dumpstack(lua_State *L, SBuf *sb, const char *fmt, int depth)
 	    GCproto *pt = funcproto(fn);
 	    if (debug_putchunkname(sb, pt, pathstrip)) {
 	      /* Regular Lua function. */
-	      BCLine line = c == 'l' ? debug_frameline(L, fn, nextframe) :
+	      BCLine line = c == 'l' ? lj_debug_frameline(L, fn, nextframe) :
 				       pt->firstline;
 	      lj_buf_putb(sb, ':');
 	      lj_strfmt_putint(sb, line >= 0 ? line : pt->firstline);
