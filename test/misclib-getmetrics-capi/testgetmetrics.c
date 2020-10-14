@@ -4,6 +4,7 @@
 
 #include <lmisclib.h>
 
+#undef NDEBUG
 #include <assert.h>
 
 static int base(lua_State *L)
