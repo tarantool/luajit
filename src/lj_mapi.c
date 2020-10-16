@@ -5,6 +5,9 @@
 ** Copyright (C) 2015-2019 IPONWEB Ltd.
 */
 
+#define lj_mapi_c
+#define LUA_CORE
+
 #include "lua.h"
 #include "lmisclib.h"
 
