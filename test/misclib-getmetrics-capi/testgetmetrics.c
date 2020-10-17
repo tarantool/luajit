@@ -12,33 +12,30 @@ static int base(lua_State *L)
 	struct luam_Metrics metrics;
 	luaM_metrics(L, &metrics);
 
-	/*
-	 * Just check API.
-	 * (ssize_t) cast need for not always-true unsigned >= 0 check.
-	 */
-	assert((ssize_t)metrics.strhash_hit >= 0);
-	assert((ssize_t)metrics.strhash_miss >= 0);
+	/* Just check structure format, not values that fields contain. */
+	(void)metrics.strhash_hit;
+	(void)metrics.strhash_miss;
 
-	assert((ssize_t)metrics.gc_strnum >= 0);
-	assert((ssize_t)metrics.gc_tabnum >= 0);
-	assert((ssize_t)metrics.gc_udatanum >= 0);
-	assert((ssize_t)metrics.gc_cdatanum >= 0);
+	(void)metrics.gc_strnum;
+	(void)metrics.gc_tabnum;
+	(void)metrics.gc_udatanum;
+	(void)metrics.gc_cdatanum;
 
-	assert((ssize_t)metrics.gc_total >= 0);
-	assert((ssize_t)metrics.gc_freed >= 0);
-	assert((ssize_t)metrics.gc_allocated >= 0);
+	(void)metrics.gc_total;
+	(void)metrics.gc_freed;
+	(void)metrics.gc_allocated;
 
-	assert((ssize_t)metrics.gc_steps_pause >= 0);
-	assert((ssize_t)metrics.gc_steps_propagate >= 0);
-	assert((ssize_t)metrics.gc_steps_atomic >= 0);
-	assert((ssize_t)metrics.gc_steps_sweepstring >= 0);
-	assert((ssize_t)metrics.gc_steps_sweep >= 0);
-	assert((ssize_t)metrics.gc_steps_finalize >= 0);
+	(void)metrics.gc_steps_pause;
+	(void)metrics.gc_steps_propagate;
+	(void)metrics.gc_steps_atomic;
+	(void)metrics.gc_steps_sweepstring;
+	(void)metrics.gc_steps_sweep;
+	(void)metrics.gc_steps_finalize;
 
-	assert((ssize_t)metrics.jit_snap_restore >= 0);
-	assert((ssize_t)metrics.jit_trace_abort >= 0);
-	assert((ssize_t)metrics.jit_mcode_size >= 0);
-	assert((ssize_t)metrics.jit_trace_num >= 0);
+	(void)metrics.jit_snap_restore;
+	(void)metrics.jit_trace_abort;
+	(void)metrics.jit_mcode_size;
+	(void)metrics.jit_trace_num;
 
 	lua_pushboolean(L, 1);
 	return 1;
