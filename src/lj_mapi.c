@@ -13,6 +13,7 @@
 
 #include "lj_obj.h"
 #include "lj_dispatch.h"
+#include "profile/ljp_memprof.h"
 
 #if LJ_HASJIT
 #include "lj_jit.h"
@@ -62,4 +63,22 @@ LUAMISC_API void luaM_metrics(lua_State *L, struct luam_Metrics *metrics)
   metrics->jit_mcode_size = 0;
   metrics->jit_trace_num = 0;
 #endif
+}
+
+LUAMISC_API int luaM_memprof_start(struct lua_State *L,
+				   const struct luam_Prof_options *opt)
+{
+  api_check(L, opt->writer != NULL && opt->on_stop != NULL);
+  api_check(L, opt->buf != NULL && opt->len != 0);
+  return ljp_memprof_start(L, opt);
+}
+
+LUAMISC_API int luaM_memprof_stop(const struct lua_State *L)
+{
+  return ljp_memprof_stop_vm(L);
+}
+
+LUAMISC_API int luaM_memprof_is_running(void)
+{
+  return ljp_memprof_is_running();
 }

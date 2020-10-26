@@ -8,7 +8,6 @@
 #ifndef _LMISCLIB_H
 #define _LMISCLIB_H
 
-
 #include "lua.h"
 
 /* API for obtaining various platform metrics. */
@@ -87,6 +86,25 @@ struct luam_Prof_options {
   */
   int (*on_stop)(void *ctx, uint8_t *buf);
 };
+
+/*
+** Starts profiling. Returns LUAM_PROFILE_SUCCESS on success and one of
+** LUAM_PROFILE_ERR* codes otherwise. Destroyer is not called in case of
+** LUAM_PROFILE_ERR*.
+*/
+LUAMISC_API int luaM_memprof_start(lua_State *L,
+				   const struct luam_Prof_options *opt);
+
+/*
+** Stops profiling. Returns LUAM_PROFILE_SUCCESS on success and one of
+** LUAM_PROFILE_ERR* codes otherwise. If writer() function returns zero
+** on call at buffer flush, or on_stop() callback returns non-zero
+** value, returns LUAM_PROFILE_ERRIO.
+*/
+LUAMISC_API int luaM_memprof_stop(const lua_State *L);
+
+/* Check that profiler is running. */
+LUAMISC_API int luaM_memprof_isrunning(void);
 
 #define LUAM_MISCLIBNAME "misc"
 LUALIB_API int luaopen_misc(lua_State *L);
