@@ -194,6 +194,12 @@ ERRDEF(BUFFER_DUPKEY,	"duplicate table key")
 ERRDEF(BUFFER_EOB,	"unexpected end of buffer")
 ERRDEF(BUFFER_LEFTOV,	"left-over data in buffer")
 #endif
+#if LJ_HASMEMPROF
+/* Profiler errors. */
+ERRDEF(PROF_MISUSE,	"profiler misuse")
+ERRDEF(PROF_ISRUNNING,	"profiler is running already")
+ERRDEF(PROF_NOTRUNNING,	"profiler is not running")
+#endif
 
 #undef ERRDEF
 
