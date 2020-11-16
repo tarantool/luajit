@@ -108,7 +108,7 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
   size_t write_total = 0;
 
   lj_assertX(len <= STREAM_BUFFER_SIZE,
-	      "length argument is greater than buffer size");
+	     "length argument is greater than buffer size");
 
   for (;;) {
     const size_t written = fwrite(data, 1, len - write_total, stream);

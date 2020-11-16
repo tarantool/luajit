@@ -37,6 +37,9 @@ INSTALL_INC=   $(DPREFIX)/include/luajit-$(MAJVER).$(MINVER)
 
 INSTALL_LJLIBD= $(INSTALL_SHARE)/luajit-$(VERSION)
 INSTALL_JITLIB= $(INSTALL_LJLIBD)/jit
+INSTALL_TOOLSLIB= $(INSTALL_LJLIBD)
+INSTALL_UTILSLIB= $(INSTALL_TOOLSLIB)/utils
+INSTALL_MEMPROFLIB= $(INSTALL_TOOLSLIB)/memprof
 INSTALL_LMODD= $(INSTALL_SHARE)/lua
 INSTALL_LMOD= $(INSTALL_LMODD)/$(ABIVER)
 INSTALL_CMODD= $(INSTALL_LIB)/lua
@@ -54,6 +57,8 @@ INSTALL_DYLIBSHORT1= libluajit-$(ABIVER).dylib
 INSTALL_DYLIBSHORT2= libluajit-$(ABIVER).$(MAJVER).dylib
 INSTALL_DYLIBNAME= libluajit-$(ABIVER).$(MAJVER).$(MINVER).$(RELVER).dylib
 INSTALL_PCNAME= luajit.pc
+INSTALL_TMEMPROFNAME= luajit-$(VERSION)-parse-memprof
+INSTALL_TMEMPROFSYMNAME= luajit-parse-memprof
 
 INSTALL_STATIC= $(INSTALL_LIB)/$(INSTALL_ANAME)
 INSTALL_DYN= $(INSTALL_LIB)/$(INSTALL_SONAME)
@@ -62,11 +67,15 @@ INSTALL_SHORT2= $(INSTALL_LIB)/$(INSTALL_SOSHORT2)
 INSTALL_T= $(INSTALL_BIN)/$(INSTALL_TNAME)
 INSTALL_TSYM= $(INSTALL_BIN)/$(INSTALL_TSYMNAME)
 INSTALL_PC= $(INSTALL_PKGCONFIG)/$(INSTALL_PCNAME)
+INSTALL_TMEMPROF= $(INSTALL_BIN)/$(INSTALL_TMEMPROFNAME)
+INSTALL_TMEMPROFSYM= $(INSTALL_BIN)/$(INSTALL_TMEMPROFSYMNAME)
 
 INSTALL_DIRS= $(INSTALL_BIN) $(INSTALL_LIB) $(INSTALL_INC) $(INSTALL_MAN) \
-  $(INSTALL_PKGCONFIG) $(INSTALL_JITLIB) $(INSTALL_LMOD) $(INSTALL_CMOD)
+  $(INSTALL_PKGCONFIG) $(INSTALL_JITLIB) $(INSTALL_LMOD) $(INSTALL_CMOD) \
+  $(INSTALL_UTILSLIB) $(INSTALL_MEMPROFLIB) $(INSTALL_TOOLSLIB)
 UNINSTALL_DIRS= $(INSTALL_JITLIB) $(INSTALL_LJLIBD) $(INSTALL_INC) \
-  $(INSTALL_LMOD) $(INSTALL_LMODD) $(INSTALL_CMOD) $(INSTALL_CMODD)
+  $(INSTALL_LMOD) $(INSTALL_LMODD) $(INSTALL_CMOD) $(INSTALL_CMODD) \
+  $(INSTALL_UTILSLIB) $(INSTALL_MEMPROFLIB) $(INSTALL_TOOLSLIB)
 
 RM= rm -f
 MKDIR= mkdir -p
@@ -78,6 +87,8 @@ UNINSTALL= $(RM)
 LDCONFIG= ldconfig -n 2>/dev/null
 SED_PC= sed -e "s|^prefix=.*|prefix=$(PREFIX)|" \
             -e "s|^multilib=.*|multilib=$(MULTILIB)|"
+SED_TMEMPROF= sed -e "s|^TOOL_DIR=.*|TOOL_DIR=$(INSTALL_TOOLSLIB)|" \
+                  -e "s|^LUAJIT_BIN=.*|LUAJIT_BIN=$(INSTALL_T)|"
 
 FILE_T= luajit
 FILE_A= libluajit.a
@@ -89,6 +100,10 @@ FILES_JITLIB= bc.lua bcsave.lua dump.lua p.lua v.lua zone.lua \
 	      dis_x86.lua dis_x64.lua dis_arm.lua dis_arm64.lua \
 	      dis_arm64be.lua dis_ppc.lua dis_mips.lua dis_mipsel.lua \
 	      dis_mips64.lua dis_mips64el.lua vmdef.lua
+FILES_UTILSLIB= bufread.lua symtab.lua
+FILES_MEMPROFLIB= parse.lua humanize.lua
+FILES_TOOLSLIB= memprof.lua
+FILE_TMEMPROF= luajit-parse-memprof
 
 ifeq (,$(findstring Windows,$(OS)))
   HOST_SYS:= $(shell uname -s)
@@ -130,20 +145,36 @@ install: $(INSTALL_DEP)
 	  $(RM) $(FILE_PC).tmp
 	cd src && $(INSTALL_F) $(FILES_INC) $(INSTALL_INC)
 	cd src/jit && $(INSTALL_F) $(FILES_JITLIB) $(INSTALL_JITLIB)
+	cd tools/utils && $(INSTALL_F) $(FILES_UTILSLIB) $(INSTALL_UTILSLIB)
+	cd tools/memprof && $(INSTALL_F) $(FILES_MEMPROFLIB) $(INSTALL_MEMPROFLIB)
+	cd tools && $(INSTALL_F) $(FILES_TOOLSLIB) $(INSTALL_TOOLSLIB)
+	cd tools && $(SED_TMEMPROF) $(FILE_TMEMPROF) > $(FILE_TMEMPROF).tmp && \
+	  $(INSTALL_X) $(FILE_TMEMPROF).tmp $(INSTALL_TMEMPROF) && \
+	  $(RM) $(FILE_TMEMPROF).tmp
 	@echo "==== Successfully installed LuaJIT $(VERSION) to $(PREFIX) ===="
 	@echo ""
 	@echo "Note: the development releases deliberately do NOT install a symlink for luajit"
-	@echo "You can do this now by running this command (with sudo):"
+	@echo "You can do this now by running these commands (with sudo):"
 	@echo ""
 	@echo "  $(SYMLINK) $(INSTALL_TNAME) $(INSTALL_TSYM)"
+	@echo "  $(SYMLINK) $(INSTALL_TMEMPROFNAME) $(INSTALL_TMEMPROFSYM)"
 	@echo ""
 
 
 uninstall:
 	@echo "==== Uninstalling LuaJIT $(VERSION) from $(PREFIX) ===="
-	$(UNINSTALL) $(INSTALL_T) $(INSTALL_STATIC) $(INSTALL_DYN) $(INSTALL_SHORT1) $(INSTALL_SHORT2) $(INSTALL_MAN)/$(FILE_MAN) $(INSTALL_PC)
+	$(UNINSTALL) $(INSTALL_T) $(INSTALL_STATIC) $(INSTALL_DYN) $(INSTALL_SHORT1) $(INSTALL_SHORT2) $(INSTALL_MAN)/$(FILE_MAN) $(INSTALL_PC) $(INSTALL_TMEMPROF)
 	for file in $(FILES_JITLIB); do \
 	  $(UNINSTALL) $(INSTALL_JITLIB)/$$file; \
+	  done
+	for file in $(FILES_UTILSLIB); do \
+	  $(UNINSTALL) $(INSTALL_UTILSLIB)/$$file; \
+	  done
+	for file in $(FILES_MEMPROFLIB); do \
+	  $(UNINSTALL) $(INSTALL_MEMPROFLIB)/$$file; \
+	  done
+	for file in $(FILES_TOOLSLIB); do \
+	  $(UNINSTALL) $(INSTALL_TOOLSLIB)/$$file; \
 	  done
 	for file in $(FILES_INC); do \
 	  $(UNINSTALL) $(INSTALL_INC)/$$file; \
