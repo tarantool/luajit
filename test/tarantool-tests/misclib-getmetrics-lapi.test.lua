@@ -1,8 +1,9 @@
-#!/usr/bin/env tarantool
-
 -- This is a part of tarantool/luajit testing suite.
 -- Major portions taken verbatim or adapted from the LuaVela testing suite.
 -- Copyright (C) 2015-2019 IPONWEB Ltd.
+
+-- Disabled on *BSD due to #4819.
+require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
 local tap = require('tap')
 
@@ -48,8 +49,12 @@ end)
 test:test("gc-allocated-freed", function(subtest)
     subtest:plan(1)
 
-    -- Force up garbage collect all dead objects.
-    collectgarbage("collect")
+    -- Force up garbage collect all dead objects (even those
+    -- resurrected or postponed for custom finalization).
+    repeat
+        local count = collectgarbage("count")
+        collectgarbage("collect")
+    until collectgarbage("count") == count
 
     -- Bump getmetrics table and string keys allocation.
     local old_metrics = misc.getmetrics()
