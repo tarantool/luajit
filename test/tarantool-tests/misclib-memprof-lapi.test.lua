@@ -1,5 +1,3 @@
-#!/usr/bin/env tarantool
-
 local tap = require("tap")
 
 local test = tap.test("misc-memprof-lapi")
@@ -8,19 +6,14 @@ test:plan(9)
 jit.off()
 jit.flush()
 
--- FIXME: Launch tests with LUA_PATH enviroment variable.
-local path = arg[0]:gsub("[^/]+%.test%.lua", "")
-local path_suffix = "../tools/?.lua;"
-package.path = ("%s%s;"):format(path, path_suffix)..package.path
-
 local table_new = require "table.new"
 
 local bufread = require "utils.bufread"
 local memprof = require "memprof.parse"
 local symtab = require "utils.symtab"
 
-local TMP_BINFILE = arg[0]:gsub("[^/]+%.test%.lua", "%.%1.memprofdata.tmp.bin")
-local BAD_PATH = arg[0]:gsub("[^/]+%.test%.lua", "%1/memprofdata.tmp.bin")
+local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.memprofdata.tmp.bin")
+local BAD_PATH = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%1/memprofdata.tmp.bin")
 
 local function payload()
   -- Preallocate table to avoid table array part reallocations.
@@ -82,7 +75,7 @@ end
 
 -- Not a directory.
 local res, err, errno = misc.memprof.start(BAD_PATH)
-test:ok(res == nil and err:match("Not a directory"))
+test:ok(res == nil and err:match("No such file or directory"))
 test:ok(type(errno) == "number")
 
 -- Profiler is running.
@@ -125,9 +118,9 @@ local free = fill_ev_type(events, symbols, "free")
 -- the number of allocations.
 -- 1 event - alocation of table by itself + 1 allocation
 -- of array part as far it is bigger than LJ_MAX_COLOSIZE (16).
-test:ok(check_alloc_report(alloc, 27, 25, 2))
+test:ok(check_alloc_report(alloc, 20, 18, 2))
 -- 100 strings allocations.
-test:ok(check_alloc_report(alloc, 32, 25, 100))
+test:ok(check_alloc_report(alloc, 25, 18, 100))
 
 -- Collect all previous allocated objects.
 test:ok(free.INTERNAL.num == 102)

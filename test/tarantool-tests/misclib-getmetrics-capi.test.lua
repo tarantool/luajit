@@ -1,4 +1,5 @@
-#!/usr/bin/env tarantool
+-- Disabled on *BSD due to #4819.
+require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
 local path = arg[0]:gsub('%.test%.lua', '')
 local suffix = package.cpath:match('?.(%a+);')

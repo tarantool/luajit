@@ -1,5 +1,3 @@
-#!/usr/bin/env tarantool
-
 local tap = require('tap')
 
 local test = tap.test("lj-505-fold-icorrect-behavior")

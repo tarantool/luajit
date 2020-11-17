@@ -7,7 +7,8 @@
 
 # --- Initial setup ------------------------------------------------------------
 
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+# See the rationale below (near LUAJIT_TEST_BINARY variable).
+cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(LuaJIT C)
 
 # XXX: Originally CMake machinery is introduced to make LuaJIT
@@ -260,6 +261,34 @@ add_subdirectory(etc)
 # --- Tools --------------------------------------------------------------------
 
 add_subdirectory(tools)
+
+# --- Testing source tree ------------------------------------------------------
+
+# Auxiliary options for testing.
+
+# FIXME: There might be a parent project integrating LuaJIT
+# sources in its source tree as a third party library
+# (e.g. https://github.com/tarantool/tarantool), so <test> target
+# can be already reserved there. This option allows to omit <test>
+# target configuration for LuaJIT to respect CMP0002 policy.
+option(LUAJIT_USE_TEST "Generate <test> target" ON)
+
+# FIXME: If LuaJIT is used in parent project, provide an option
+# to choose which binary to be used for running LuaJIT tests.
+# XXX: This variable is used as a dependency for tests, and its
+# default value is $<TARGET_FILE:${LUAJIT_DEPS}> assigned in <src>
+# directory CMakeLists. Unfortunately CMake fails with generator
+# expressions expansions used in <add_custom_(command|target)>.
+# As a result the minimal required CMake version is set to 3.1.
+# For more info, see CMake Release notes for 3.1 version.
+# https://cmake.org/cmake/help/latest/release/3.1.html#commands
+# XXX: This option is moved below source tree processing since
+# the default binary target need to be generated.
+set(LUAJIT_TEST_BINARY ${LUAJIT_BINARY} CACHE STRING
+  "Lua implementation to be used for tests. Default is 'luajit'."
+)
+
+add_subdirectory(test)
 
 # --- Misc rules ---------------------------------------------------------------
 

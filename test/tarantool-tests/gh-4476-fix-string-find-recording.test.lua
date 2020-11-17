@@ -1,5 +1,3 @@
-#!/usr/bin/env tarantool
-
 local tap = require('tap')
 
 local test = tap.test("gh-4476-fix-string-find-recording")
