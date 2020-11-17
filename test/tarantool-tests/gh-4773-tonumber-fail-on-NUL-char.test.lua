@@ -1,5 +1,3 @@
-#!/usr/bin/env tarantool
-
 local tap = require('tap')
 
 local test = tap.test("Tarantool 4773")
