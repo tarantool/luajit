@@ -1,6 +1,7 @@
 # Building the toolchain for LuaJIT VM preprocessing.
 
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+# See the rationale in the root CMakeLists.txt.
+cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
 # FIXME: Both minilua and buildvm need to be build with the HOST_*
 # toolchain.

@@ -3,7 +3,8 @@
 # Copyright (C) 2020-2021 LuaVela Authors.
 # Copyright (C) 2015-2020 IPONWEB Ltd.
 
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+# See the rationale in the root CMakeLists.txt.
+cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
 enable_language(ASM)
 
@@ -346,6 +347,10 @@ if(BUILDMODE STREQUAL "dynamic")
 else()
   set(LUAJIT_DEPS luajit_static)
 endif()
+
+# XXX: The variable is used in testing, so PARENT_SCOPE option
+# is obligatory.
+set(LUAJIT_BINARY $<TARGET_FILE:${LUAJIT_DEPS}> PARENT_SCOPE)
 
 add_custom_target(libluajit DEPENDS ${LIBLUAJIT_DEPS})
 add_custom_target(luajit ALL DEPENDS libluajit ${LUAJIT_DEPS})
