@@ -76,8 +76,8 @@ INSTALL_X= install -m 0755
 INSTALL_F= install -m 0644
 UNINSTALL= $(RM)
 LDCONFIG= ldconfig -n
-SED_PC= sed -e "s|^prefix=.*|prefix=$(PREFIX)|" \
-            -e "s|^multilib=.*|multilib=$(MULTILIB)|"
+SED_PC= sed -e "s|@LUAJIT_PC_PREFIX@|$(PREFIX)|" \
+            -e "s|@LUAJIT_PC_MULTILIB@|$(MULTILIB)|"
 
 FILE_T= luajit
 FILE_A= libluajit.a
@@ -110,7 +110,7 @@ INSTALL_DEP= src/luajit
 
 default all $(INSTALL_DEP):
 	@echo "==== Building LuaJIT $(VERSION) ===="
-	$(MAKE) -C src
+	$(MAKE) -C src -f Makefile.original
 	@echo "==== Successfully built LuaJIT $(VERSION) ===="
 
 install: $(INSTALL_DEP)
@@ -125,9 +125,9 @@ install: $(INSTALL_DEP)
 	  $(SYMLINK) $(INSTALL_SONAME) $(INSTALL_SHORT1) && \
 	  $(SYMLINK) $(INSTALL_SONAME) $(INSTALL_SHORT2) || :
 	cd etc && $(INSTALL_F) $(FILE_MAN) $(INSTALL_MAN)
-	cd etc && $(SED_PC) $(FILE_PC) > $(FILE_PC).tmp && \
-	  $(INSTALL_F) $(FILE_PC).tmp $(INSTALL_PC) && \
-	  $(RM) $(FILE_PC).tmp
+	cd etc && $(SED_PC) $(FILE_PC).in > $(FILE_PC) && \
+	  $(INSTALL_F) $(FILE_PC) $(INSTALL_PC) && \
+	  $(RM) $(FILE_PC)
 	cd src && $(INSTALL_F) $(FILES_INC) $(INSTALL_INC)
 	cd src/jit && $(INSTALL_F) $(FILES_JITLIB) $(INSTALL_JITLIB)
 	@echo "==== Successfully installed LuaJIT $(VERSION) to $(PREFIX) ===="
@@ -156,10 +156,10 @@ uninstall:
 
 amalg:
 	@echo "Building LuaJIT $(VERSION)"
-	$(MAKE) -C src amalg
+	$(MAKE) -C src -f Makefile.original amalg
 
 clean:
-	$(MAKE) -C src clean
+	$(MAKE) -C src -f Makefile.original clean
 
 .PHONY: all install amalg clean
 

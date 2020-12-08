@@ -164,9 +164,9 @@ hold all user-configurable settings:
 </p>
 <ul>
 <li><tt>src/luaconf.h</tt> sets some configuration variables.</li>
-<li><tt>Makefile</tt> has settings for <b>installing</b> LuaJIT (POSIX
+<li><tt>Makefile.original</tt> has settings for <b>installing</b> LuaJIT (POSIX
 only).</li>
-<li><tt>src/Makefile</tt> has settings for <b>compiling</b> LuaJIT
+<li><tt>src/Makefile.original</tt> has settings for <b>compiling</b> LuaJIT
 under POSIX, MinGW or Cygwin.</li>
 <li><tt>src/msvcbuild.bat</tt> has settings for compiling LuaJIT with
 MSVC or WinSDK.</li>
@@ -228,7 +228,7 @@ variable is not set, then it's forced to <tt>10.4</tt>.
 </p>
 <h3>Installing LuaJIT</h3>
 <p>
-The top-level Makefile installs LuaJIT by default under
+The top-level Makefile.original installs LuaJIT by default under
 <tt>/usr/local</tt>, i.e. the executable ends up in
 <tt>/usr/local/bin</tt> and so on. You need root privileges
 to write to this path. So, assuming sudo is installed on your system,
@@ -366,7 +366,7 @@ target OS differ, or you'll get assembler or linker errors:
 </p>
 <ul>
 <li>E.g. if you're compiling on a Windows or OSX host for embedded Linux or Android, you need to add <tt>TARGET_SYS=Linux</tt> to the examples below.</li>
-<li>For a minimal target OS, you may need to disable the built-in allocator in <tt>src/Makefile</tt> and use <tt>TARGET_SYS=Other</tt>.</li>
+<li>For a minimal target OS, you may need to disable the built-in allocator in <tt>src/Makefile.original</tt> and use <tt>TARGET_SYS=Other</tt>.</li>
 <li>Don't forget to specify the same <tt>TARGET_SYS</tt> for the install step, too.</li>
 </ul>
 <p>
@@ -647,7 +647,7 @@ the paths needed to locate the shared library.</li>
 to a shadow tree instead of the root tree of the build system.</li>
 <li><tt>MULTILIB</tt> sets the architecture-specific library path component
 for multilib systems. The default is <tt>lib</tt>.</li>
-<li>Have a look at the top-level <tt>Makefile</tt> and <tt>src/Makefile</tt>
+<li>Have a look at the top-level <tt>Makefile.original</tt> and <tt>src/Makefile.original</tt>
 for additional variables to tweak. The following variables <em>may</em> be
 overridden, but it's <em>not</em> recommended, except for special needs
 like cross-builds:
