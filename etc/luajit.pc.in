@@ -5,8 +5,8 @@ relver=0
 version=${majver}.${minver}.${relver}-beta3
 abiver=5.1
 
-prefix=/usr/local
-multilib=lib
+prefix=@LUAJIT_PC_PREFIX@
+multilib=@LUAJIT_PC_MULTILIB@
 exec_prefix=${prefix}
 libdir=${exec_prefix}/${multilib}
 libname=luajit-${abiver}
