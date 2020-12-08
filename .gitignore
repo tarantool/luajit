@@ -9,3 +9,6 @@
 *.dmp
 *.swp
 .tags
+
+# Configured runner for LuaJIT memprof parser.
+tools/luajit-parse-memprof
