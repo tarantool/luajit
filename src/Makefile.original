@@ -606,14 +606,14 @@ default all:	$(TARGET_T)
 
 amalg:
 	@grep "^[+|]" ljamalg.c
-	$(MAKE) all "LJCORE_O=ljamalg.o"
+	$(MAKE) -f Makefile.original all "LJCORE_O=ljamalg.o"
 
 clean:
 	$(HOST_RM) $(ALL_RM)
 
 libbc:
 	./$(LUAJIT_T) host/genlibbc.lua -o host/buildvm_libbc.h $(LJLIB_C)
-	$(MAKE) all
+	$(MAKE) -f Makefile.original all
 
 depend:
 	@for file in $(ALL_HDRGEN); do \
@@ -624,7 +624,7 @@ depend:
 	      -e "s|^\([^l ]\)|host/\1|" \
 	      -e "s| lj_target_\S*\.h| lj_target_*.h|g" \
 	      -e "s| lj_emit_\S*\.h| lj_emit_*.h|g" \
-	      -e "s| lj_asm_\S*\.h| lj_asm_*.h|g" >Makefile.dep
+	      -e "s| lj_asm_\S*\.h| lj_asm_*.h|g" >Makefile.dep.original
 	@for file in $(ALL_HDRGEN); do \
 	  test -s $$file || $(HOST_RM) $$file; \
 	  done
@@ -699,7 +699,7 @@ $(HOST_O): %.o: %.c
 	$(E) "HOSTCC    $@"
 	$(Q)$(HOST_CC) $(HOST_ACFLAGS) -c -o $@ $<
 
-include Makefile.dep
+include Makefile.dep.original
 
 ##############################################################################
 # Target file rules.

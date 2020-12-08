@@ -85,10 +85,10 @@ INSTALL_X= install -m 0755
 INSTALL_F= install -m 0644
 UNINSTALL= $(RM)
 LDCONFIG= ldconfig -n
-SED_PC= sed -e "s|^prefix=.*|prefix=$(PREFIX)|" \
-            -e "s|^multilib=.*|multilib=$(MULTILIB)|"
-SED_TMEMPROF= sed -e "s|^TOOL_DIR=.*|TOOL_DIR=$(INSTALL_TOOLSLIB)|" \
-                  -e "s|^LUAJIT_BIN=.*|LUAJIT_BIN=$(INSTALL_T)|"
+SED_PC= sed -e "s|@LUAJIT_PC_PREFIX@|$(PREFIX)|" \
+            -e "s|@LUAJIT_PC_MULTILIB@|$(MULTILIB)|"
+SED_TMEMPROF= sed -e "s|@LUAJIT_TOOLS_DIR@|$(INSTALL_TOOLSLIB)|" \
+                  -e "s|@LUAJIT_TOOLS_BIN@|$(INSTALL_T)|"
 
 FILE_T= luajit
 FILE_A= libluajit.a
@@ -123,9 +123,9 @@ endif
 
 INSTALL_DEP= src/luajit
 
-default all $(INSTALL_DEP):
+default all $(INSTALL_DEP): tools
 	@echo "==== Building LuaJIT $(VERSION) ===="
-	$(MAKE) -C src
+	$(MAKE) -C src -f Makefile.original
 	@echo "==== Successfully built LuaJIT $(VERSION) ===="
 
 install: $(INSTALL_DEP)
@@ -140,17 +140,17 @@ install: $(INSTALL_DEP)
 	  $(SYMLINK) $(INSTALL_SONAME) $(INSTALL_SHORT1) && \
 	  $(SYMLINK) $(INSTALL_SONAME) $(INSTALL_SHORT2) || :
 	cd etc && $(INSTALL_F) $(FILE_MAN) $(INSTALL_MAN)
-	cd etc && $(SED_PC) $(FILE_PC) > $(FILE_PC).tmp && \
-	  $(INSTALL_F) $(FILE_PC).tmp $(INSTALL_PC) && \
-	  $(RM) $(FILE_PC).tmp
+	cd etc && $(SED_PC) $(FILE_PC).in > $(FILE_PC) && \
+	  $(INSTALL_F) $(FILE_PC) $(INSTALL_PC) && \
+	  $(RM) $(FILE_PC)
 	cd src && $(INSTALL_F) $(FILES_INC) $(INSTALL_INC)
 	cd src/jit && $(INSTALL_F) $(FILES_JITLIB) $(INSTALL_JITLIB)
 	cd tools/utils && $(INSTALL_F) $(FILES_UTILSLIB) $(INSTALL_UTILSLIB)
 	cd tools/memprof && $(INSTALL_F) $(FILES_MEMPROFLIB) $(INSTALL_MEMPROFLIB)
 	cd tools && $(INSTALL_F) $(FILES_TOOLSLIB) $(INSTALL_TOOLSLIB)
-	cd tools && $(SED_TMEMPROF) $(FILE_TMEMPROF) > $(FILE_TMEMPROF).tmp && \
-	  $(INSTALL_X) $(FILE_TMEMPROF).tmp $(INSTALL_TMEMPROF) && \
-	  $(RM) $(FILE_TMEMPROF).tmp
+	cd tools && $(SED_TMEMPROF) $(FILE_TMEMPROF).in > $(FILE_TMEMPROF) && \
+	  $(INSTALL_X) $(FILE_TMEMPROF) $(INSTALL_TMEMPROF) && \
+	  $(RM) $(FILE_TMEMPROF)
 	@echo "==== Successfully installed LuaJIT $(VERSION) to $(PREFIX) ===="
 	@echo ""
 	@echo "Note: the development releases deliberately do NOT install a symlink for luajit"
@@ -185,13 +185,25 @@ uninstall:
 
 ##############################################################################
 
-amalg:
+amalg: tools
 	@echo "Building LuaJIT $(VERSION)"
-	$(MAKE) -C src amalg
+	$(MAKE) -C src -f Makefile.original amalg
 
 clean:
-	$(MAKE) -C src clean
+	$(RM) tools/$(FILE_TMEMPROF)
+	$(MAKE) -C src -f Makefile.original clean
 
-.PHONY: all install amalg clean
+tools: tools/$(FILE_TMEMPROF)
+
+# FIXME: This is an ugly hack to manually configure an auxiliary
+# tools/luajit-parse-memprof. This file should go away in scope of
+# https://github.com/tarantool/tarantool/issues/5688.
+tools/$(FILE_TMEMPROF): src/luajit
+	@sed -e "s|@LUAJIT_TOOLS_DIR@|$(realpath tools)|" \
+	     -e "s|@LUAJIT_TOOLS_BIN@|$(realpath src/luajit)|" \
+	     $@.in > $@
+	@chmod +x $@
+
+.PHONY: all install amalg clean tools
 
 ##############################################################################

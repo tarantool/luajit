@@ -1,0 +1,6 @@
+#!/bin/bash
+#
+# Launcher for memprof parser.
+
+LUA_PATH="@LUAJIT_TOOLS_DIR@/?.lua;;" \
+	@LUAJIT_TOOLS_BIN@ @LUAJIT_TOOLS_DIR@/memprof.lua $@

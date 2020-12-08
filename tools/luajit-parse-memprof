@@ -1,9 +1,0 @@
-#!/bin/bash
-#
-# Launcher for memprof parser.
-
-# This two variables are replaced on installing.
-TOOL_DIR=$(dirname `readlink -f $0`)
-LUAJIT_BIN=$TOOL_DIR/../src/luajit
-
-LUA_PATH="$TOOL_DIR/?.lua;;" $LUAJIT_BIN $TOOL_DIR/memprof.lua $@
