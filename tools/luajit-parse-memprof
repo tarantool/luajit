@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# Launcher for memprof parser.
+# Copyright (C) 2015-2019 IPONWEB Ltd. See Copyright Notice in COPYRIGHT
+
+
+LAUNCHER_DIR=$(dirname `readlink -f $0`)
+# Assume that we are launched from the source tree for now.
+LUAJIT_BIN=$LAUNCHER_DIR/../src/luajit
+LUAJIT_TOOLS_PREFIX=$LAUNCHER_DIR
+
+if [[ ! -x "$LUAJIT_BIN" ]]; then
+    echo "FATAL: Unable to find LuaJIT at $LUAJIT_BIN. Is it built?"
+    exit 1
+fi
+
+TOOL_DIR=$LUAJIT_TOOLS_PREFIX/parse_memprof
+
+LUA_PATH="$TOOL_DIR/?.lua;;" $LUAJIT_BIN $TOOL_DIR/main.lua $@
+
