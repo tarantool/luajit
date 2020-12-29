@@ -188,6 +188,7 @@ LJLIB_CF(misc_memprof_start)
       lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
       lua_pushinteger(L, EINVAL);
       return 3;
+#if LJ_HASMEMPROF
     case PROFILE_ERRRUN:
       lua_pushnil(L);
       lua_pushstring(L, err2msg(LJ_ERR_PROF_ISRUNNING));
@@ -195,6 +196,7 @@ LJLIB_CF(misc_memprof_start)
       return 3;
     case PROFILE_ERRIO:
       return luaL_fileresult(L, 0, fname);
+#endif
     default:
       lj_assertX(0, "unreachable");
       return 0;
@@ -215,6 +217,7 @@ LJLIB_CF(misc_memprof_stop)
       lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
       lua_pushinteger(L, EINVAL);
       return 3;
+#if LJ_HASMEMPROF
     case PROFILE_ERRRUN:
       lua_pushnil(L);
       lua_pushstring(L, err2msg(LJ_ERR_PROF_NOTRUNNING));
@@ -222,6 +225,7 @@ LJLIB_CF(misc_memprof_stop)
       return 3;
     case PROFILE_ERRIO:
       return luaL_fileresult(L, 0, NULL);
+#endif
     default:
       lj_assertX(0, "unreachable");
       return 0;
