@@ -178,10 +178,6 @@ LJLIB_CF(misc_memprof_start)
   memprof_status = lj_memprof_start(L, &opt);
 
   if (LJ_UNLIKELY(memprof_status != PROFILE_SUCCESS)) {
-    if (memprof_status == PROFILE_ERRIO) {
-      fclose(ctx->stream);
-      lj_mem_free(ctx->g, ctx, sizeof(*ctx));
-    }
     switch (memprof_status) {
     case PROFILE_ERRUSE:
       lua_pushnil(L);
