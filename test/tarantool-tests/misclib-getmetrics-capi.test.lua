@@ -36,29 +36,29 @@ test:ok(testgetmetrics.objcount(function(iterations)
     }
 
     -- Separate objects creations to separate jit traces.
-    for i = 1, iterations do
-        table.insert(placeholder.str, tostring(i))
+    for _ = 1, iterations do
+        table.insert(placeholder.str, tostring(_))
     end
 
-    for i = 1, iterations do
-        table.insert(placeholder.tab, {i})
+    for _ = 1, iterations do
+        table.insert(placeholder.tab, {_})
     end
 
-    for i = 1, iterations do
+    for _ = 1, iterations do
         table.insert(placeholder.udata, newproxy())
     end
 
-    for i = 1, iterations do
+    for _ = 1, iterations do
         -- Check counting of VLA/VLS/aligned cdata.
         table.insert(placeholder.cdata, ffi.new("char[?]", 4))
     end
 
-    for i = 1, iterations do
+    for _ = 1, iterations do
         -- Check counting of non-VLA/VLS/aligned cdata.
-        table.insert(placeholder.cdata, ffi.new("uint64_t", i))
+        table.insert(placeholder.cdata, ffi.new("uint64_t", _))
     end
 
-    placeholder = nil
+    placeholder = nil -- luacheck: no unused
     -- Restore default jit settings.
     jit.opt.start(unpack(jit_opt_default))
 end))
@@ -67,14 +67,10 @@ end))
 test:ok(testgetmetrics.snap_restores(function()
     jit.opt.start(0, "hotloop=1")
 
-    local old_metrics = misc.getmetrics()
-
     local sum = 0
     for i = 1, 20 do
         sum = sum + i
     end
-
-    local new_metrics = misc.getmetrics()
 
     -- Restore default jit settings.
     jit.opt.start(unpack(jit_opt_default))
