@@ -9,4 +9,5 @@ exclude_files = {
   'dynasm/',
   'src/',
   'test/LuaJIT-tests/',
+  'test/lua-Harness-tests/',
 }
