@@ -43,11 +43,13 @@ endif()
 set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")
 separate_arguments(LUAJIT_TEST_COMMAND)
 
-add_subdirectory(tarantool-tests)
 add_subdirectory(LuaJIT-tests)
+add_subdirectory(lua-Harness-tests)
+add_subdirectory(tarantool-tests)
 
 add_custom_target(${PROJECT_NAME}-test DEPENDS
   LuaJIT-tests
+  lua-Harness-tests
   tarantool-tests
 )
 
