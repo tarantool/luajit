@@ -40,6 +40,9 @@ else()
   )
 endif()
 
+set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")
+separate_arguments(LUAJIT_TEST_COMMAND)
+
 add_subdirectory(tarantool-tests)
 add_subdirectory(LuaJIT-tests)
 
