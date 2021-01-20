@@ -288,6 +288,24 @@ set(LUAJIT_TEST_BINARY ${LUAJIT_BINARY} CACHE STRING
   "Lua implementation to be used for tests. Default is 'luajit'."
 )
 
+# FIXME: If LuaJIT is used in parent project, provide an option
+# to pass Lua code to be run before tests are started.
+# XXX: Attentive reader might point to LUA_INIT environment
+# variable, but this is less secure way to run the particular Lua
+# code. As a result the application to be run against LuaJIT test
+# can ignore it (for more info, see the following issue).
+# https://github.com/tarantool/tarantool/issues/5744
+# XXX: This variable is used as '-e' Lua runtime flag value and
+# the hack works since the code passed via '-e' is executed before
+# the code passed via Lua script, *but* both are executed in a
+# single environment. Hence, if this environment need to be
+# tweaked, the introduced option can be used.
+# XXX: The default behaviour is nop, so /dev/null is the best
+# option for this.
+set(LUAJIT_TEST_INIT "/dev/null" CACHE STRING
+  "Lua code need to be run before tests are started. Default is nop."
+)
+
 add_subdirectory(test)
 
 # --- Misc rules ---------------------------------------------------------------

@@ -88,7 +88,7 @@ add_custom_command(TARGET tarantool-tests
     LUA_CPATH="${LUA_CPATH}\;\;"
     LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
     ${PROVE} ${CMAKE_CURRENT_SOURCE_DIR}
-      --exec ${LUAJIT_TEST_BINARY}
+      --exec '${LUAJIT_TEST_COMMAND}'
       --ext ${LUA_TEST_SUFFIX}
       ${LUA_TEST_FLAGS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

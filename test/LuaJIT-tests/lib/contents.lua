@@ -18,9 +18,11 @@ local function check(m, expected, exclude)
   end
 end
 
-do --- base
-  check(_G, "_G:_VERSION:arg:assert:collectgarbage:coroutine:debug:dofile:error:getmetatable:io:ipairs:load:loadfile:math:misc:next:os:package:pairs:pcall:print:rawequal:rawget:rawset:require:select:setmetatable:string:table:tonumber:tostring:type:xpcall", "rawlen:bit:bit32:jit:gcinfo:setfenv:getfenv:loadstring:unpack:module:newproxy")
-end
+-- Test is disabled, because _G and some modules in Tarantool
+-- are different from _G and modules in LuaJIT.
+-- do
+--   check(_G, "_G:_VERSION:arg:assert:collectgarbage:coroutine:debug:dofile:error:getmetatable:io:ipairs:load:loadfile:math:misc:next:os:package:pairs:pcall:print:rawequal:rawget:rawset:require:select:setmetatable:string:table:tonumber:tostring:type:xpcall", "rawlen:bit:bit32:jit:gcinfo:setfenv:getfenv:loadstring:unpack:module:newproxy")
+-- end
 
 do --- pre-5.2 base +lua<5.2
   assert(gcinfo)
@@ -64,9 +66,11 @@ do --- 5.2 math +lua>=5.2
   assert(not math.log10)
 end
 
-do --- string
-  check(string, "byte:char:dump:find:format:gmatch:gsub:len:lower:match:rep:reverse:sub:upper", "gfind")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   check(string, "byte:char:dump:find:format:gmatch:gsub:len:lower:match:rep:reverse:sub:upper", "gfind")
+-- end
 
 do --- pre-5.2 string +lua<5.2 -compat5.2
   assert(not string.gfind)
@@ -76,9 +80,11 @@ do --- 5.2 string +lua>=5.2
   assert(not string.gfind)
 end
 
-do --- pre-5.2 table +lua<5.2
-  check(table, "concat:foreach:foreachi:getn:insert:maxn:move:remove:sort", "pack:unpack:setn:new")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   check(table, "concat:foreach:foreachi:getn:insert:maxn:move:remove:sort", "pack:unpack:setn:new")
+-- end
 
 do --- 5.2 table +lua>=5.2
   check(table, "concat:insert:pack:remove:sort:unpack")
@@ -102,19 +108,25 @@ do --- io file
   check(debug.getmetatable(io.stdin), "__gc:__index:__tostring:close:flush:lines:read:seek:setvbuf:write")
 end
 
-do --- os
-  check(os, "clock:date:difftime:execute:exit:getenv:remove:rename:setlocale:time:tmpname")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   check(os, "clock:date:difftime:execute:exit:getenv:remove:rename:setlocale:time:tmpname")
+-- end
 
-do --- debug
-  check(debug, "debug:gethook:getinfo:getlocal:getmetatable:getregistry:getupvalue:sethook:setlocal:setmetatable:setupvalue:traceback", "getfenv:setfenv:upvalueid:upvaluejoin:getuservalue:setuservalue")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   check(debug, "debug:gethook:getinfo:getlocal:getmetatable:getregistry:getupvalue:sethook:setlocal:setmetatable:setupvalue:traceback", "getfenv:setfenv:upvalueid:upvaluejoin:getuservalue:setuservalue")
+-- end
 
 -- TODO: Check versional differences in debug library
 
-do --- package
-  check(package, "config:cpath:loaded:loadlib:path:preload", "searchpath:loaders:searchers:seeall")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   check(package, "config:cpath:loaded:loadlib:path:preload", "searchpath:loaders:searchers:seeall")
+-- end
 
 do --- pre-5.2 package +lua<5.2
   assert(package.loaders)
@@ -128,19 +140,23 @@ do --- 5.2 package +lua>=5.2
   assert(not package.seeall)
 end
 
-do --- package.loaders
-  check(package.loaders or package.searchers, "1:2:3:4")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   check(package.loaders or package.searchers, "1:2:3:4")
+-- end
 
-do --- package.loaded
-  local loaded = {}
-  for k, v in pairs(package.loaded) do
-    if type(k) ~= "string" or (k:sub(1, 7) ~= "common." and k:sub(1, 4) ~= "jit.") then
-      loaded[k] = v
-    end
-  end
-  check(loaded, "_G:coroutine:debug:io:math:misc:misc.memprof:os:package:string:table", "bit:bit32:common:ffi:jit:table.new")
-end
+-- Test is disabled for the Tarantool's binary,
+-- see the comment above.
+-- do
+--   local loaded = {}
+--   for k, v in pairs(package.loaded) do
+--     if type(k) ~= "string" or (k:sub(1, 7) ~= "common." and k:sub(1, 4) ~= "jit.") then
+--       loaded[k] = v
+--     end
+--   end
+--   check(loaded, "_G:coroutine:debug:io:math:misc:misc.memprof:os:package:string:table", "bit:bit32:common:ffi:jit:table.new")
+-- end
 
 do --- bit +bit
   check(bit, "arshift:band:bnot:bor:bswap:bxor:lshift:rol:ror:rshift:tobit:tohex")
