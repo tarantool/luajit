@@ -55,7 +55,7 @@ do --- math
 end
 
 do --- pre-5.2 math +lua<5.2 -compat5.2
-  assert(math.mod)
+  assert(not math.mod)
   assert(math.log10)
 end
 
@@ -69,7 +69,7 @@ do --- string
 end
 
 do --- pre-5.2 string +lua<5.2 -compat5.2
-  assert(string.gfind)
+  assert(not string.gfind)
 end
 
 do --- 5.2 string +lua>=5.2
