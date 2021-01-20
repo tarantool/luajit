@@ -139,7 +139,7 @@ do --- package.loaded
       loaded[k] = v
     end
   end
-  check(loaded, "_G:coroutine:debug:io:math:misc:os:package:string:table", "bit:bit32:common:ffi:jit:table.new")
+  check(loaded, "_G:coroutine:debug:io:math:misc:misc.memprof:os:package:string:table", "bit:bit32:common:ffi:jit:table.new")
 end
 
 do --- bit +bit
