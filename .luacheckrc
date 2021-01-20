@@ -8,4 +8,5 @@ read_globals = { 'misc' }
 exclude_files = {
   'dynasm/',
   'src/',
+  'test/LuaJIT-tests/',
 }
