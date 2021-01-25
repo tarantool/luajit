@@ -1,7 +1,7 @@
 local tap = require("tap")
 
 local test = tap.test("misc-memprof-lapi")
-test:plan(9)
+test:plan(13)
 
 jit.off()
 jit.flush()
@@ -10,6 +10,7 @@ local table_new = require "table.new"
 
 local bufread = require "utils.bufread"
 local memprof = require "memprof.parse"
+local process = require "memprof.process"
 local symtab = require "utils.symtab"
 
 local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.memprofdata.tmp.bin")
@@ -66,8 +67,12 @@ local function fill_ev_type(events, symbols, event_type)
   return ev_type
 end
 
+local function form_source_line(line)
+  return string.format("@%s:%d", arg[0], line)
+end
+
 local function check_alloc_report(alloc, line, function_line, nevents)
-  assert(string.format("@%s:%d", arg[0], function_line) == alloc[line].name)
+  assert(form_source_line(function_line) == alloc[line].name)
   assert(alloc[line].num == nevents, ("got=%d, expected=%d"):format(
     alloc[line].num,
     nevents
@@ -120,12 +125,22 @@ local free = fill_ev_type(events, symbols, "free")
 -- the number of allocations.
 -- 1 event - alocation of table by itself + 1 allocation
 -- of array part as far it is bigger than LJ_MAX_COLOSIZE (16).
-test:ok(check_alloc_report(alloc, 20, 18, 2))
+test:ok(check_alloc_report(alloc, 21, 19, 2))
 -- 100 strings allocations.
-test:ok(check_alloc_report(alloc, 25, 18, 100))
+test:ok(check_alloc_report(alloc, 26, 19, 100))
 
 -- Collect all previous allocated objects.
 test:ok(free.INTERNAL.num == 102)
+
+-- Tests for leak-only option.
+-- See also https://github.com/tarantool/tarantool/issues/5812.
+local heap_delta = process.form_heap_delta(events, symbols)
+local tab_alloc_stats = heap_delta[form_source_line(21)]
+local str_alloc_stats = heap_delta[form_source_line(26)]
+test:ok(tab_alloc_stats.nalloc == tab_alloc_stats.nfree)
+test:ok(tab_alloc_stats.dbytes == 0)
+test:ok(str_alloc_stats.nalloc == str_alloc_stats.nfree)
+test:ok(str_alloc_stats.dbytes == 0)
 
 -- Test for https://github.com/tarantool/tarantool/issues/5842.
 -- We are not interested in this report.

@@ -28,8 +28,8 @@ function M.render(events, symbols)
     ))
 
     local prim_loc = {}
-    for _, loc in pairs(event.primary) do
-      table.insert(prim_loc, symtab.demangle(symbols, loc))
+    for _, heap_chunk in pairs(event.primary) do
+      table.insert(prim_loc, symtab.demangle(symbols, heap_chunk.loc))
     end
     if #prim_loc ~= 0 then
       table.sort(prim_loc)
@@ -40,6 +40,45 @@ function M.render(events, symbols)
       print("")
     end
   end
+end
+
+function M.profile_info(events, symbols)
+  print("ALLOCATIONS")
+  M.render(events.alloc, symbols)
+  print("")
+
+  print("REALLOCATIONS")
+  M.render(events.realloc, symbols)
+  print("")
+
+  print("DEALLOCATIONS")
+  M.render(events.free, symbols)
+  print("")
+end
+
+function M.leak_info(dheap)
+  local leaks = {}
+  for line, info in pairs(dheap) do
+    -- Report "INTERNAL" events inconsistencies for profiling
+    -- with enabled jit.
+    if info.dbytes > 0 then
+      table.insert(leaks, {line = line, dbytes = info.dbytes})
+    end
+  end
+
+  table.sort(leaks, function(l1, l2)
+    return l1.dbytes > l2.dbytes
+  end)
+
+  print("HEAP SUMMARY:")
+  for _, l in pairs(leaks) do
+    print(string.format(
+      "%s holds %d bytes: %d allocs, %d frees",
+      l.line, l.dbytes, dheap[l.line].nalloc,
+      dheap[l.line].nfree
+    ))
+  end
+  print("")
 end
 
 return M

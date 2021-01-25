@@ -39,11 +39,23 @@ local function new_event(loc)
   }
 end
 
-local function link_to_previous(heap_chunk, e)
+local function link_to_previous(heap_chunk, e, nsize)
   -- Memory at this chunk was allocated before we start tracking.
   if heap_chunk then
     -- Save Lua code location (line) by address (id).
-    e.primary[heap_chunk[2]] = heap_chunk[3]
+    if not e.primary[heap_chunk[2]] then
+      e.primary[heap_chunk[2]] = {
+        loc = heap_chunk[3],
+        alloced = 0,
+        freed = 0,
+        count = 0,
+      }
+    end
+    -- Save information about delta for memory heap.
+    local location_data = e.primary[heap_chunk[2]]
+    location_data.alloced = location_data.alloced + nsize
+    location_data.freed = location_data.freed + heap_chunk[1]
+    location_data.count = location_data.count + 1
   end
 end
 
@@ -97,7 +109,7 @@ local function parse_realloc(reader, asource, events, heap)
   e.free = e.free + osize
   e.alloc = e.alloc + nsize
 
-  link_to_previous(heap[oaddr], e)
+  link_to_previous(heap[oaddr], e, nsize)
 
   heap[oaddr] = nil
   heap[naddr] = {nsize, id, loc}
@@ -116,7 +128,7 @@ local function parse_free(reader, asource, events, heap)
   e.num = e.num + 1
   e.free = e.free + osize
 
-  link_to_previous(heap[oaddr], e)
+  link_to_previous(heap[oaddr], e, 0)
 
   heap[oaddr] = nil
 end

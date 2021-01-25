@@ -12,6 +12,7 @@
 
 local bufread = require "utils.bufread"
 local memprof = require "memprof.parse"
+local process = require "memprof.process"
 local symtab = require "utils.symtab"
 local view = require "memprof.humanize"
 
@@ -33,8 +34,14 @@ luajit-parse-memprof [options] memprof.bin
 Supported options are:
 
   --help                            Show this help and exit
+  --leak-only                       Report only leaks information
 ]]
   os.exit(0)
+end
+
+local leak_only = false
+opt_map["leak-only"] = function()
+  leak_only = true
 end
 
 -- Print error and exit with error status.
@@ -94,26 +101,26 @@ local function dump(inputfile)
   local reader = bufread.new(inputfile)
   local symbols = symtab.parse(reader)
   local events = memprof.parse(reader, symbols)
-
-  stdout:write("ALLOCATIONS", "\n")
-  view.render(events.alloc, symbols)
-  stdout:write("\n")
-
-  stdout:write("REALLOCATIONS", "\n")
-  view.render(events.realloc, symbols)
-  stdout:write("\n")
-
-  stdout:write("DEALLOCATIONS", "\n")
-  view.render(events.free, symbols)
-  stdout:write("\n")
-
+  if not leak_only then
+    view.profile_info(events, symbols)
+  end
+  local dheap = process.form_heap_delta(events, symbols)
+  view.leak_info(dheap)
   os.exit(0)
+end
+
+-- XXX: When this script is used as a preloaded module by an
+-- application, it should return one function for correct parsing
+-- of command line flags like --leak-only and dumping profile
+-- info.
+local function dump_wrapped(...)
+  return dump(parseargs(...))
 end
 
 -- FIXME: this script should be application-independent.
 local args = {...}
 if #args == 1 and args[1] == "memprof" then
-  return dump
+  return dump_wrapped
 else
-  dump(parseargs(args))
+  dump_wrapped(args)
 end
