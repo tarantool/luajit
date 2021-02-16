@@ -15,7 +15,7 @@ local jit_opt_default = {
 local tap = require('tap')
 
 local test = tap.test("clib-misc-getmetrics")
-test:plan(10)
+test:plan(11)
 
 local testgetmetrics = require("testgetmetrics")
 
@@ -61,6 +61,19 @@ test:ok(testgetmetrics.objcount(function(iterations)
     placeholder = nil -- luacheck: no unused
     -- Restore default jit settings.
     jit.opt.start(unpack(jit_opt_default))
+end))
+
+test:ok(testgetmetrics.objcount_cdata_decrement(function()
+    -- gc_cdatanum decrement test.
+    -- See https://github.com/tarantool/tarantool/issues/5820.
+    local ffi = require("ffi")
+    local function nop() end
+    ffi.gc(ffi.cast("void *", 0), nop)
+    -- Does not collect the cdata, but resurrects the object and
+    -- removes LJ_GC_CDATA_FIN flag.
+    collectgarbage()
+    -- Collects the cdata.
+    collectgarbage()
 end))
 
 -- Compiled loop with a direct exit to the interpreter.

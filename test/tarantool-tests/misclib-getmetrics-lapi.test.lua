@@ -177,7 +177,7 @@ test:test("gc-steps", function(subtest)
 end)
 
 test:test("objcount", function(subtest)
-    subtest:plan(4)
+    subtest:plan(5)
     local ffi = require("ffi")
 
     jit.opt.start(0)
@@ -235,6 +235,19 @@ test:test("objcount", function(subtest)
                "udatanum don't change")
     subtest:is(new_metrics.gc_cdatanum, old_metrics.gc_cdatanum,
                "cdatanum don't change")
+
+    -- gc_cdatanum decrement test.
+    -- See https://github.com/tarantool/tarantool/issues/5820.
+    local function nop() end
+    local cdatanum_old = misc.getmetrics().gc_cdatanum
+    ffi.gc(ffi.cast("void *", 0), nop)
+    -- Does not collect the cdata, but resurrects the object and
+    -- removes LJ_GC_CDATA_FIN flag.
+    collectgarbage()
+    -- Collects the cdata.
+    collectgarbage()
+    subtest:is(misc.getmetrics().gc_cdatanum, cdatanum_old,
+               "cdatanum is decremented correctly")
 
     -- Restore default jit settings.
     jit.opt.start(unpack(jit_opt_default))
