@@ -80,10 +80,11 @@ void LJ_FASTCALL lj_cdata_free(global_State *g, GCcdata *cd)
     lua_assert(ctype_hassize(ct->info) || ctype_isfunc(ct->info) ||
 	       ctype_isextern(ct->info));
     lj_mem_free(g, cd, sizeof(GCcdata) + sz);
+    g->gc.cdatanum--;
   } else {
     lj_mem_free(g, memcdatav(cd), sizecdatav(cd));
+    g->gc.cdatanum--;
   }
-  g->gc.cdatanum--;
 }
 
 void lj_cdata_setfin(lua_State *L, GCcdata *cd, GCobj *obj, uint32_t it)

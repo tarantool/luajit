@@ -155,6 +155,33 @@ static int objcount(lua_State *L)
 	return 1;
 }
 
+static int objcount_cdata_decrement(lua_State *L)
+{
+	/*
+	 * cdata decrement test.
+	 * See https://github.com/tarantool/tarantool/issues/5820.
+	 */
+	struct luam_Metrics oldm, newm;
+	int n = lua_gettop(L);
+	if (n != 1 || !lua_isfunction(L, 1))
+		luaL_error(L, "incorrect argument: 1 function is required");
+
+	/* Force up garbage collect all dead objects. */
+	lua_gc(L, LUA_GCCOLLECT, 0);
+
+	luaM_metrics(L, &oldm);
+	/*
+	 * The function generates and collects cdata with
+	 * LJ_GC_CDATA_FIN flag.
+	 */
+	lua_call(L, 0, 0);
+	luaM_metrics(L, &newm);
+	assert(newm.gc_cdatanum - oldm.gc_cdatanum == 0);
+
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
 static int snap_restores(lua_State *L)
 {
 	struct luam_Metrics oldm, newm;
@@ -229,6 +256,7 @@ static const struct luaL_Reg testgetmetrics[] = {
 	{"gc_allocated_freed", gc_allocated_freed},
 	{"gc_steps", gc_steps},
 	{"objcount", objcount},
+	{"objcount_cdata_decrement", objcount_cdata_decrement},
 	{"snap_restores", snap_restores},
 	{"strhash", strhash},
 	{"tracenum_base", tracenum_base},
