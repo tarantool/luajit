@@ -125,5 +125,23 @@ test:ok(check_alloc_report(alloc, 25, 18, 100))
 -- Collect all previous allocated objects.
 test:ok(free.INTERNAL.num == 102)
 
+-- Test for https://github.com/tarantool/tarantool/issues/5842.
+-- We are not interested in this report.
+misc.memprof.start("/dev/null")
+-- We need to cause stack resize for local variables at function
+-- call. Let's create a new coroutine (all slots are free).
+-- It has 1 slot for dummy frame + 39 free slots + 5 extra slots
+-- (so-called red zone) + 2 * LJ_FR2 slots. So 50 local variables
+-- is enough.
+local payload_str = ""
+for i = 1, 50 do
+  payload_str = payload_str..("local v%d = %d\n"):format(i, i)
+end
+local f, errmsg = loadstring(payload_str)
+assert(f, errmsg)
+local co = coroutine.create(f)
+coroutine.resume(co)
+misc.memprof.stop()
+
 jit.on()
 os.exit(test:check() and 0 or 1)
