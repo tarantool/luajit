@@ -64,7 +64,16 @@ static void resizestack(lua_State *L, MSize n)
   MSize oldsize = L->stacksize;
   MSize realsize = n + 1 + LJ_STACK_EXTRA;
   GCobj *up;
+  int32_t oldvmstate = G(L)->vmstate;
+
   lua_assert((MSize)(tvref(L->maxstack)-oldst)==L->stacksize-LJ_STACK_EXTRA-1);
+
+  /*
+  ** Lua stack is inconsistent while reallocation, profilers
+  ** depend on vmstate during reports, so set vmstate to INTERP
+  ** to avoid inconsistent behaviour.
+  */
+  setvmstate(G(L), INTERP);
   st = (TValue *)lj_mem_realloc(L, tvref(L->stack),
 				(MSize)(oldsize*sizeof(TValue)),
 				(MSize)(realsize*sizeof(TValue)));
@@ -80,6 +89,8 @@ static void resizestack(lua_State *L, MSize n)
   L->top = (TValue *)((char *)L->top + delta);
   for (up = gcref(L->openupval); up != NULL; up = gcnext(up))
     setmref(gco2uv(up)->v, (TValue *)((char *)uvval(gco2uv(up)) + delta));
+
+  G(L)->vmstate = oldvmstate;
 }
 
 /* Relimit stack after error, in case the limit was overdrawn. */
