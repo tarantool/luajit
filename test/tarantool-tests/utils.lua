@@ -2,13 +2,24 @@ local M = {}
 
 local tap = require('tap')
 
+local function luacmd(args)
+  -- arg[-1] is guaranteed to be not nil.
+  local idx = -2
+  while args[idx] do
+    assert(type(args[idx]) == 'string', 'Command part have to be a string')
+    idx = idx - 1
+  end
+  -- return the full command with flags.
+  return table.concat(args, ' ', idx + 1, -1)
+end
+
 function M.selfrun(arg, checks)
   local test = tap.test(arg[0]:match('/?(.+)%.test%.lua'))
 
   test:plan(#checks)
 
   local vars = {
-    LUABIN = arg[-1],
+    LUABIN = luacmd(arg),
     SCRIPT = arg[0],
     PATH   = arg[0]:gsub('%.test%.lua', ''),
     SUFFIX = package.cpath:match('?.(%a+);'),
