@@ -119,7 +119,7 @@ t[u] = true
 ok(t[u])
 
 if has_op53 then
-    dofile'lexico53/userdata.t'
+    make_specific_checks'lexico53/userdata.t'
 end
 
 done_testing()
