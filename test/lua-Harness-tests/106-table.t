@@ -122,7 +122,7 @@ error_like(function () t = {}; t[0/0] = 42 end,
            "table index is NaN")
 
 if has_op53 then
-    dofile'lexico53/table.t'
+    make_specific_checks'lexico53/table.t'
 end
 
 done_testing()
