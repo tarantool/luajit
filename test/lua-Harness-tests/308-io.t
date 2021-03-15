@@ -40,7 +40,7 @@ local has_read53 = _VERSION >= 'Lua 5.3' or luajit21
 local has_meta53 = _VERSION >= 'Lua 5.3'
 local has_meta54 = _VERSION >= 'Lua 5.4'
 
-local lua = arg[-3] or arg[-1]
+local lua = get_lua_binary_name()
 
 plan'no_plan'
 

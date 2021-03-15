@@ -31,7 +31,7 @@ if not jit or ujit then
     skip_all("only with LuaJIT")
 end
 
-local lua = arg[-3] or arg[-1]
+local lua = get_lua_binary_name()
 
 if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
     skip_all("io.popen not supported")

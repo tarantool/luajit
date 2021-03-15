@@ -26,7 +26,7 @@ Tests Lua Basic & IO Libraries with stdin
 
 require'tap'
 
-local lua = arg[-3] or arg[-1]
+local lua = get_lua_binary_name()
 
 if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
     skip_all "io.popen not supported"

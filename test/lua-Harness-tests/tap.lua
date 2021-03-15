@@ -195,6 +195,16 @@ function todo (reason, count)
     todo_reason = reason
 end
 
+-- The least arg element is guaranteed to be the name
+-- of the tested binary.
+function get_lua_binary_name ()
+    local i = 0
+    while arg[i] do
+        i = i - 1
+    end
+    return arg[i + 1]
+end
+
 --
 -- Copyright (c) 2009-2018 Francois Perrad
 --

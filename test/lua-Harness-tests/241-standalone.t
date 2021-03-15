@@ -41,7 +41,7 @@ elseif ravi then
     banner = '^Ravi %d%.%d%.%d'
 end
 
-local lua = arg[-3] or arg[-1]
+local lua = get_lua_binary_name()
 local luac = jit and lua or (lua .. 'c')
 
 if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
