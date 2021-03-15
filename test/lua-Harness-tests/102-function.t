@@ -193,7 +193,7 @@ t[print] = true
 ok(t[print])
 
 if has_op53 then
-    dofile'lexico53/function.t'
+    make_specific_checks'lexico53/function.t'
 end
 
 done_testing()

@@ -40,9 +40,9 @@ if not utf8 then
     nok(has_utf8, "no has_utf8")
 else
     plan'no_plan'
-    dofile'lexico53/utf8.t'
+    make_specific_checks'lexico53/utf8.t'
     if _VERSION >= 'Lua 5.4' then
-        dofile'lexico54/utf8.t'
+        make_specific_checks'lexico54/utf8.t'
     end
     done_testing()
 end

@@ -233,7 +233,7 @@ error_like(function () local a = 3.14; a[1] = 1; end,
            "index")
 
 if has_op53 then
-    dofile'lexico53/number.t'
+    make_specific_checks'lexico53/number.t'
 end
 
 done_testing()

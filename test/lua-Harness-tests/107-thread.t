@@ -122,7 +122,7 @@ t[co] = true
 ok(t[co])
 
 if has_op53 then
-    dofile'lexico53/thread.t'
+    make_specific_checks'lexico53/thread.t'
 end
 
 done_testing()

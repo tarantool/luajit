@@ -158,7 +158,7 @@ end
 
 -- thread.exdata
 if pcall(require, 'ffi') and (profile.openresty or jit.version:match'moonjit') then
-    dofile'lexicojit/ext.t'
+    make_specific_checks'lexicojit/ext.t'
 end
 
 done_testing()

@@ -205,6 +205,14 @@ function get_lua_binary_name ()
     return arg[i + 1]
 end
 
+-- XXX: If tests is run out of the tests source tree, the
+-- relative paths below become invalid. Hence, we need to
+-- prepend the directory from the script (i.e. test) name to
+-- the auxiliary files to be loaded and executed.
+function make_specific_checks (filename)
+    return dofile(arg[0]:gsub('([^/]+)%.t$', '') .. filename)
+end
+
 --
 -- Copyright (c) 2009-2018 Francois Perrad
 --

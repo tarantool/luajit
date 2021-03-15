@@ -589,7 +589,7 @@ do
 end
 
 if has_anno_toclose then
-    dofile'lexico54/metatable.t'
+    make_specific_checks'lexico54/metatable.t'
 end
 
 done_testing()
