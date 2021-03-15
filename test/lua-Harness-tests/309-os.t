@@ -34,7 +34,7 @@ require'tap'
 local profile = require'profile'
 local luajit20 = jit and (jit.version_num < 20100 and not jit.version:match'^RaptorJIT')
 local has_execute51 = _VERSION == 'Lua 5.1' and (not profile.luajit_compat52 or ujit)
-local lua = arg[-3] or arg[-1]
+local lua = get_lua_binary_name()
 
 plan'no_plan'
 
