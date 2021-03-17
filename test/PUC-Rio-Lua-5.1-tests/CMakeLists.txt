@@ -16,8 +16,9 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 # variable as proposed in the first case.
 set(LUA_PATH "?\;${CMAKE_CURRENT_SOURCE_DIR}/?.lua")
 
-# Establish PUC-Rio-Lua-5.1-tests-prepare target that creates
-# <libs/P1> subdirectory.
+# Establish PUC-Rio-Lua-5.1-tests-prepare target that contains
+# rules for <libs/*> libraries compilation and creates <libs/P1>
+# subdirectory.
 add_subdirectory(libs)
 
 # TODO: PUC-Rio Lua 5.1 test suite also has special header
