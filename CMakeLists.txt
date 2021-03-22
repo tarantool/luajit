@@ -176,6 +176,9 @@ endif()
 
 # Enable GC64 mode for x64.
 option(LUAJIT_ENABLE_GC64 "GC64 mode for x64" OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set(LUAJIT_ENABLE_GC64 ON)
+endif()
 if(LUAJIT_ENABLE_GC64)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_GC64)
 endif()
