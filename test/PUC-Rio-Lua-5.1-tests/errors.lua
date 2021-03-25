@@ -105,9 +105,17 @@ while 1 do
   insert(prefix, a)
 end]], "global 'insert'")
 
-checkmessage([[  -- tail call
-  return math.sin("a")
-]], "'sin'")
+-- LuaJIT: When LuaJIT tries to detect function's name for error
+-- message, it determines the bytecode position first, via
+-- `debug_framepc()`. For tailcall there is no creation of
+-- additional Lua frame, so the current frame is a C protected
+-- frame (at the moment of the error throwing). `debug_framepc()`
+-- can't determine bytecode position for non-Lua frames, so
+-- the fast function name is not detected.
+-- The test is disabled for LuaJIT.
+-- checkmessage([[  -- tail call
+--   return math.sin("a")
+-- ]], "'sin'")
 
 checkmessage([[collectgarbage("nooption")]], "invalid option")
 
