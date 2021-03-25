@@ -300,10 +300,9 @@ set(LUAJIT_TEST_BINARY ${LUAJIT_BINARY} CACHE STRING
 # the code passed via Lua script, *but* both are executed in a
 # single environment. Hence, if this environment need to be
 # tweaked, the introduced option can be used.
-# XXX: The default behaviour is nop, so /dev/null is the best
-# option for this.
-set(LUAJIT_TEST_INIT "/dev/null" CACHE STRING
-  "Lua code need to be run before tests are started. Default is nop."
+# The default behaviour is defined in test/luajit-test-init.lua.
+set(LUAJIT_TEST_INIT "${PROJECT_SOURCE_DIR}/test/luajit-test-init.lua" CACHE STRING
+  "Lua code need to be run before tests are started."
 )
 
 add_subdirectory(test)

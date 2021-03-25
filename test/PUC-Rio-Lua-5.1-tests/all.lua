@@ -66,7 +66,12 @@ dofile = function (n)
   return f()
 end
 
-dofile('main.lua')
+-- LuaJIT: Adapt tests for testing with out-of-source build.
+-- See the comment in <test/luajit-test-init.lua>.
+local _dofile = _dofile or dofile
+local _loadstring = _loadstring or loadstring
+
+_dofile('main.lua')
 
 do
   local u = newproxy(true)
@@ -77,32 +82,34 @@ do
   end
 end
 
-local f = assert(loadfile('gc.lua'))
+-- LuaJIT: Adapt tests for testing with out-of-source build.
+-- See the comment in <test/luajit-test-init.lua>.
+local f = assert(_loadfile('gc.lua'))
 f()
-dofile('db.lua')
-assert(dofile('calls.lua') == deep and deep)
-dofile('strings.lua')
-dofile('literals.lua')
-assert(dofile('attrib.lua') == 27)
-assert(dofile('locals.lua') == 5)
-dofile('constructs.lua')
-dofile('code.lua')
+_dofile('db.lua')
+assert(_dofile('calls.lua') == deep and deep)
+_dofile('strings.lua')
+_dofile('literals.lua')
+assert(_dofile('attrib.lua') == 27)
+assert(_dofile('locals.lua') == 5)
+_dofile('constructs.lua')
+_dofile('code.lua')
 do
-  local f = coroutine.wrap(assert(loadfile('big.lua')))
+  local f = coroutine.wrap(assert(_loadfile('big.lua')))
   assert(f() == 'b')
   assert(f() == 'a')
 end
-dofile('nextvar.lua')
-dofile('pm.lua')
-dofile('api.lua')
-assert(dofile('events.lua') == 12)
-dofile('vararg.lua')
-dofile('closure.lua')
-dofile('errors.lua')
-dofile('math.lua')
-dofile('sort.lua')
-assert(dofile('verybig.lua') == 10); collectgarbage()
-dofile('files.lua')
+_dofile('nextvar.lua')
+_dofile('pm.lua')
+_dofile('api.lua')
+assert(_dofile('events.lua') == 12)
+_dofile('vararg.lua')
+_dofile('closure.lua')
+_dofile('errors.lua')
+_dofile('math.lua')
+_dofile('sort.lua')
+assert(_dofile('verybig.lua') == 10); collectgarbage()
+_dofile('files.lua')
 
 if #msgs > 0 then
   print("\ntests not performed:")
