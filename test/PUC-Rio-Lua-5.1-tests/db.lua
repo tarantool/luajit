@@ -495,7 +495,15 @@ local _, l = coroutine.resume(co, 10)
 local x = debug.getinfo(co, 1, "lfLS")
 assert(x.currentline == l.currentline and x.activelines[x.currentline])
 assert(type(x.func) == "function")
-for i=x.linedefined + 1, x.lastlinedefined do
+-- LuaJIT: LuaJIT does not report the line with single "end"
+-- statement (the last line of the function) as an active line in
+-- debug.getinfo(), unlike Lua does. There is no bytecode
+-- related to this line, so it is "unreachable" and
+-- may be considered not active.
+-- See also https://github.com/tarantool/tarantool/issues/5708.
+-- Test is adapted for LuaJIT's behaviour by avoiding the last
+-- line check.
+for i=x.linedefined + 1, x.lastlinedefined - 1 do
   assert(x.activelines[i])
   x.activelines[i] = nil
 end
