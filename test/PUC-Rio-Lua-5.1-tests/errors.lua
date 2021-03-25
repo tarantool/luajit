@@ -206,7 +206,11 @@ checksyntax("[[a]]", "", "[[a]]", 1)
 checksyntax("'aa'", "", "'aa'", 1)
 
 -- test 255 as first char in a chunk
-checksyntax("\255a = 1", "", "\255", 1)
+-- LuaJIT: LuaJIT does not forbid using non-alphanumeric symbols
+-- as identifiers, unlike Lua does.
+-- For more details see <src/lj_char.c> and <src/lj_lex.c>.
+-- Test is disabled for LuaJIT.
+-- checksyntax("\255a = 1", "", "\255", 1)
 
 doit('I = loadstring("a=9+"); a=3')
 assert(a==3 and I == nil)
