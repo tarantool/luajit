@@ -108,11 +108,21 @@ local function dosteps (siz)
   return i
 end
 
+-- LuaJIT: JIT compilation can unpredictably allocate or reference
+-- objects (or traces itself). Disable it if necessary for
+-- this chunk for stable GC results.
+local jit_is_enabled = jit.status()
+if jit_is_enabled then
+  jit.off()
+end
 assert(dosteps(0) > 10)
 assert(dosteps(6) < dosteps(2))
 assert(dosteps(10000) == 1)
 assert(collectgarbage("step", 1000000) == true)
 assert(collectgarbage("step", 1000000))
+if jit_is_enabled then
+  jit.on()
+end
 
 
 do
