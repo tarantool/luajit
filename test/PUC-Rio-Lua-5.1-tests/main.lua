@@ -69,9 +69,19 @@ a = string.format(a, progname)
 prepfile(a)
 RUN('lua "-e " -- %s a b c', prog)
 
-prepfile"assert(arg==nil)"
+-- test 'arg' availability in libraries
+-- LuaJIT: LuaJIT v2.1.0-beta3 has extension from Lua 5.3:
+-- The argument table `arg` can be read (and modified)
+-- by `LUA_INIT` and `-e` chunks.
+-- See commit 92d9ff211ae864777a8580b5a7326d5f408161ce
+-- (Set arg table before evaluating LUA_INIT and -e chunks.).
+-- See also https://github.com/tarantool/tarantool/issues/5686.
+-- In Lua 5.3 this feature was introduced via commit
+-- 23f0ff95177eda2e0a80e3a48562cc6837705735.
+-- Test is adapted from PUC-Rio Lua 5.3 test suite.
+prepfile"assert(arg)"
 prepfile("assert(arg)", otherprog)
-RUN("lua -l%s - < %s", prog, otherprog)
+RUN('env LUA_PATH="?;;" lua -l%s - < %s', prog, otherprog)
 
 prepfile""
 RUN("lua - < %s > %s", prog, out)
