@@ -303,7 +303,16 @@ debug.sethook(function (e)
 end, "c")
 
 a:f(1,2,3,4,5)
-assert(X.self == a and X.a == 1   and X.b == 2 and X.arg.n == 3 and X.c == nil)
+
+-- LuaJIT: Lua 5.1 interprets `...` in the vararg functions as
+-- an additional local argument unlike LuaJIT does.
+-- So, `a:f()` function will not set the corresponding `arg`
+-- table, as test expects.
+-- Implicit `arg` parameter for old-style vararg functions was
+-- finally removed in Lua 5.2
+-- The test is adapted from PUC-Rio Lua 5.2 test suite by removing
+-- additional `arg.n == 3` check.
+assert(X.self == a and X.a == 1   and X.b == 2 and X.c == nil)
 assert(XX == 12)
 assert(debug.gethook() == nil)
 
