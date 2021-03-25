@@ -72,8 +72,13 @@ checkmessage("b=1; local aaa='a'; x=aaa+b", "local 'aaa'")
 checkmessage("aaa={}; x=3/aaa", "global 'aaa'")
 checkmessage("aaa='2'; b=nil;x=aaa*b", "global 'b'")
 checkmessage("aaa={}; x=-aaa", "global 'aaa'")
-assert(not string.find(doit"aaa={}; x=(aaa or aaa)+(aaa and aaa)", "'aaa'"))
-assert(not string.find(doit"aaa={}; (aaa or aaa)()", "'aaa'"))
+-- LuaJIT: LuaJIT includes variable name to the error message.
+-- It looks like:
+-- "attempt to perform arithmetic on global 'aaa' (a table value)"
+-- Lua 5.1 doesn't report the variable name here.
+-- Tests are disabled for LuaJIT.
+-- assert(not string.find(doit"aaa={}; x=(aaa or aaa)+(aaa and aaa)", "'aaa'"))
+-- assert(not string.find(doit"aaa={}; (aaa or aaa)()", "'aaa'"))
 
 checkmessage([[aaa=9
 repeat until 3==3
