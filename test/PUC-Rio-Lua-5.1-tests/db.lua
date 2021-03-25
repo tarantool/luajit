@@ -515,8 +515,12 @@ a,b = debug.getlocal(co, 1, 2)
 assert(a == "a" and b == 1)
 debug.setlocal(co, 1, 2, "hi")
 assert(debug.gethook(co) == foo)
-assert(table.getn(tr) == 2 and
-       tr[1] == l.currentline-1 and tr[2] == l.currentline)
+-- LuaJIT: LuaJIT does not support per-coroutine hooks.
+-- Hook is set for the whole VM.
+-- See also https://luajit.org/status.html.
+-- Test is disabled for LuaJIT.
+-- assert(table.getn(tr) == 2 and
+--        tr[1] == l.currentline-1 and tr[2] == l.currentline)
 
 a,b,c = pcall(coroutine.resume, co)
 assert(a and b and c == l.currentline+1)
@@ -524,9 +528,13 @@ checktraceback(co, {"yield", "in function <"})
 
 a,b = coroutine.resume(co)
 assert(a and b == "hi")
-assert(table.getn(tr) == 4 and tr[4] == l.currentline+2)
+-- LuaJIT: Behavior is different for LuaJIT.
+-- See the comment above. Test is disabled for LuaJIT.
+-- assert(table.getn(tr) == 4 and tr[4] == l.currentline+2)
 assert(debug.gethook(co) == foo)
-assert(debug.gethook() == nil)
+-- LuaJIT: Behavior is different for LuaJIT.
+-- See the comment above. Test is disabled for LuaJIT.
+-- assert(debug.gethook() == nil)
 checktraceback(co, {})
 
 
