@@ -232,7 +232,16 @@ local function testrep (init, rep)
 end
 testrep("a=", "{")
 testrep("a=", "(")
-testrep("", "a(")
+-- LuaJIT: When compiled with LUAJIT_ENABLE_GC64, LJ_MAX_SLOTS
+-- limit is reached and error LJ_ERR_XSLOTS ("function or
+-- expression too complex") is raised earlier, than LJ_MAX_XLEVEL
+-- limit is reached and error LJ_ERR_XLEVELS ("chunk has too many
+-- syntax levels") is raised.
+-- This happens, because, when GC64 support is enabled, every
+-- function's call needs twice more slots on the coroutine stack
+-- (since LJ_FR2 is also set).
+-- Test is disabled for LuaJIT.
+-- testrep("", "a(")
 testrep("", "do ")
 testrep("", "while a do ")
 testrep("", "if a then else ")
