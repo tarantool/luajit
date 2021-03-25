@@ -201,7 +201,8 @@ print('+')
 
 a = {}
 for i=0,10000 do
-  if math.mod(i,10) ~= 0 then
+  -- LuaJIT: use `math.fmod()` instead of old-style `math.mod()`.
+  if math.fmod(i,10) ~= 0 then
     a['x'..i] = i
   end
 end
