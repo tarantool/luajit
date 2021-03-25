@@ -158,6 +158,10 @@ end
 
 
 -- testing decimal point locale
+-- LuaJIT: LuaJIT doesn't use `strtod()` dependent on the locale,
+-- unlike Lua does. See <src/lj_strscan.c> for more info.
+-- Tests are disabled for LuaJIT.
+--[[
 if os.setlocale("pt_BR") or os.setlocale("ptb") then
   assert(tonumber("3,4") == 3.4 and tonumber"3.4" == nil)
   assert(assert(loadstring("return 3.4"))() == 3.4)
@@ -171,6 +175,7 @@ else
   (Message or print)(
    '\a\n >>> pt_BR locale not available: skipping decimal point tests <<<\n\a')
 end
+--]]
 
 
 print('OK')
