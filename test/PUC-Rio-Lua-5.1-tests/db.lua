@@ -224,6 +224,13 @@ assert(debug.getinfo(1, "l").currentline == L+11)  -- check count of lines
 
 
 function g(...)
+  -- LuaJIT: Lua 5.1 interprets `...` in the vararg functions like
+  -- an additional local argument unlike LuaJIT does.
+  -- This extension is from Lua 5.2.
+  -- See also https://github.com/tarantool/tarantool/issues/5694.
+  -- Test is adapted from PUC-Rio Lua 5.2 test suite by adding
+  -- additional variable `arg`.
+  local arg = {...}
   do local a,b,c; a=math.sin(40); end
   local feijao
   local AAAA,B = "xuxu", "mamão"
