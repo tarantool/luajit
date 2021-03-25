@@ -102,7 +102,43 @@ print('+')
 
 x = '"ílo"\n\\'
 assert(string.format('%q%s', x, x) == '"\\"ílo\\"\\\n\\\\""ílo"\n\\')
-assert(string.format('%q', "\0") == [["\000"]])
+--[[
+LuaJIT: LuaJIT since v2.0.0-beta6 has extension from Lua 5.2:
+| string.format(): %q reversible.
+
+The q option formats a string in a form suitable to be safely read
+back by the Lua interpreter [1].
+
+In Lua 5.1, '\0' was converted to "\000" unconditionally.
+
+In Lua 5.2, control characters are written as \nnn when needed,
+see d62a21b9d379a576bae7426c80039ca1a4d2bb07 ("when formatting
+with '%q', all control characters are coded as \nnn.") [2].
+In this patch, %q specifier starts writing control characters to
+a new string in the same way through \d, instead of their binary
+representation as it is. If the control character is followed by
+a digit, then for the correct work of the parser, it is necessary
+to extend the escape sequence to 3 significant characters
+(otherwise, the transition "\0002" -> "\02" corrupts string).
+For this patch, the expansion is performed unconditionally
+(the check for the next symbol is not performed) if this first
+symbol is a zero byte.
+
+Consistent work with the zero byte processing omitting the custom
+check was added in the commit
+658ea8752b979102627e2fede7b7ddfbb67ba6c9 ("no need to handle '\0'
+differently from other control chars in format '%q'") [3]. Note,
+that this patch does not change the semantics of %q specifier --
+the new string can still be "safely read back by the Lua
+interpreter".
+
+[1]: https://www.lua.org/manual/5.1/manual.html#pdf-string.format
+[2]: https://github.com/lua/lua/commit/d62a21b9d379a576bae7426c80039ca1a4d2bb07
+[3]: https://github.com/lua/lua/commit/658ea8752b979102627e2fede7b7ddfbb67ba6c9
+
+Test is adapted from PUC-Rio Lua 5.2 test suite.
+--]]
+assert(string.format('%q', "\0") == [["\0"]])
 assert(string.format("\0%c\0%c%x\0", string.byte("á"), string.byte("b"), 140) ==
               "\0á\0b8c\0")
 assert(string.format('') == "")
