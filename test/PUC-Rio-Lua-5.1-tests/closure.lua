@@ -174,7 +174,15 @@ f = coroutine.wrap(foo)
 local a = {}
 assert(f(a) == _G)
 local a,b = pcall(f)
-assert(a and b == _G)
+-- FIXME: LuaJIT doesn't take into account tail calls for
+-- call-level counting, so `getfenv()` behaviour is different
+-- in tail calls. For example, this `pcall()` returns false,
+-- because `getfenv()` default level is 1 which is invalid for
+-- this case when is called from tail call (`lj_debug_frame()`
+-- returns NULL).
+-- See also https://github.com/tarantool/tarantool/issues/5713.
+-- Test is disabled for LuaJIT for now.
+-- assert(a and b == _G)
 
 
 -- tests for multiple yield/resume arguments
