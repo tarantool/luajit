@@ -188,6 +188,10 @@ local function trylocale (w)
   return false
 end
 
+-- LuaJIT: LuaJIT doesn't compare strings by `strcoll()`,
+-- like Lua 5.1 does.
+-- Tests are disabled for LuaJIT.
+--[[
 if not trylocale("collate")  then
   print("locale not supported")
 else
@@ -202,6 +206,7 @@ else
   assert(string.gsub("·¡È…", "%u", "x") == "·xÈx")
   assert(string.upper"·¡È{xuxu}Á„o" == "¡¡…{XUXU}«√O")
 end
+--]]
 
 os.setlocale("C")
 assert(os.setlocale() == 'C')
