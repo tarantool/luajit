@@ -95,6 +95,26 @@ repeat
   assert(g(f) == 'a')
 until 1
 
+-- FIXME: The LuaJIT's virtual machine interprets the bytecode
+-- following the return from function (i.e. the one succeeding
+-- the call made) and located on the line other than that return
+-- bytecode, as a new line trigger for line hooks, unlike Lua
+-- does.
+-- Here is an example (it is joined in one line intend):
+--[[
+debug.sethook(function(_, l) print("LINE: "..l) end, "l") loadstring("\n\ns=nil")() debug.sethook()
+--]]
+-- This chunk prints for LuaJIT:
+--[[
+LINE: 3
+LINE: 1
+--]]
+-- But for Lua 5.1 it is only "LINE: 3" in the output.
+-- See also https://github.com/tarantool/tarantool/issues/5693.
+-- Considering implementation-defined behaviour difference
+-- (see also https://luajit.org/status.html) test is disabled for
+-- LuaJIT.
+--[=[
 test([[if
 math.sin(1)
 then
@@ -149,7 +169,7 @@ end
 ]], {1,2,1,2,1,3})
 
 test([[for i=1,4 do a=1 end]], {1,1,1,1,1})
-
+--]=]
 
 
 print'+'
