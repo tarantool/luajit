@@ -350,6 +350,18 @@ assert(debug.setupvalue(io.read, 1, 10) == nil)
 
 -- testing count hooks
 local a=0
+-- LuaJIT: LuaJIT does not check hooks at traces without defined
+-- -DLUAJIT_ENABLE_CHECKHOOK.
+-- For more information see <src/lj_record.c> or commit
+-- 6bce6b118eeb2bb7f36157de158e5cccf0ea68e5 (Add compile-time
+-- option LUAJIT_ENABLE_CHECKHOOK. Disabled by default.).
+-- See also https://github.com/tarantool/tarantool/issues/5701
+-- Test is adapted for LuaJIT by disabling JIT while
+-- testing count hooks.
+local jit_is_enabled = jit.status()
+if jit_is_enabled then
+  jit.off()
+end
 debug.sethook(function (e) a=a+1 end, "", 1)
 a=0; for i=1,1000 do end; assert(1000 < a and a < 1012)
 debug.sethook(function (e) a=a+1 end, "", 4)
@@ -362,6 +374,9 @@ debug.sethook(print, "", 2^24 - 1)   -- count upperbound
 local f,m,c = debug.gethook()
 assert(({debug.gethook()})[3] == 2^24 - 1)
 debug.sethook()
+if jit_is_enabled then
+  jit.on()
+end
 
 
 -- tests for tail calls
