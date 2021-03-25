@@ -15,20 +15,24 @@ endif()
 LuaJITTestArch(TESTARCH "${TARGET_C_FLAGS}")
 LuaJITArch(LUAJIT_ARCH "${TESTARCH}")
 
-string(FIND ${TARGET_C_FLAGS} "LJ_NO_UNWIND 1" UNWIND_POS)
-if(UNWIND_POS EQUAL -1)
-  # Find out whether the target toolchain always generates unwind
-  # tables.
-  execute_process(
-    COMMAND bash -c "exec 2>/dev/null; echo 'extern void b(void);int a(void){b();return 0;}' | ${CMAKE_C_COMPILER} -c -x c - -o tmpunwind.o && grep -qa -e eh_frame -e __unwind_info tmpunwind.o && echo E; rm -f tmpunwind.o"
-    WORKING_DIRECTORY ${LUAJIT_SOURCE_DIR}
-    OUTPUT_VARIABLE TESTUNWIND
-    RESULT_VARIABLE TESTUNWIND_RC
-  )
-  if(TESTUNWIND_RC EQUAL 0)
-    string(FIND "${TESTUNWIND}" "E" UNW_TEST_POS)
-    if(NOT UNW_TEST_POS EQUAL -1)
-      AppendFlags(TARGET_C_FLAGS -DLUAJIT_UNWIND_EXTERNAL)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_UNWIND_EXTERNAL)
+else()
+  string(FIND ${TARGET_C_FLAGS} "LJ_NO_UNWIND 1" UNWIND_POS)
+  if(UNWIND_POS EQUAL -1)
+    # Find out whether the target toolchain always generates
+    # unwindtables.
+    execute_process(
+      COMMAND bash -c "exec 2>/dev/null; echo 'extern void b(void);int a(void){b();return 0;}' | ${CMAKE_C_COMPILER} -c -x c - -o tmpunwind.o && grep -qa -e eh_frame -e __unwind_info tmpunwind.o && echo E; rm -f tmpunwind.o"
+      WORKING_DIRECTORY ${LUAJIT_SOURCE_DIR}
+      OUTPUT_VARIABLE TESTUNWIND
+      RESULT_VARIABLE TESTUNWIND_RC
+    )
+    if(TESTUNWIND_RC EQUAL 0)
+      string(FIND "${TESTUNWIND}" "E" UNW_TEST_POS)
+      if(NOT UNW_TEST_POS EQUAL -1)
+        AppendFlags(TARGET_C_FLAGS -DLUAJIT_UNWIND_EXTERNAL)
+      endif()
     endif()
   endif()
 endif()
