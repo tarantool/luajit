@@ -403,18 +403,29 @@ function g1(x) g(x) end
 
 local function h (x) local f=g1; return f(x) end
 
-h(true)
+-- FIXME: LuaJIT does not provide information about tail calls,
+-- unlike Lua does. See also https://luajit.org/status.html.
+-- getfenv() behaviour is also different here, because tail calls
+-- do not provide additional call frame for LuaJIT and level
+-- number should be changed.
+-- Test is disabled for LuaJIT.
+-- See also https://github.com/tarantool/tarantool/issues/5702.
+-- h(true)
 
 local b = {}
-debug.sethook(function (e) table.insert(b, e) end, "cr")
-h(false)
-debug.sethook()
+-- FIXME: Behavior is different for LuaJIT. See the comment above.
+-- Test is disabled for LuaJIT.
+-- debug.sethook(function (e) table.insert(b, e) end, "cr")
+-- h(false)
+-- debug.sethook()
 local res = {"return",   -- first return (from sethook)
   "call", "call", "call", "call",
   "return", "tail return", "return", "tail return",
   "call",    -- last call (to sethook)
 }
-for _, k in ipairs(res) do assert(k == table.remove(b, 1)) end
+-- FIXME: Behavior is different for LuaJIT. See the comment above.
+-- Test is disabled for LuaJIT.
+-- for _, k in ipairs(res) do assert(k == table.remove(b, 1)) end
 
 
 lim = 30000
@@ -426,7 +437,9 @@ local function foo (x)
   end
 end
 
-foo(lim)
+-- FIXME: Behavior is different for LuaJIT.
+-- See the comment to `h()` above. Test is disabled for LuaJIT.
+-- foo(lim)
 
 
 print"+"
@@ -462,7 +475,9 @@ end
 
 local co = coroutine.create(f)
 coroutine.resume(co, 3)
-checktraceback(co, {"yield", "db.lua", "tail", "tail", "tail"})
+-- FIXME: Behavior is different for LuaJIT.
+-- See the comment to `h()` above. Test is disabled for LuaJIT.
+-- checktraceback(co, {"yield", "db.lua", "tail", "tail", "tail"})
 
 
 co = coroutine.create(function (x)
