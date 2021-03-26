@@ -11,7 +11,9 @@ out = os.tmpname()
 do
   local i = 0
   while arg[i] do i=i-1 end
-  progname = '"'..arg[i+1]..'"'
+  -- LuaJIT: remove framing '"' to be able to run an extended
+  -- command containing '"' and run other test suites.
+  progname = arg[i+1]
 end
 print(progname)
 
@@ -53,10 +55,12 @@ prepfile("print(a)", otherprog)
 RUN("lua -l %s -l%s -lstring -l io %s > %s", prog, otherprog, otherprog, out)
 checkout("1\n2\n2\n")
 
+-- LuaJIT: test file is adapted for LuaJIT's test system, see
+-- the comment near `progname` initialization.
 local a = [[
   assert(table.getn(arg) == 3 and arg[1] == 'a' and
          arg[2] == 'b' and arg[3] == 'c')
-  assert(arg[-1] == '--' and arg[-2] == "-e " and arg[-3] == %s)
+  assert(arg[-1] == '--' and arg[-2] == "-e " and arg[-3] == '%s')
   assert(arg[4] == nil and arg[-4] == nil)
   local a, b, c = ...
   assert(... == 'a' and a == 'a' and b == 'b' and c == 'c')
