@@ -25,7 +25,8 @@ local function parse_sym_lfunc(reader, symtab)
   local sym_line = reader:read_uleb128()
 
   symtab[sym_addr] = {
-    name = string_format("%s:%d", sym_chunk, sym_line),
+    source = sym_chunk,
+    linedefined = sym_line,
   }
 end
 
@@ -80,7 +81,7 @@ function M.demangle(symtab, loc)
   end
 
   if symtab[addr] then
-    return string_format("%s, line %d", symtab[addr].name, loc.line)
+    return string_format("%s:%d", symtab[addr].source, loc.line)
   end
 
   return string_format("CFUNC %#x", addr)

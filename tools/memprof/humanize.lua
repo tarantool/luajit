@@ -20,7 +20,7 @@ function M.render(events, symbols)
 
   for i = 1, #ids do
     local event = events[ids[i]]
-    print(string.format("%s: %d\t%d\t%d",
+    print(string.format("%s: %d events\t+%d bytes\t-%d bytes",
       symtab.demangle(symbols, event.loc),
       event.num,
       event.alloc,

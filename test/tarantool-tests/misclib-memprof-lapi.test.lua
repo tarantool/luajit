@@ -56,7 +56,9 @@ local function fill_ev_type(events, symbols, event_type)
     }
     elseif symbols[addr] then
       ev_type[event.loc.line] = {
-        name = symbols[addr].name,
+        name = string.format(
+          "%s:%d", symbols[addr].source, symbols[addr].linedefined
+        ),
         num = event.num,
       }
     end
