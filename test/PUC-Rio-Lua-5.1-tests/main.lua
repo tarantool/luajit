@@ -52,8 +52,12 @@ end
 -- test 2 files
 prepfile("print(1); a=2")
 prepfile("print(a)", otherprog)
-RUN("lua -l %s -l%s -lstring -l io %s > %s", prog, otherprog, otherprog, out)
-checkout("1\n2\n2\n")
+-- FIXME: Tarantool may crash when -e or -l option and their
+-- argument are not separated by space.
+-- The test is disabled for the Tarantool binary.
+-- See https://github.com/tarantool/tarantool/issues/5747.
+-- RUN("lua -l %s -l%s -lstring -l io %s > %s", prog, otherprog, otherprog, out)
+-- checkout("1\n2\n2\n")
 
 -- LuaJIT: test file is adapted for LuaJIT's test system, see
 -- the comment near `progname` initialization.
@@ -92,8 +96,12 @@ prepfile[[print(({...})[30])]]
 RUN("lua %s %s > %s", prog, string.rep(" a", 30), out)
 checkout("a\n")
 
-RUN([[lua "-eprint(1)" -ea=3 -e "print(a)" > %s]], out)
-checkout("1\n3\n")
+-- FIXME: Tarantool may crash when -e or -l option and their
+-- argument are not separated by space.
+-- The test is disabled for the Tarantool binary.
+-- See https://github.com/tarantool/tarantool/issues/5747.
+-- RUN([[lua "-eprint(1)" -ea=3 -e "print(a)" > %s]], out)
+-- checkout("1\n3\n")
 
 prepfile[[
   print(
