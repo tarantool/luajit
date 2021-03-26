@@ -133,9 +133,12 @@ do
     local a = {}
   until gcinfo() > 1000
   collectgarbage"restart"
-  repeat
-    local a = {}
-  until gcinfo() < 1000
+  -- LuaJIT: Tarantool has too many alive objects at start.
+  -- `gcinfo()` result is always greater than 1000.
+  -- The test is disabled for Tarantool binary.
+  -- repeat
+  --   local a = {}
+  -- until gcinfo() < 1000
 end
 
 lim = 15
