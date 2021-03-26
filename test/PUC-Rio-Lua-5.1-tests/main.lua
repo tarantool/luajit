@@ -71,7 +71,13 @@ local a = [[
 ]]
 a = string.format(a, progname)
 prepfile(a)
-RUN('lua "-e " -- %s a b c', prog)
+-- FIXME: Unlike LuaJIT, Tarantool doesn't store the given
+-- CLI flags in `arg`, so the table has the following layout:
+-- * arg[-1] -- the binary name
+-- * arg[0]  -- the script name
+-- * arg[N]  -- the script argument for all N in [1, #arg]
+-- Test is disabled for the Tarantool binary.
+-- RUN('lua "-e " -- %s a b c', prog)
 
 -- test 'arg' availability in libraries
 -- LuaJIT: LuaJIT v2.1.0-beta3 has extension from Lua 5.3:
