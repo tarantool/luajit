@@ -207,7 +207,11 @@ function rev (s)
 end
 
 local x = string.rep('012345', 10)
-assert(rev(rev(x)) == x)
+-- FIXME: The first Tarantool's fiber has only 512Kb of stack.
+-- It is not enough for this recursive call.
+-- See also https://github.com/tarantool/tarantool/issues/5782.
+-- The test is disabled for Tarantool binary.
+-- assert(rev(rev(x)) == x)
 
 
 -- gsub with tables
