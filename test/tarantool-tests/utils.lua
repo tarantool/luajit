@@ -1,6 +1,11 @@
 local M = {}
 
+local ffi = require('ffi')
 local tap = require('tap')
+
+ffi.cdef([[
+  int setenv(const char *name, const char *value, int overwrite);
+]])
 
 local function luacmd(args)
   -- arg[-1] is guaranteed to be not nil.
@@ -11,6 +16,12 @@ local function luacmd(args)
   end
   -- return the full command with flags.
   return table.concat(args, ' ', idx + 1, -1)
+end
+
+local function unshiftenv(variable, value, sep)
+  local envvar = os.getenv(variable)
+  return ('%s="%s%s"'):format(variable, value,
+                              envvar and ('%s%s'):format(sep, envvar) or '')
 end
 
 function M.selfrun(arg, checks)
@@ -28,18 +39,22 @@ function M.selfrun(arg, checks)
 
   test:plan(#checks)
 
+  local libext = package.cpath:match('?.(%a+);')
   local vars = {
     LUABIN = luacmd(arg),
     SCRIPT = arg[0],
     PATH   = arg[0]:gsub('%.test%.lua', ''),
-    SUFFIX = package.cpath:match('?.(%a+);'),
+    SUFFIX = libext,
+    ENV = table.concat({
+      unshiftenv('LUA_PATH', '<PATH>/?.lua', ';'),
+      unshiftenv('LUA_CPATH', '<PATH>/?.<SUFFIX>', ';'),
+      unshiftenv((libext == 'dylib' and 'DYLD' or 'LD') .. '_LIBRARY_PATH',
+                 '<PATH>', ':'),
+      'TEST_SELFRUN=1',
+    }, ' '),
   }
 
-  local cmd = string.gsub('LUA_PATH="<PATH>/?.lua;$LUA_PATH" ' ..
-                          'LUA_CPATH="<PATH>/?.<SUFFIX>;$LUA_CPATH" ' ..
-                          'LD_LIBRARY_PATH=<PATH>:$LD_LIBRARY_PATH ' ..
-                          'TEST_SELFRUN=1' ..
-                          '<LUABIN> 2>&1 <SCRIPT>', '%<(%w+)>', vars)
+  local cmd = string.gsub('<ENV> <LUABIN> 2>&1 <SCRIPT>', '%<(%w+)>', vars)
 
   for _, ch in pairs(checks) do
     local testf = test[ch.test]
@@ -60,6 +75,18 @@ function M.skipcond(condition, message)
   test:plan(1)
   test:skip(message)
   os.exit(test:check() and 0 or 1)
+end
+
+function M.tweakenv(condition, variable)
+  if not condition or os.getenv(variable) then return end
+  local testvar = assert(os.getenv('TEST_' .. variable),
+                         ('Neither %s nor auxiliary TEST_%s variables are set')
+                         :format(variable, variable))
+  -- XXX: The third argument of setenv(3) is set to zero to forbid
+  -- overwriting the <variable>. Since there is the check above
+  -- whether this <variable> is set in the process environment, it
+  -- just makes this solution foolproof.
+  ffi.C.setenv(variable, testvar, 0)
 end
 
 return M
