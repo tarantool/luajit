@@ -69,7 +69,6 @@ set(LUA_PATH
 )
 set(LUA_TEST_SUFFIX .test.lua)
 set(LUA_TEST_FLAGS --failures --shuffle)
-file(GLOB TEST_DEPS ${CMAKE_CURRENT_SOURCE_DIR}/*${LUA_TEST_SUFFIX})
 
 if(CMAKE_VERBOSE_MAKEFILE)
   list(APPEND LUA_TEST_FLAGS --verbose)
@@ -78,7 +77,7 @@ endif()
 # LUA_CPATH and LD_LIBRARY_PATH variables and also TESTLIBS list
 # with dependecies are set in scope of BuildTestLib macro.
 add_custom_target(tarantool-tests
-  DEPENDS ${LUAJIT_TEST_BINARY} ${TESTLIBS} ${TEST_DEPS}
+  DEPENDS ${LUAJIT_TEST_BINARY} ${TESTLIBS}
 )
 add_custom_command(TARGET tarantool-tests
   COMMENT "Running Tarantool tests"
