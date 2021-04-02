@@ -14,6 +14,16 @@ local function luacmd(args)
 end
 
 function M.selfrun(arg, checks)
+  -- If TEST_SELFRUN is set, it means the test has been run via
+  -- <io.popen>, so just return from this routine and proceed
+  -- the execution to the test payload, ...
+  if os.getenv('TEST_SELFRUN') then return end
+
+  -- ... otherwise initialize <tap>, setup testing environment
+  -- and run this chunk via <io.popen> for each case in <checks>.
+  -- XXX: The function doesn't return back from this moment. It
+  -- checks whether all assertions are fine and exits.
+
   local test = tap.test(arg[0]:match('/?(.+)%.test%.lua'))
 
   test:plan(#checks)
@@ -28,6 +38,7 @@ function M.selfrun(arg, checks)
   local cmd = string.gsub('LUA_PATH="<PATH>/?.lua;$LUA_PATH" ' ..
                           'LUA_CPATH="<PATH>/?.<SUFFIX>;$LUA_CPATH" ' ..
                           'LD_LIBRARY_PATH=<PATH>:$LD_LIBRARY_PATH ' ..
+                          'TEST_SELFRUN=1' ..
                           '<LUABIN> 2>&1 <SCRIPT>', '%<(%w+)>', vars)
 
   for _, ch in pairs(checks) do
