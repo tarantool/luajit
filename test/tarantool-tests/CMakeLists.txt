@@ -69,9 +69,43 @@ set(LUA_PATH
 )
 set(LUA_TEST_SUFFIX .test.lua)
 set(LUA_TEST_FLAGS --failures --shuffle)
+set(LUA_TEST_ENV
+  "LUA_PATH=\"${LUA_PATH}\;\;\""
+  "LUA_CPATH=\"${LUA_CPATH}\;\;\""
+)
 
 if(CMAKE_VERBOSE_MAKEFILE)
   list(APPEND LUA_TEST_FLAGS --verbose)
+endif()
+
+# XXX: Since the auxiliary libraries are built as a dynamically
+# loaded modules on MacOS instead of shared libraries as it is
+# done on Linux and BSD, another environment variable should be
+# used to guide <ffi.load> while searching the extension.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  # XXX: Apple tries their best to "protect their users from
+  # malware". As a result SIP (see the link[1] below) has been
+  # designed and released. Now, Apple developers are so protected,
+  # that they can load nothing being not installed in the system,
+  # since some programs sanitize the environment before they start
+  # child processes. Specifically, environment variables starting
+  # with DYLD_ and LD_ are unset for child process started by
+  # system programs (like /usr/bin/env used for preparing testing
+  # environment). For more info, see the docs[2] below.
+  #
+  # These environment variables are used by FFI machinery to find
+  # the proper shared library, hence we can still tweak testing
+  # environment before calling <ffi.load>. However, the value
+  # can't be passed via the standard environment variable, so we
+  # prepend TEST_ prefix to its name to get around SIP magic
+  # tricks. Finally, to set the variable required by FFI machinery
+  # the introduced <utils.tweakenv> routine is used.
+  #
+  # [1]: https://support.apple.com/en-us/HT204899
+  # [2]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/RuntimeProtections/RuntimeProtections.html
+  list(APPEND LUA_TEST_ENV TEST_DYLD_LIBRARY_PATH="${LD_LIBRARY_PATH}")
+else()
+  list(APPEND LUA_TEST_ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}")
 endif()
 
 # LUA_CPATH and LD_LIBRARY_PATH variables and also TESTLIBS list
@@ -83,9 +117,7 @@ add_custom_command(TARGET tarantool-tests
   COMMENT "Running Tarantool tests"
   COMMAND
   env
-    LUA_PATH="${LUA_PATH}\;\;"
-    LUA_CPATH="${LUA_CPATH}\;\;"
-    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
+    ${LUA_TEST_ENV}
     ${PROVE} ${CMAKE_CURRENT_SOURCE_DIR}
       --exec '${LUAJIT_TEST_COMMAND}'
       --ext ${LUA_TEST_SUFFIX}
