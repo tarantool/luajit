@@ -1,31 +1,30 @@
-if #arg == 0 then
+local utils = require('utils')
 
-  local utils = require('utils')
+-- Disabled on *BSD due to #4819.
+utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
-  -- Disabled on *BSD due to #4819.
-  utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
-
-  utils.selfrun(arg, {
-    {
-      arg = {
-        1, -- hotloop (arg[1])
-        1, -- trigger (arg[2])
-      },
-      msg = 'Trace is aborted',
-      res = 'OK',
-      test = 'is',
+utils.selfrun(arg, {
+  {
+    arg = {
+      1, -- hotloop (arg[1])
+      1, -- trigger (arg[2])
     },
-    {
-      arg = {
-        1, -- hotloop (arg[1])
-        2, -- trigger (arg[2])
-      },
-      msg = 'Trace is recorded',
-      res = 'JIT mode change is detected while executing the trace',
-      test = 'like',
+    msg = 'Trace is aborted',
+    res = 'OK',
+    test = 'is',
+  },
+  {
+    arg = {
+      1, -- hotloop (arg[1])
+      2, -- trigger (arg[2])
     },
-  })
-end
+    msg = 'Trace is recorded',
+    res = 'JIT mode change is detected while executing the trace',
+    test = 'like',
+  },
+})
+
+----- Test payload. ----------------------------------------------
 
 local cfg = {
   hotloop = arg[1] or 1,
