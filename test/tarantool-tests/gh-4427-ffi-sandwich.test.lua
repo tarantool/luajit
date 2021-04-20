@@ -13,18 +13,20 @@ utils.selfrun(arg, {
       1, -- hotloop (arg[1])
       1, -- trigger (arg[2])
     },
-    msg = 'Trace is aborted',
-    res = tostring(3), -- hotloop + trigger + 1
-    test = 'is',
+    message = 'Trace is aborted',
+    assertions = {
+      is = '3', -- hotloop + trigger + 1
+    },
   },
   {
     arg = {
       1, -- hotloop (arg[1])
       2, -- trigger (arg[2])
     },
-    msg = 'Trace is recorded',
-    res = 'Lua VM re%-entrancy is detected while executing the trace',
-    test = 'like',
+    message = 'Trace is recorded',
+    assertions = {
+      like = 'Lua VM re%-entrancy is detected while executing the trace',
+    },
   },
 })
 

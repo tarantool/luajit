@@ -57,13 +57,19 @@ function M.selfrun(arg, checks)
   local cmd = string.gsub('<ENV> <LUABIN> 2>&1 <SCRIPT>', '%<(%w+)>', vars)
 
   for _, ch in pairs(checks) do
-    local testf = test[ch.test]
-    assert(testf, ("tap doesn't provide test.%s function"):format(ch.test))
     local proc = io.popen((cmd .. (' %s'):rep(#ch.arg)):format(unpack(ch.arg)))
-    local res = proc:read('*all'):gsub('^%s+', ''):gsub('%s+$', '')
-    -- XXX: explicitly pass <test> as an argument to <testf>
-    -- to emulate test:is(...), test:like(...), etc.
-    testf(test, res, ch.res, ch.msg)
+    local got = proc:read('*all'):gsub('^%s+', ''):gsub('%s+$', '')
+    for atype, ares in pairs(ch.assertions) do
+      local testf = test[atype]
+      assert(testf, ("tap doesn't provide test.%s function"):format(atype))
+      assert(type(ares) == 'string' or type(ares) == 'table',
+             'Invalid type of assertion result')
+      local expected = type(ares) == 'string' and ares
+        or table.concat(ares, atype == 'is' or atype == 'isnt' and '' or '.*')
+      -- XXX: explicitly pass <test> as an argument to <testf>
+      -- to emulate test:is(...), test:like(...), etc.
+      testf(test, got, expected, ('%s (%s)'):format(ch.message, atype))
+    end
   end
 
   os.exit(test:check() and 0 or 1)

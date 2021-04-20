@@ -13,18 +13,20 @@ utils.selfrun(arg, {
       1, -- hotloop (arg[1])
       1, -- trigger (arg[2])
     },
-    msg = 'Trace is aborted',
-    res = 'OK',
-    test = 'is',
+    message = 'Trace is aborted',
+    assertions = {
+      is = 'OK',
+    },
   },
   {
     arg = {
       1, -- hotloop (arg[1])
       2, -- trigger (arg[2])
     },
-    msg = 'Trace is recorded',
-    res = 'JIT mode change is detected while executing the trace',
-    test = 'like',
+    message = 'Trace is recorded',
+    assertions = {
+      like = 'JIT mode change is detected while executing the trace',
+    },
   },
 })
 
