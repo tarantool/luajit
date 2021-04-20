@@ -95,4 +95,47 @@ function M.tweakenv(condition, variable)
   ffi.C.setenv(variable, testvar, 0)
 end
 
+-- JIT assertion engine.
+
+M.jit = {}
+
+local function list2pattern(list)
+  if #list == 0 then return '.+' end
+  local pattern = {}
+  for i = 1, #list do
+    table.insert(pattern, ('.*%s.*'):format(list[i]))
+  end
+  return table.concat(pattern, '\n')
+end
+
+function M.jit.assert(options)
+  local self = {
+    traceno = assert(options.traceno, 'No traceno'),
+    result = assert(options.result, 'No result'),
+    reason = assert(options.result == 'abort' and options.reason or true,
+                    'No reason for aborted trace'),
+    link = assert(options.result == 'stop' and options.link or true,
+                  'No link type for compiled trace'),
+    bc = options.bc or {},
+    ir = options.ir or {},
+  }
+
+  if self.result == 'flush' then
+    return  '---- TRACE flush'
+  end
+
+  -- TODO: implement mcode checks.
+  return table.concat({
+    ('---- TRACE %d start .+'):format(self.traceno),
+    list2pattern(self.bc),
+    ('---- TRACE %d IR'):format(self.traceno),
+    list2pattern(self.ir),
+    ('---- TRACE %d %s %s'):format(self.traceno, self.result,
+    self.result == 'abort' and ('.+ -- %s'):format(self.reason)
+                                     or  ('%%-> %s'):format(self.link)
+    ),
+    '\n',
+  }, '\n')
+end
+
 return M

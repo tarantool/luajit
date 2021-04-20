@@ -15,7 +15,12 @@ utils.selfrun(arg, {
     },
     message = 'Trace is aborted',
     assertions = {
-      is = 'OK',
+      like = {
+        utils.jit.assert({
+          result = 'flush',
+        }),
+        'OK',
+      },
     },
   },
   {
@@ -25,7 +30,19 @@ utils.selfrun(arg, {
     },
     message = 'Trace is recorded',
     assertions = {
-      like = 'JIT mode change is detected while executing the trace',
+      like = {
+        utils.jit.assert({
+          traceno = 2,
+          result = 'stop',
+          link = 'loop',
+          ir = {
+            'CALLXS (%b[])',
+            'LOOP',
+            'CALLXS %1',
+          },
+        }),
+        'JIT mode change is detected while executing the trace',
+      },
     },
   },
 })
@@ -45,12 +62,17 @@ ffi.cdef('void flush(struct flush *state, int i)')
 -- <flush> call the Lua routine instead of C implementation.
 local flush = require('libflush')(cfg.trigger)
 
+-- Flush all collected traces to not break trace assertions.
+jit.flush()
 -- Depending on trigger and hotloop values the following contexts
 -- are possible:
 -- * if trigger <= hotloop -> trace recording is aborted
 -- * if trigger >  hotloop -> trace is recorded but execution
 --   leads to panic
 jit.opt.start("3", string.format("hotloop=%d", cfg.hotloop))
+-- Dump compiler progress to stdout that is required for trace
+-- assertions above.
+require('jit.dump').start('+tbisrmXaT')
 
 for i = 0, cfg.trigger + cfg.hotloop do
   ffiflush.flush(flush, i)

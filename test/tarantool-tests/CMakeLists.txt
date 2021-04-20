@@ -65,7 +65,7 @@ add_subdirectory(misclib-getmetrics-capi)
 # current directory (but tests are run in the binary directory),
 # so LUA_PATH need to be updated.
 set(LUA_PATH
-  "${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${PROJECT_SOURCE_DIR}/tools/?.lua"
+  "${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${PROJECT_SOURCE_DIR}/tools/?.lua\;${LUAJIT_SOURCE_DIR}/?.lua"
 )
 set(LUA_TEST_SUFFIX .test.lua)
 set(LUA_TEST_FLAGS --failures --shuffle)
