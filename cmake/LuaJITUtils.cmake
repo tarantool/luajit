@@ -1,4 +1,17 @@
 function(LuaJITTestArch outvar strflags)
+  # XXX: This routine uses external headers (e.g. system ones),
+  # which location is specified either implicitly (within CMake
+  # machinery) or explicitly (manually by configuration options).
+  # Need -isysroot flag on recentish MacOS after command line
+  # tools no longer provide headers in /usr/include.
+  # XXX: According to CMake documentation[1], CMAKE_OSX_SYSROOT
+  # variable *should* be ignored on the platforms other than
+  # MacOS. It is ignored by CMake itself, but since this routine
+  # extends CMake, it should also follow this policy.
+  # [1]: https://cmake.org/cmake/help/v3.1/variable/CMAKE_OSX_SYSROOT.html
+  if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_OSX_SYSROOT)
+    set(strflags "${strflags} -isysroot ${CMAKE_OSX_SYSROOT}")
+  endif()
   # XXX: <execute_process> simply splits the COMMAND argument by
   # spaces with no further parsing. At the same time GCC is bad in
   # argument handling, so let's help it a bit.
