@@ -1,3 +1,9 @@
+-- Memprof is implemented for x86 and x64 architectures only.
+require("utils").skipcond(
+  jit.arch ~= "x86" and jit.arch ~= "x64",
+  jit.arch.." architecture is NIY for memprof"
+)
+
 local tap = require("tap")
 
 local test = tap.test("misc-memprof-lapi")
@@ -125,9 +131,9 @@ local free = fill_ev_type(events, symbols, "free")
 -- the number of allocations.
 -- 1 event - alocation of table by itself + 1 allocation
 -- of array part as far it is bigger than LJ_MAX_COLOSIZE (16).
-test:ok(check_alloc_report(alloc, 21, 19, 2))
+test:ok(check_alloc_report(alloc, 27, 25, 2))
 -- 100 strings allocations.
-test:ok(check_alloc_report(alloc, 26, 19, 100))
+test:ok(check_alloc_report(alloc, 32, 25, 100))
 
 -- Collect all previous allocated objects.
 test:ok(free.INTERNAL.num == 102)
@@ -135,8 +141,8 @@ test:ok(free.INTERNAL.num == 102)
 -- Tests for leak-only option.
 -- See also https://github.com/tarantool/tarantool/issues/5812.
 local heap_delta = process.form_heap_delta(events, symbols)
-local tab_alloc_stats = heap_delta[form_source_line(21)]
-local str_alloc_stats = heap_delta[form_source_line(26)]
+local tab_alloc_stats = heap_delta[form_source_line(27)]
+local str_alloc_stats = heap_delta[form_source_line(32)]
 test:ok(tab_alloc_stats.nalloc == tab_alloc_stats.nfree)
 test:ok(tab_alloc_stats.dbytes == 0)
 test:ok(str_alloc_stats.nalloc == str_alloc_stats.nfree)
