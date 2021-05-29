@@ -6,7 +6,7 @@ local test = tap.test('lj-704-bc-varg-use-def'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
 })
 
-test:plan(1)
+test:plan(2)
 
 -- XXX: we don't really need to store these builtins, but this
 -- reduces `jitdump()` output for reader significantly.
@@ -61,5 +61,33 @@ wrap(ARG_ON_RECORDING)
 wrap(ON_TRACE_VALUE)
 
 test:ok(result ~= 0, 'use-def analysis for BC_VARG')
+
+-- Now check the same case, but with BC_JMP before the BC_VARG,
+-- so use-def analysis will take early return case for BCMlit.
+-- See `snap_usedef()` in <src/lj_snap.c> for details.
+-- The test checks that slots greater than `numparams` are not
+-- purged.
+local function varg_ret_bc(...)
+  -- XXX: This branch contains BC_JMP. See the comment above.
+  -- luacheck: ignore
+  if false then else end
+  local slot = ({...})[1]
+  -- Forcify stitch and usage of vararg slot. Any NYI is OK here.
+  return fmod(ARG_ON_RECORDING, slot)
+end
+
+-- XXX: Duplicate wrapper code to avoid recording of `wrap()`
+-- instead of the function to test.
+local function wrap_ret_bc(arg)
+  _, result = pcall(varg_ret_bc, arg)
+end
+
+-- Record trace with the 0 result.
+wrap_ret_bc(ARG_ON_RECORDING)
+wrap_ret_bc(ARG_ON_RECORDING)
+-- Record trace with the non-zero result.
+wrap_ret_bc(ON_TRACE_VALUE)
+
+test:ok(result ~= 0, 'use-def analysis for FUNCV with jump before BC_VARG')
 
 os.exit(test:check() and 0 or 1)
