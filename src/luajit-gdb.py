@@ -424,16 +424,26 @@ def dump_stack(L, base=None, top=None):
         )
     ]) + '\n'
 
+    # Set framelink for the top frame. Dump frame slots even for dummy frame.
     slot = top - 1
     framelink = base - (1 + LJ_FR2)
+    while slot > framelink + LJ_FR2:
+        dump += dump_stack_slot(L, slot, base, top)
+        slot -= 1
 
+    # If there are other frames -- continue.
     while framelink > mref('TValue *', L['stack']):
-        while slot > framelink + LJ_FR2:
-            dump += dump_stack_slot(L, slot, base, top)
-            slot -= 1
+        assert slot == framelink + LJ_FR2, "Invalid slot during frame unwind"
         dump += dump_framelink(L, framelink)
         framelink = frame_prev(framelink + LJ_FR2) - LJ_FR2
         slot -= 1 + LJ_FR2
+        while slot > framelink + LJ_FR2:
+            dump += dump_stack_slot(L, slot, base, top)
+            slot -= 1
+
+    assert slot == framelink + LJ_FR2, "Invalid slot after frame unwind"
+    # Skip nil slot for the last frame for 2-slot frames.
+    slot -= LJ_FR2
 
     dump += '{fr}{padding} [S   ] FRAME: dummy L'.format(
         fr = slot,
