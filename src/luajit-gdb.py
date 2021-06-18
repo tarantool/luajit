@@ -427,13 +427,31 @@ def dump_stack(L, base=None, top=None):
     slot = top - 1
     framelink = base - (1 + LJ_FR2)
 
+    # XXX: Lua stack unwinding algorithm consists of the following steps:
+    # 1. dump all data slots in the (framelink, top) interval
+    # 2. check whether there are remaining frames
+    # 3. if there are no slots further, stop the unwinding loop
+    # 4. otherwise, resolve the next framelink and top and go to (1)
+    #
+    # Postcondition (i.e. do-while) loops is the most fitting idiom for such
+    # case, but Python doesn't provide such lexical construction. Hence step (1)
+    # is unrolled for the topmost stack frame.
+    while slot > framelink + LJ_FR2:
+        dump += dump_stack_slot(L, slot, base, top)
+        slot -= 1
+
     while framelink > mref('TValue *', L['stack']):
-        while slot > framelink + LJ_FR2:
-            dump += dump_stack_slot(L, slot, base, top)
-            slot -= 1
+        assert slot == framelink + LJ_FR2, "Invalid slot during frame unwind"
         dump += dump_framelink(L, framelink)
         framelink = frame_prev(framelink + LJ_FR2) - LJ_FR2
         slot -= 1 + LJ_FR2
+        while slot > framelink + LJ_FR2:
+            dump += dump_stack_slot(L, slot, base, top)
+            slot -= 1
+
+    assert slot == framelink + LJ_FR2, "Invalid slot after frame unwind"
+    # Skip a nil slot for the last frame for 2-slot frames.
+    slot -= LJ_FR2
 
     dump += '{fr}{padding} [S   ] FRAME: dummy L'.format(
         fr = slot,
