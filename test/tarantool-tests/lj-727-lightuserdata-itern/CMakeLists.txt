@@ -1,0 +1,1 @@
+BuildTestCLib(lightuserdata lightuserdata.c)
