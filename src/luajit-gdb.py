@@ -160,7 +160,7 @@ LJ_FR2 = None
 
 LJ_GCVMASK = ((1 << 47) - 1)
 
-PADDING = ' ' * len(':' + hex((1 << (47 if LJ_GC64 else 32)) - 1))
+PADDING = None
 
 # }}}
 
@@ -665,7 +665,7 @@ The command requires no args and dumps current GC stats:
         ))
 
 def init(commands):
-    global LJ_64, LJ_GC64, LJ_FR2
+    global LJ_64, LJ_GC64, LJ_FR2, PADDING
 
     # XXX Fragile: though connecting the callback looks like a crap but it
     # respects both Python 2 and Python 3 (see #4828).
@@ -713,6 +713,8 @@ def init(commands):
 
     for name, command in commands.items():
         command(name)
+
+    PADDING = ' ' * len(':' + hex((1 << (47 if LJ_GC64 else 32)) - 1))
 
     gdb.write('luajit-gdb.py is successfully loaded\n')
 
