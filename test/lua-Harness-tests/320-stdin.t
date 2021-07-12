@@ -64,7 +64,7 @@ end
 ]]
     f:close()
 
-    local cmd = lua .. [[ -e "f = loadfile(); print(foo); f(); print(foo('ok'))" < foo-320.lua]]
+    local cmd = lua .. [[ -e "foo = nil; f = loadfile(); print(foo); f(); print(foo('ok'))" < foo-320.lua]]
     f = io.popen(cmd)
     equals(f:read'*l', 'nil', "function loadfile (stdin)")
     equals(f:read'*l', 'ok')

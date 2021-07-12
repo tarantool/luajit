@@ -10,10 +10,10 @@ if(NOT PROVE)
   return()
 endif()
 
-# Tests create temporary files (see 303-package.t for example)
-# to require. Also, they require some files from original
-# test source directory.
-set(LUA_PATH "./?.lua\;${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;")
+# Tests create temporary files (see 303-package.t and 411-luajit.t for
+# example) to require. Also, they require some files from original test 
+# source directory.
+set(LUA_PATH "./?.lua\;${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${LUAJIT_SOURCE_DIR}/?.lua\;${LUAJIT_BINARY_DIR}/?.lua")
 set(LUA_TEST_FLAGS --failures --shuffle)
 
 if(CMAKE_VERBOSE_MAKEFILE)
