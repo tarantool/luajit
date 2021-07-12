@@ -114,7 +114,7 @@ error_matches(function () local a = nil; a[1] = 1; end,
         "index")
 
 if has_op53 then
-    make_specific_checks'lexico53/nil.t'
+    _dofile'lexico53/nil.t'
 end
 
 done_testing()

@@ -114,7 +114,7 @@ error_matches(function () local a = true; a[1] = 1; end,
         "index")
 
 if has_op53 then
-    make_specific_checks'lexico53/boolean.t'
+    _dofile'lexico53/boolean.t'
 end
 
 done_testing()
