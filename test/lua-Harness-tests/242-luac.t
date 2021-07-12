@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2010-2020, Perrad Francois
+-- Copyright (C) 2010-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -79,67 +79,67 @@ end
 do -- luac -v
     local cmd = luac .. [[ -v 2>&1]]
     local f = io.popen(cmd)
-    like(f:read'*l', '^Lua', "-v")
+    matches(f:read'*l', '^Lua', "-v")
     f:close()
 end
 
 do -- luac -v --
     local cmd = luac .. [[ -v -- 2>&1]]
     local f = io.popen(cmd)
-    like(f:read'*l', '^Lua', "-v --")
+    matches(f:read'*l', '^Lua', "-v --")
     f:close()
 end
 
 do -- luac -u
     local cmd = luac .. [[ -u 2>&1]]
     local f = io.popen(cmd)
-    like(f:read'*l', "^[^:]+: unrecognized option '%-u'", "unknown option")
-    like(f:read'*l', "^usage:")
+    matches(f:read'*l', "^[^:]+: unrecognized option '%-u'", "unknown option")
+    matches(f:read'*l', "^usage:")
     f:close()
 end
 
 do -- luac --u
     local cmd = luac .. [[ --u 2>&1]]
     local f = io.popen(cmd)
-    like(f:read'*l', "^[^:]+: unrecognized option '%-%-u'", "unknown option")
-    like(f:read'*l', "^usage:")
+    matches(f:read'*l', "^[^:]+: unrecognized option '%-%-u'", "unknown option")
+    matches(f:read'*l', "^usage:")
     f:close()
 end
 
 do -- luac -p hello-242.lua
     local cmd = luac .. [[ -p hello-242.lua 2>&1]]
     local f = io.popen(cmd)
-    is(f:read'*l', nil)
+    equals(f:read'*l', nil)
     f:close()
 end
 
 do -- luac -p - < hello-242.lua
     local cmd = luac .. [[ -p - < hello-242.lua 2>&1]]
     local f = io.popen(cmd)
-    is(f:read'*l', nil)
+    equals(f:read'*l', nil)
     f:close()
 end
 
 do -- luac -p no_file-242.lua
     local cmd = luac .. [[ -p no_file-242.lua 2>&1]]
     local f = io.popen(cmd)
-    like(f:read'*l', "^[^:]+: cannot open no_file%-242%.lua", "no file")
+    matches(f:read'*l', "^[^:]+: cannot open no_file%-242%.lua", "no file")
     f:close()
 end
 
 do -- luac -o
     local cmd = luac .. [[ -o 2>&1]]
     local f = io.popen(cmd)
-    like(f:read'*l', "^[^:]+: '%-o' needs argument", "-o needs argument")
+    matches(f:read'*l', "^[^:]+: '%-o' needs argument", "-o needs argument")
     f:close()
 end
 
 do -- luac -v -l -l hello-242.lua
     local cmd = luac .. [[ -v -l -l hello-242.lua]]
     local f = io.popen(cmd)
-    like(f:read'*l', '^Lua', "-v -l -l")
-    is(f:read'*l', '')
-    like(f:read'*l', "^main")
+    matches(f:read'*l', '^Lua', "-v -l -l")
+    equals(f:read'*l', '')
+    matches(f:read'*l', "^main")
     f:close()
 end
 
@@ -148,24 +148,24 @@ os.remove('hello-242.lua') -- clean up
 do -- luac -l luac.out
     local cmd = luac .. [[ -l luac.out]]
     local f = io.popen(cmd)
-    is(f:read'*l', '', "-l luac.out")
-    like(f:read'*l', "^main")
+    equals(f:read'*l', '', "-l luac.out")
+    matches(f:read'*l', "^main")
     f:close()
 end
 
 do -- luac -l
     local cmd = luac .. [[ -l]]
     local f = io.popen(cmd)
-    is(f:read'*l', '', "-l")
-    like(f:read'*l', "^main")
+    equals(f:read'*l', '', "-l")
+    matches(f:read'*l', "^main")
     f:close()
 end
 
 do -- luac -l - < luac.out
     local cmd = luac .. [[ -l - < luac.out]]
     local f = io.popen(cmd)
-    is(f:read'*l', '', "-l -")
-    like(f:read'*l', "^main")
+    equals(f:read'*l', '', "-l -")
+    matches(f:read'*l', "^main")
     f:close()
 end
 
@@ -176,9 +176,9 @@ if _VERSION ~= 'Lua 5.1' then
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
     if _VERSION <= 'Lua 5.3' then
-        like(f:read'*l', "truncated precompiled chunk")
+        matches(f:read'*l', "truncated precompiled chunk")
     else
-        like(f:read'*l', "bad binary format %(truncated chunk%)")
+        matches(f:read'*l', "bad binary format %(truncated chunk%)")
     end
     f:close()
 end
@@ -190,9 +190,9 @@ if _VERSION ~= 'Lua 5.1' then -- bad signature
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
     if _VERSION <= 'Lua 5.3' then
-        like(f:read'*l', "not a precompiled chunk", "bad signature")
+        matches(f:read'*l', "not a precompiled chunk", "bad signature")
     else
-        like(f:read'*l', "bad binary format %(not a binary chunk%)", "bad signature")
+        matches(f:read'*l', "bad binary format %(not a binary chunk%)", "bad signature")
     end
     f:close()
 end
@@ -204,9 +204,9 @@ if _VERSION ~= 'Lua 5.1' then -- bad version
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
     if _VERSION <= 'Lua 5.3' then
-        like(f:read'*l', "version mismatch in precompiled chunk", "bad version")
+        matches(f:read'*l', "version mismatch in precompiled chunk", "bad version")
     else
-        like(f:read'*l', "bad binary format %(version mismatch%)", "bad version")
+        matches(f:read'*l', "bad binary format %(version mismatch%)", "bad version")
     end
     f:close()
 end
@@ -218,11 +218,11 @@ if _VERSION ~= 'Lua 5.1' then -- bad format
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
     if _VERSION == 'Lua 5.2' then
-        like(f:read'*l', "version mismatch in precompiled chunk", "bad format")
+        matches(f:read'*l', "version mismatch in precompiled chunk", "bad format")
     elseif _VERSION == 'Lua 5.3' then
-        like(f:read'*l', "format mismatch in precompiled chunk", "bad format")
+        matches(f:read'*l', "format mismatch in precompiled chunk", "bad format")
     else
-        like(f:read'*l', "bad binary format %(format mismatch%)", "bad format")
+        matches(f:read'*l', "bad binary format %(format mismatch%)", "bad format")
     end
     f:close()
 end
@@ -233,7 +233,7 @@ if _VERSION == 'Lua 5.2' then -- bad sizes
     f:close()
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
-    like(f:read'*l', "incompatible precompiled chunk", "incompatible 5.2")
+    matches(f:read'*l', "incompatible precompiled chunk", "incompatible 5.2")
     f:close()
 end
 
@@ -244,7 +244,7 @@ if _VERSION == 'Lua 5.2' then -- bad data / tail
     f:close()
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
-    like(f:read'*l', "corrupted precompiled chunk", "corrupted 5.2")
+    matches(f:read'*l', "corrupted precompiled chunk", "corrupted 5.2")
     f:close()
 end
 
@@ -254,7 +254,7 @@ if _VERSION == 'Lua 5.3' then -- bad data
     f:close()
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
-    like(f:read'*l', "corrupted precompiled chunk", "corrupted")
+    matches(f:read'*l', "corrupted precompiled chunk", "corrupted")
     f:close()
 end
 
@@ -264,7 +264,7 @@ if _VERSION == 'Lua 5.3' then -- bad sizes
     f:close()
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
-    like(f:read'*l', "int size mismatch in precompiled chunk", "bad sizes")
+    matches(f:read'*l', "int size mismatch in precompiled chunk", "bad sizes")
     f:close()
 end
 
@@ -274,7 +274,7 @@ if _VERSION == 'Lua 5.3' then -- bad endianess
     f:close()
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
-    like(f:read'*l', "endianness mismatch in precompiled chunk", "bad endian")
+    matches(f:read'*l', "endianness mismatch in precompiled chunk", "bad endian")
     f:close()
 end
 
@@ -285,7 +285,7 @@ if _VERSION == 'Lua 5.3' then -- bad float format
     f:close()
     local cmd = luac .. [[ luac.out 2>&1]]
     f = io.popen(cmd)
-    like(f:read'*l', "float format mismatch in precompiled chunk")
+    matches(f:read'*l', "float format mismatch in precompiled chunk")
     f:close()
 end
 
@@ -312,19 +312,19 @@ s = nil
 
     local cmd = luac .. [[ -o cover-242.out cover-242.lua 2>&1]]
     f = io.popen(cmd)
-    is(f:read'*l', nil, "-o cover-242.out cover-242.lua")
+    equals(f:read'*l', nil, "-o cover-242.out cover-242.lua")
     f:close()
 
     cmd = luac .. [[ -l cover-242.out]]
     f = io.popen(cmd)
-    is(f:read'*l', '', "-l cover-242.out")
-    like(f:read'*l', "^main")
+    equals(f:read'*l', '', "-l cover-242.out")
+    matches(f:read'*l', "^main")
     f:close()
 
     cmd = luac .. [[ -l -l cover-242.out]]
     f = io.popen(cmd)
-    is(f:read'*l', '', "-l -l cover-242.out")
-    like(f:read'*l', "^main")
+    equals(f:read'*l', '', "-l -l cover-242.out")
+    matches(f:read'*l', "^main")
     f:close()
 end
 

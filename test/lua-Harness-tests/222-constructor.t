@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2009-2020, Perrad Francois
+-- Copyright (C) 2009-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -37,8 +37,8 @@ plan(16)
 do --[[ list-style init ]]
     local days = {'Sunday', 'Monday', 'Tuesday', 'Wednesday',
                   'Thursday', 'Friday', 'Saturday'}
-    is(days[4], 'Wednesday', "list-style init")
-    is(#days, 7)
+    equals(days[4], 'Wednesday', "list-style init")
+    equals(#days, 7)
 end
 
 do
@@ -52,7 +52,7 @@ do
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 0 }
-    is(#large, 100)
+    equals(#large, 100)
     large = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
               1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
               1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
@@ -63,13 +63,13 @@ do
               1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
               1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
               1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0 }
-    is(#large, 200)
+    equals(#large, 200)
 end
 
 do --[[ record-style init ]]
     local a = {x=0, y=0}
-    is(a.x, 0, "record-style init")
-    is(a.y, 0)
+    equals(a.x, 0, "record-style init")
+    equals(a.y, 0)
 end
 
 do
@@ -77,9 +77,9 @@ do
     local x = {0, 1, 2}
     w[1] = "another field"
     x.f = w
-    is(w['x'], 0, "ctor")
-    is(w[1], "another field")
-    is(x.f[1], "another field")
+    equals(w['x'], 0, "ctor")
+    equals(w[1], "another field")
+    equals(x.f[1], "another field")
     w.x = nil
 end
 
@@ -90,7 +90,7 @@ do --[[ mix record-style and list-style init ]]
                        {x=-10, y=1},
                        {x=0,   y=1}
                      }
-    is(polyline[2].x, -10, "mix record-style and list-style init")
+    equals(polyline[2].x, -10, "mix record-style and list-style init")
 end
 
 do
@@ -98,17 +98,17 @@ do
                      ['*'] = 'mul', ['/'] = 'div'}
     local i = 20; local s = '-'
     local a = {[i+0] = s, [i+1] = s..s, [i+2] = s..s..s}
-    is(opnames[s], 'sub', "ctor")
-    is(a[22], '---')
+    equals(opnames[s], 'sub', "ctor")
+    equals(a[22], '---')
 end
 
 do
     local function f() return 10, 20 end
 
-    eq_array({f()}, {10, 20}, "ctor")
-    eq_array({'a', f()}, {'a', 10, 20})
-    eq_array({f(), 'b'}, {10, 'b'})
-    eq_array({'c', (f())}, {'c', 10})
+    array_equals({f()}, {10, 20}, "ctor")
+    array_equals({'a', f()}, {'a', 10, 20})
+    array_equals({f(), 'b'}, {10, 'b'})
+    array_equals({'c', (f())}, {'c', 10})
 end
 
 -- Local Variables:
