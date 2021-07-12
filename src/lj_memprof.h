@@ -53,6 +53,9 @@
 #define SYMTAB_LFUNC ((uint8_t)0)
 #define SYMTAB_FINAL ((uint8_t)0x80)
 
+#define CSYMTAB_CFUNC ((uint8_t)0)
+#define EVENTS_FINAL ((uint8_t)0x81)
+
 #define LJM_CURRENT_FORMAT_VERSION 0x01
 
 /*
