@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2018, Perrad Francois
+-- Copyright (C) 2018-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -25,9 +25,9 @@
 require'tap'
 
 plan(3)
-ok( true, 'ok' )
-is( 42, 42, '42 == 42' )
-pass( 'pass' )
+truthy( true, 'truthy' )
+equals( 42, 42, '42 == 42' )
+passes( 'pass' )
 
 -- Local Variables:
 --   mode: lua

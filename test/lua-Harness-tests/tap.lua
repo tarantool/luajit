@@ -9,8 +9,8 @@
 
 ]]
 
-if pcall(require, 'Test.More') then
-    diag 'Test.More loaded'
+if pcall(require, 'Test.Assertion') then
+    diag 'Test.Assertion loaded'
     return
 end
 
@@ -46,7 +46,7 @@ function skip_all (reason)
     os.exit(0)
 end
 
-function ok (test, name)
+function truthy (test, name)
     curr_test = curr_test + 1
     local out = ''
     if not test then
@@ -62,69 +62,93 @@ function ok (test, name)
     print(out)
 end
 
-function nok (test, name)
-    ok(not test, name)
+function falsy (test, name)
+    truthy(not test, name)
 end
 
-function is (got, expected, name)
+function equals (got, expected, name)
     local pass = got == expected
-    ok(pass, name)
+    truthy(pass, name)
     if not pass then
         diag("         got: " .. tostring(got))
         diag("    expected: " .. tostring(expected))
     end
 end
 
-function isnt (got, not_expected, name)
+function not_equals (got, not_expected, name)
     local pass = got ~= not_expected
-    ok(pass, name)
+    truthy(pass, name)
     if not pass then
         diag("         got: " .. tostring(got))
         diag("    expected: anything else")
     end
 end
 
-function like (got, pattern, name)
+function matches (got, pattern, name)
     local pass = tostring(got):match(pattern)
-    ok(pass, name)
+    truthy(pass, name)
     if not pass then
         diag("                  " .. tostring(got))
         diag("    doesn't match '" .. tostring(pattern) .. "'")
     end
 end
 
-function type_ok (val, t, name)
-    if type(val) == t then
-        ok(true, name)
-    else
-        ok(false, name)
-        diag("    " .. tostring(val) .. " isn't a '" .. t .."' it's '" .. type(val) .. "'")
+local function is_type (t)
+    return function (val, name)
+        if type(val) == t then
+            truthy(true, name)
+        else
+            truthy(false, name)
+            diag("    " .. tostring(val) .. " isn't a '" .. t .."' it's a '" .. type(val) .. "'")
+        end
     end
 end
+is_boolean = is_type('boolean')
+is_cdata = is_type('cdata')
+is_function = is_type('function')
+is_number = is_type('number')
+is_string = is_type('string')
+is_table = is_type('table')
+is_thread = is_type('thread')
+is_userdata = is_type('userdata')
 
-function pass (name)
-    ok(true, name)
+local function is_value (expected)
+    return function (got, name)
+        local pass = got == expected
+        truthy(pass, name)
+        if not pass then
+            diag("         got: " .. tostring(got))
+            diag("    expected: " .. tostring(expected))
+        end
+    end
+end
+is_nil = is_value(nil)
+is_true = is_value(true)
+is_false = is_value(false)
+
+function passes (name)
+    truthy(true, name)
 end
 
-function fail (name)
-    ok(false, name)
+function fails (name)
+    truthy(false, name)
 end
 
 function require_ok (mod)
     local r, msg = pcall(require, mod)
-    ok(r, "require '" .. mod .. "'")
+    truthy(r, "require '" .. mod .. "'")
     if not r then
         diag("    " .. msg)
     end
     return r
 end
 
-function eq_array (got, expected, name)
+function array_equals (got, expected, name)
     for i = 1, #expected do
         local v = expected[i]
         local val = got[i]
         if val ~= v then
-            ok(false, name)
+            truthy(false, name)
             diag("    at index: " .. tostring(i))
             diag("         got: " .. tostring(val))
             diag("    expected: " .. tostring(v))
@@ -133,38 +157,38 @@ function eq_array (got, expected, name)
     end
     local extra = #got - #expected
     if extra ~= 0 then
-        ok(false, name)
+        truthy(false, name)
         diag("    " .. tostring(extra) .. " unexpected item(s)")
     else
-        ok(true, name)
+        truthy(true, name)
     end
 end
 
-function error_is (code, expected, name)
+function error_equals (code, expected, name)
     local r, msg = pcall(code)
     if r then
-        ok(false, name)
+        truthy(false, name)
         diag("    unexpected success")
         diag("    expected: " .. tostring(pattern))
     else
-        is(msg, expected, name)
+        equals(msg, expected, name)
     end
 end
 
-function error_like (code, pattern, name)
+function error_matches (code, pattern, name)
     local r, msg = pcall(code)
     if r then
-        ok(false, name)
+        truthy(false, name)
         diag("    unexpected success")
         diag("    expected: " .. tostring(pattern))
     else
-        like(msg, pattern, name)
+        matches(msg, pattern, name)
     end
 end
 
-function lives_ok (code, name)
+function not_errors (code, name)
     local r, msg = pcall(code)
-    ok(r, name)
+    truthy(r, name)
     if not r then
         diag("    " .. msg)
     end
@@ -181,7 +205,7 @@ function skip (reason, count)
         name = name .. " " ..reason
     end
     for i = 1, count do
-        ok(true, name)
+        truthy(true, name)
     end
 end
 
@@ -214,7 +238,7 @@ function make_specific_checks (filename)
 end
 
 --
--- Copyright (c) 2009-2018 Francois Perrad
+-- Copyright (c) 2009-2021 Francois Perrad
 --
 -- This library is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
