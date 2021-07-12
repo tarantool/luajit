@@ -122,7 +122,7 @@ t[co] = true
 truthy(t[co])
 
 if has_op53 then
-    make_specific_checks'lexico53/thread.t'
+    _dofile'lexico53/thread.t'
 end
 
 done_testing()

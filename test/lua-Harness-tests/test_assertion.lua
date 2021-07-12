@@ -9,6 +9,8 @@
 
 ]]
 
+_dofile = _dofile or dofile     -- could be defined in profile
+
 function _retrieve_progname ()
     local i = 0
     while arg[i] do
@@ -225,14 +227,6 @@ function todo (reason, count)
     count = count or 1
     todo_upto = curr_test + count
     todo_reason = reason
-end
-
--- XXX: If tests is run out of the tests source tree, the
--- relative paths below become invalid. Hence, we need to
--- prepend the directory from the script (i.e. test) name to
--- the auxiliary files to be loaded and executed.
-function make_specific_checks (filename)
-    return dofile(arg[0]:gsub('([^/]+)%.t$', '') .. filename)
 end
 
 --

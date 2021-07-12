@@ -193,7 +193,7 @@ t[print] = true
 truthy(t[print])
 
 if has_op53 then
-    make_specific_checks'lexico53/function.t'
+    _dofile'lexico53/function.t'
 end
 
 done_testing()
