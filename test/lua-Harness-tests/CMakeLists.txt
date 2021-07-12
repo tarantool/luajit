@@ -26,11 +26,6 @@ add_custom_command(TARGET lua-Harness-tests
   COMMAND
   env
     LUA_PATH="${LUA_PATH}\;"
-    # XXX: 309-os.t checks os.getenv() function by examining
-    # USERNAME or LOGNAME environment variable.
-    # These variables might not be set in the environment, so
-    # set one of them explicitly.
-    USERNAME="fperrad"
     ${PROVE} ${CMAKE_CURRENT_SOURCE_DIR}
       --exec '${LUAJIT_TEST_COMMAND} -l profile_luajit21'
       ${LUA_TEST_FLAGS}

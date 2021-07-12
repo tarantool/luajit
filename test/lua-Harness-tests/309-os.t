@@ -169,8 +169,8 @@ end
 do -- getenv
     equals(os.getenv('__IMPROBABLE__'), nil, "function getenv")
 
-    local user = os.getenv('LOGNAME') or os.getenv('USERNAME')
-    is_string(user, "function getenv")
+    local home = os.getenv('HOME') or os.getenv('HOMEPATH')
+    is_string(home, "function getenv")
 end
 
 do -- remove
