@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2014-2020, Perrad Francois
+-- Copyright (C) 2014-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -37,7 +37,7 @@ local has_utf8 = _VERSION >= 'Lua 5.3' or (jit and jit.version:match'moonjit') o
 
 if not utf8 then
     plan(1)
-    nok(has_utf8, "no has_utf8")
+    falsy(has_utf8, "no has_utf8")
 else
     plan'no_plan'
     make_specific_checks'lexico53/utf8.t'

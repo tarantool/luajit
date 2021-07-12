@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2019-2020, Perrad Francois
+-- Copyright (C) 2019-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -36,124 +36,124 @@ plan'no_plan'
 
 do -- table.new
     local r, new = pcall(require, 'table.new')
-    is(r, true, 'table.new')
-    type_ok(new, 'function')
-    is(package.loaded['table.new'], new)
+    is_true(r, 'table.new')
+    is_function(new)
+    equals(package.loaded['table.new'], new)
 
-    type_ok(new(100, 0), 'table')
-    type_ok(new(0, 100), 'table')
-    type_ok(new(200, 200), 'table')
+    is_table(new(100, 0))
+    is_table(new(0, 100))
+    is_table(new(200, 200))
 
-    error_like(function () new(42) end,
-               "^[^:]+:%d+: bad argument #2 to 'new' %(number expected, got no value%)")
+    error_matches(function () new(42) end,
+            "^[^:]+:%d+: bad argument #2 to 'new' %(number expected, got no value%)")
 end
 
 do -- table.clear
     local r, clear = pcall(require, 'table.clear')
-    is(r, true, 'table.clear')
-    type_ok(clear, 'function')
-    is(package.loaded['table.clear'], clear)
+    is_true(r, 'table.clear')
+    is_function(clear)
+    equals(package.loaded['table.clear'], clear)
 
     local t = { 'foo', bar = 42 }
-    is(t[1], 'foo')
-    is(t.bar, 42)
+    equals(t[1], 'foo')
+    equals(t.bar, 42)
     clear(t)
-    is(t[1], nil)
-    is(t.bar, nil)
+    is_nil(t[1])
+    is_nil(t.bar)
 
-    error_like(function () clear(42) end,
-               "^[^:]+:%d+: bad argument #1 to 'clear' %(table expected, got number%)")
+    error_matches(function () clear(42) end,
+            "^[^:]+:%d+: bad argument #1 to 'clear' %(table expected, got number%)")
 end
 
 -- table.clone
 if profile.openresty then
     local r, clone = pcall(require, 'table.clone')
-    is(r, true, 'table.clone')
-    type_ok(clone, 'function')
-    is(package.loaded['table.clone'], clone)
+    is_true(r, 'table.clone')
+    is_function(clone)
+    equals(package.loaded['table.clone'], clone)
 
     local mt = {}
     local t = setmetatable({ 'foo', bar = 42 }, mt)
-    is(t[1], 'foo')
-    is(t.bar, 42)
+    equals(t[1], 'foo')
+    equals(t.bar, 42)
     local t2 = clone(t)
-    type_ok(t2, 'table')
-    isnt(t2, t)
-    is(getmetatable(t2), nil)
-    is(t2[1], 'foo')
-    is(t2.bar, 42)
+    is_table(t2)
+    not_equals(t2, t)
+    is_nil(getmetatable(t2))
+    equals(t2[1], 'foo')
+    equals(t2.bar, 42)
 
-    error_like(function () clone(42) end,
-               "^[^:]+:%d+: bad argument #1 to 'clone' %(table expected, got number%)")
+    error_matches(function () clone(42) end,
+            "^[^:]+:%d+: bad argument #1 to 'clone' %(table expected, got number%)")
 else
-    is(pcall(require, 'table.clone'), false, 'no table.clone')
+    is_false(pcall(require, 'table.clone'), 'no table.clone')
 end
 
 -- table.isarray
 if profile.openresty then
     local r, isarray = pcall(require, 'table.isarray')
-    is(r, true, 'table.isarray')
-    type_ok(isarray, 'function')
-    is(package.loaded['table.isarray'], isarray)
+    is_true(r, 'table.isarray')
+    is_function(isarray)
+    equals(package.loaded['table.isarray'], isarray)
 
-    is(isarray({ [3] = 3, [5.3] = 4 }), false)
-    is(isarray({ [3] = 'a', [5] = true }), true)
-    is(isarray({ 'a', nil, true, 3.14 }), true)
-    is(isarray({}), true)
-    is(isarray({ ['1'] = 3, ['2'] = 4 }), false)
-    is(isarray({ ['dog'] = 3, ['cat'] = 4 }), false)
-    is(isarray({ 'dog', 'cat', true, ['bird'] = 3 }), false)
+    is_false(isarray({ [3] = 3, [5.3] = 4 }))
+    is_true(isarray({ [3] = 'a', [5] = true }))
+    is_true(isarray({ 'a', nil, true, 3.14 }))
+    is_true(isarray({}))
+    is_false(isarray({ ['1'] = 3, ['2'] = 4 }))
+    is_false(isarray({ ['dog'] = 3, ['cat'] = 4 }))
+    is_false(isarray({ 'dog', 'cat', true, ['bird'] = 3 }))
 
-    error_like(function () isarray(42) end,
-               "^[^:]+:%d+: bad argument #1 to 'isarray' %(table expected, got number%)")
+    error_matches(function () isarray(42) end,
+            "^[^:]+:%d+: bad argument #1 to 'isarray' %(table expected, got number%)")
 else
-    is(pcall(require, 'table.isarray'), false, 'no table.isarray')
+    is_false(pcall(require, 'table.isarray'), 'no table.isarray')
 end
 
 -- table.isempty
 if profile.openresty then
     local r, isempty = pcall(require, 'table.isempty')
-    is(r, true, 'table.isempty')
-    type_ok(isempty, 'function')
-    is(package.loaded['table.isempty'], isempty)
+    is_true(r, 'table.isempty')
+    is_function(isempty)
+    equals(package.loaded['table.isempty'], isempty)
 
-    is(isempty({}), true)
-    is(isempty({ nil }), true)
-    is(isempty({ dogs = nil }), true)
-    is(isempty({ 3.1 }), false)
-    is(isempty({ 'a', 'b' }), false)
-    is(isempty({ nil, false }), false)
-    is(isempty({ dogs = 3 }), false)
-    is(isempty({ dogs = 3, cats = 4 }), false)
-    is(isempty({ dogs = 3, 5 }), false)
+    is_true(isempty({}))
+    is_true(isempty({ nil }))
+    is_true(isempty({ dogs = nil }))
+    is_false(isempty({ 3.1 }))
+    is_false(isempty({ 'a', 'b' }))
+    is_false(isempty({ nil, false }))
+    is_false(isempty({ dogs = 3 }))
+    is_false(isempty({ dogs = 3, cats = 4 }))
+    is_false(isempty({ dogs = 3, 5 }))
 
-    error_like(function () isempty(42) end,
-               "^[^:]+:%d+: bad argument #1 to 'isempty' %(table expected, got number%)")
+    error_matches(function () isempty(42) end,
+            "^[^:]+:%d+: bad argument #1 to 'isempty' %(table expected, got number%)")
 else
-    is(pcall(require, 'table.isempty'), false, 'no table.isempty')
+    is_false(pcall(require, 'table.isempty'), 'no table.isempty')
 end
 
 -- table.nkeys
 if profile.openresty then
     local r, nkeys = pcall(require, 'table.nkeys')
-    is(r, true, 'table.nkeys')
-    type_ok(nkeys, 'function')
-    is(package.loaded['table.nkeys'], nkeys)
+    is_true(r, 'table.nkeys')
+    is_function(nkeys)
+    equals(package.loaded['table.nkeys'], nkeys)
 
-    is(nkeys({}), 0)
-    is(nkeys({ cats = 4 }), 1)
-    is(nkeys({ dogs = 3, cats = 4 }), 2)
-    is(nkeys({ dogs = nil, cats = 4 }), 1)
-    is(nkeys({ 'cats' }), 1)
-    is(nkeys({ 'dogs', 3, 'cats', 4 }), 4)
-    is(nkeys({ 'dogs', nil, 'cats', 4 }), 3)
-    is(nkeys({ cats = 4, 5, 6 }), 3)
-    is(nkeys({ nil, 'foo', dogs = 3, cats = 4 }), 3)
+    equals(nkeys({}), 0)
+    equals(nkeys({ cats = 4 }), 1)
+    equals(nkeys({ dogs = 3, cats = 4 }), 2)
+    equals(nkeys({ dogs = nil, cats = 4 }), 1)
+    equals(nkeys({ 'cats' }), 1)
+    equals(nkeys({ 'dogs', 3, 'cats', 4 }), 4)
+    equals(nkeys({ 'dogs', nil, 'cats', 4 }), 3)
+    equals(nkeys({ cats = 4, 5, 6 }), 3)
+    equals(nkeys({ nil, 'foo', dogs = 3, cats = 4 }), 3)
 
-    error_like(function () nkeys(42) end,
-               "^[^:]+:%d+: bad argument #1 to 'nkeys' %(table expected, got number%)")
+    error_matches(function () nkeys(42) end,
+            "^[^:]+:%d+: bad argument #1 to 'nkeys' %(table expected, got number%)")
 else
-    is(pcall(require, 'table.nkeys'), false, 'no table.nkeys')
+    is_false(pcall(require, 'table.nkeys'), 'no table.nkeys')
 end
 
 -- thread.exdata

@@ -1,7 +1,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2019-2020, Perrad Francois
+-- Copyright (C) 2019-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -11,15 +11,15 @@ do -- toclose
     local called = false
     do
         local foo <close> = setmetatable({}, { __close = function () called = true end })
-        type_ok(foo, 'table', "toclose")
-        is(called, false)
+        is_table(foo, "toclose")
+        is_false(called)
     end
-    is(called, true)
+    is_true(called)
 
-    error_like(function () do local foo <close> = {} end end,
-               "^[^:]+:%d+: variable 'foo' got a non%-closable value")
+    error_matches(function () do local foo <close> = {} end end,
+            "^[^:]+:%d+: variable 'foo' got a non%-closable value")
 
-    lives_ok(function ()
+    not_errors(function ()
         local var1 <const> = nil
         local var2 <const> = nil
         do
