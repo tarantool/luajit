@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2009-2020, Perrad Francois
+-- Copyright (C) 2009-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -45,45 +45,45 @@ local has_require54 = _VERSION >= 'Lua 5.4'
 plan'no_plan'
 
 
-type_ok(package.config, 'string')
+is_string(package.config)
 
-type_ok(package.cpath, 'string')
+is_string(package.cpath)
 
-type_ok(package.path, 'string')
+is_string(package.path)
 
 if has_loaders then
-    type_ok(package.loaders, 'table', "table package.loaders")
+    is_table(package.loaders, "table package.loaders")
 elseif has_alias_loaders then
-    is(package.loaders, package.searchers, "alias package.loaders")
+    equals(package.loaders, package.searchers, "alias package.loaders")
 else
-    is(package.loaders, nil, "no package.loaders")
+    is_nil(package.loaders, "no package.loaders")
 end
 
 if has_searchers then
-    type_ok(package.searchers, 'table', "table package.searchers")
+    is_table(package.searchers, "table package.searchers")
 elseif has_alias_searchers then
-    is(package.searchers, package.loaders, "alias package.searchers")
+    equals(package.searchers, package.loaders, "alias package.searchers")
 else
-    is(package.searchers, nil, "no package.searchers")
+    is_nil(package.searchers, "no package.searchers")
 end
 
 do -- loaded
-    ok(package.loaded._G, "table package.loaded")
-    ok(package.loaded.coroutine)
-    ok(package.loaded.io)
-    ok(package.loaded.math)
-    ok(package.loaded.os)
-    ok(package.loaded.package)
-    ok(package.loaded.string)
-    ok(package.loaded.table)
+    truthy(package.loaded._G, "table package.loaded")
+    truthy(package.loaded.coroutine)
+    truthy(package.loaded.io)
+    truthy(package.loaded.math)
+    truthy(package.loaded.os)
+    truthy(package.loaded.package)
+    truthy(package.loaded.string)
+    truthy(package.loaded.table)
 
     local m = require'os'
-    is(m, package.loaded['os'])
+    equals(m, package.loaded['os'])
 end
 
 do -- preload
-    type_ok(package.preload, 'table', "table package.preload")
-    is(# package.preload, 0)
+    is_table(package.preload, "table package.preload")
+    equals(# package.preload, 0)
 
     local foo = {}
     foo.bar = 1234
@@ -93,35 +93,35 @@ do -- preload
     package.preload.foo = foo_loader
     local m = require 'foo'
     assert(m == foo)
-    is(m.bar, 1234, "function require & package.preload")
+    equals(m.bar, 1234, "function require & package.preload")
 end
 
 do -- loadlib
     local path_lpeg = package.searchpath and package.searchpath('lpeg', package.cpath)
 
     local f, msg = package.loadlib('libbar', 'baz')
-    is(f, nil, "loadlib")
-    type_ok(msg, 'string')
+    is_nil(f, "loadlib")
+    is_string(msg)
 
     if path_lpeg then
         f, msg = package.loadlib(path_lpeg, 'baz')
-        is(f, nil, "loadlib")
-        like(msg, 'undefined symbol')
+        is_nil(f, "loadlib")
+        matches(msg, 'undefined symbol')
 
         f = package.loadlib(path_lpeg, 'luaopen_lpeg')
-        type_ok(f, 'function', "loadlib ok")
+        is_function(f, "loadlib ok")
     else
         skip("no lpeg path")
     end
 
     if has_loadlib52 then
         f, msg = package.loadlib('libbar', '*')
-        is(f, nil, "loadlib '*'")
-        type_ok(msg, 'string')
+        is_nil(f, "loadlib '*'")
+        is_string(msg)
 
         if path_lpeg then
             f = package.loadlib(path_lpeg, '*')
-            is(f, true, "loadlib '*'")
+            is_true(f, "loadlib '*'")
         else
             skip("no lpeg path")
         end
@@ -131,11 +131,12 @@ end
 -- searchpath
 if has_searcherpath then
     local p = package.searchpath('tap', package.path)
-    type_ok(p, 'string', "searchpath")
+    is_string(p, "searchpath")
+    matches(p, "tap.lua$", "searchpath")
     p = package.searchpath('tap', 'bad path')
-    is(p, nil)
+    is_nil(p)
 else
-    is(package.searchpath, nil, "no package.searchpath")
+    is_nil(package.searchpath, "no package.searchpath")
 end
 
 do -- require
@@ -175,31 +176,31 @@ return complex
     f:close()
     if has_require54 then
         local m1, path1 = require 'complex'
-        is(m1, complex, "function require")
-        is(path1, './complex.lua')
+        equals(m1, complex, "function require")
+        equals(path1, './complex.lua')
         local m2, path2 = require 'complex'
-        is(m1, m2)
-        is(path2, nil)
+        equals(m1, m2)
+        equals(path2, nil)
     else
         local m1 = require 'complex'
-        is(m1, complex, "function require")
+        equals(m1, complex, "function require")
         local m2 = require 'complex'
-        is(m1, m2)
+        equals(m1, m2)
     end
-    is(complex.i.r, 0)
-    is(complex.i.i, 1)
+    equals(complex.i.r, 0)
+    equals(complex.i.i, 1)
     os.remove('complex.lua') -- clean up
 
-    error_like(function () require('no_module') end,
-               "^[^:]+:%d+: module 'no_module' not found:",
-               "function require (no module)")
+    error_matches(function () require('no_module') end,
+            "^[^:]+:%d+: module 'no_module' not found:",
+            "function require (no module)")
 
     f = io.open('syntax.lua', 'w')
     f:write [[?syntax error?]]
     f:close()
-    error_like(function () require('syntax') end,
-               "^error loading module 'syntax' from file '%.[/\\]syntax%.lua':",
-               "function require (syntax error)")
+    error_matches(function () require('syntax') end,
+            "^error loading module 'syntax' from file '%.[/\\]syntax%.lua':",
+            "function require (syntax error)")
     os.remove('syntax.lua') -- clean up
 
     f = io.open('bar.lua', 'w')
@@ -210,7 +211,7 @@ return complex
     f:close()
     a = nil
     require 'bar'
-    is(a, 'bar', "function require (arg)")
+    equals(a, 'bar', "function require (arg)")
     os.remove('bar.lua') -- clean up
 
     f = io.open('cplx.lua', 'w')
@@ -253,8 +254,8 @@ return cplx
 ]]
     f:close()
     require 'cplx'
-    is(cplx.i.r, 0, "function require & module")
-    is(cplx.i.i, 1)
+    equals(cplx.i.r, 0, "function require & module")
+    equals(cplx.i.i, 1)
     os.remove('cplx.lua') -- clean up
 end
 
@@ -263,21 +264,21 @@ local done_testing = done_testing
 if has_module then
     m = {}
     package.seeall(m)
-    m.pass("function package.seeall")
+    m.passes("function package.seeall")
 
-    is(mod, nil, "function module & seeall")
+    is_nil(mod, "function module & seeall")
     module('mod', package.seeall)
-    type_ok(mod, 'table')
-    is(mod, package.loaded.mod)
+    is_table(mod)
+    equals(mod, package.loaded.mod)
 
-    is(modz, nil, "function module")
+    is_nil(modz, "function module")
     local _G = _G
     module('modz')
-    _G.type_ok(_G.modz, 'table')
-    _G.is(_G.modz, _G.package.loaded.modz)
+    _G.is_table(_G.modz)
+    _G.equals(_G.modz, _G.package.loaded.modz)
 else
-    is(package.seeall, nil, "package.seeall (removed)")
-    is(module, nil, "module (removed)")
+    is_nil(package.seeall, "package.seeall (removed)")
+    is_nil(module, "module (removed)")
 end
 
 done_testing()
