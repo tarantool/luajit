@@ -30,7 +30,7 @@ L<https://www.lua.org/manual/5.4/manual.html#6.3>
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 local luajit21 = jit and (jit.version_num >= 20100 or jit.version:match'^RaptorJIT')
 local has_loaders = _VERSION == 'Lua 5.1'
@@ -130,10 +130,10 @@ end
 
 -- searchpath
 if has_searcherpath then
-    local p = package.searchpath('tap', package.path)
+    local p = package.searchpath('test_assertion', package.path)
     is_string(p, "searchpath")
-    matches(p, "tap.lua$", "searchpath")
-    p = package.searchpath('tap', 'bad path')
+    matches(p, "test_assertion.lua$", "searchpath")
+    p = package.searchpath('test_assertion', 'bad path')
     is_nil(p)
 else
     is_nil(package.searchpath, "no package.searchpath")
