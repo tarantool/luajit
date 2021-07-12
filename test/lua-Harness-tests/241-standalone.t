@@ -29,6 +29,11 @@ L<https://www.lua.org/manual/5.4/manual.html#7>
 --]]
 
 require'test_assertion'
+
+if _TARANTOOL then
+    skip_all("tarantool")
+end
+
 local has_bytecode = not ujit and not ravi
 local has_error52 = _VERSION >= 'Lua 5.2'
 local has_error53 = _VERSION >= 'Lua 5.3'
