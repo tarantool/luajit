@@ -2,7 +2,7 @@
 --
 -- lua-Harness : <https://fperrad.frama.io/lua-Harness/>
 --
--- Copyright (C) 2009-2020, Perrad Francois
+-- Copyright (C) 2009-2021, Perrad Francois
 --
 -- This code is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.
@@ -59,17 +59,17 @@ f:close()
 
 local cmd = lua .. " hello-241.lua"
 f = io.popen(cmd)
-is(f:read'*l', 'Hello World', "file")
+equals(f:read'*l', 'Hello World', "file")
 f:close()
 
 cmd = lua .. " -- hello-241.lua"
 f = io.popen(cmd)
-is(f:read'*l', 'Hello World', "-- file")
+equals(f:read'*l', 'Hello World', "-- file")
 f:close()
 
 cmd = lua .. " no_file-241.lua 2>&1"
 f = io.popen(cmd)
-like(f:read'*l', "^[^:]+: cannot open no_file%-241%.lua", "no file")
+matches(f:read'*l', "^[^:]+: cannot open no_file%-241%.lua", "no file")
 f:close()
 
 if has_bytecode then
@@ -80,7 +80,7 @@ if has_bytecode then
     end
     cmd = lua .. " hello-241.luac"
     f = io.popen(cmd)
-    is(f:read'*l', 'Hello World', "bytecode")
+    equals(f:read'*l', 'Hello World', "bytecode")
     f:close()
     os.remove('hello-241.luac') -- clean up
 
@@ -88,8 +88,8 @@ if has_bytecode then
         os.execute(luac .. " -s -o hello-hello-241.luac hello-241.lua hello-241.lua")
         cmd = lua .. " hello-hello-241.luac"
         f = io.popen(cmd)
-        is(f:read'*l', 'Hello World', "combine 1")
-        is(f:read'*l', 'Hello World', "combine 2")
+        equals(f:read'*l', 'Hello World', "combine 1")
+        equals(f:read'*l', 'Hello World', "combine 2")
         f:close()
         os.remove('hello-hello-241.luac') -- clean up
     end
@@ -97,116 +97,116 @@ end
 
 cmd = lua .. " < hello-241.lua"
 f = io.popen(cmd)
-is(f:read'*l', 'Hello World', "redirect")
+equals(f:read'*l', 'Hello World', "redirect")
 f:close()
 
 cmd = lua .. " - < hello-241.lua"
 f = io.popen(cmd)
-is(f:read'*l', 'Hello World', "redirect")
+equals(f:read'*l', 'Hello World', "redirect")
 f:close()
 
 cmd = lua .. " -i hello-241.lua < hello-241.lua 2>&1"
 f = io.popen(cmd)
-like(f:read'*l', banner, "-i")
+matches(f:read'*l', banner, "-i")
 if ujit then
-    like(f:read'*l', '^JIT:')
+    matches(f:read'*l', '^JIT:')
 end
 if ravi then
-    like(f:read'*l', '^Copyright %(C%)')
-    like(f:read'*l', '^Portions Copyright %(C%)')
-    like(f:read'*l', '^Options')
+    matches(f:read'*l', '^Copyright %(C%)')
+    matches(f:read'*l', '^Portions Copyright %(C%)')
+    matches(f:read'*l', '^Options')
 end
-is(f:read'*l', 'Hello World')
+equals(f:read'*l', 'Hello World')
 f:close()
 
 cmd = lua .. [[ -e"a=1" -e "print(a)"]]
 f = io.popen(cmd)
-is(f:read'*l', '1', "-e")
+equals(f:read'*l', '1', "-e")
 f:close()
 
 cmd = lua .. [[ -e "error('msg')"  2>&1]]
 f = io.popen(cmd)
-is(f:read'*l', lua .. [[: (command line):1: msg]], "error")
-is(f:read'*l', "stack traceback:", "backtrace")
+equals(f:read'*l', lua .. [[: (command line):1: msg]], "error")
+equals(f:read'*l', "stack traceback:", "backtrace")
 f:close()
 
 cmd = lua .. [[ -e "error(setmetatable({}, {__tostring=function() return 'MSG' end}))"  2>&1]]
 f = io.popen(cmd)
 if has_error52 or jit then
-    is(f:read'*l', lua .. [[: MSG]], "error with object")
+    equals(f:read'*l', lua .. [[: MSG]], "error with object")
 else
-    is(f:read'*l', lua .. [[: (error object is not a string)]], "error with object")
+    equals(f:read'*l', lua .. [[: (error object is not a string)]], "error with object")
 end
 if jit then
-    is(f:read'*l', "stack traceback:", "backtrace")
+    equals(f:read'*l', "stack traceback:", "backtrace")
 else
-    is(f:read'*l', nil, "not backtrace")
+    equals(f:read'*l', nil, "not backtrace")
 end
 f:close()
 
 cmd = lua .. [[ -e "error{}"  2>&1]]
 f = io.popen(cmd)
 if has_error53 then
-    is(f:read'l', lua .. [[: (error object is a table value)]], "error")
-    is(f:read'l', "stack traceback:", "backtrace")
+    equals(f:read'l', lua .. [[: (error object is a table value)]], "error")
+    equals(f:read'l', "stack traceback:", "backtrace")
 elseif has_error52 then
-    is(f:read'*l', lua .. [[: (no error message)]], "error")
-    is(f:read'*l', nil, "not backtrace")
+    equals(f:read'*l', lua .. [[: (no error message)]], "error")
+    equals(f:read'*l', nil, "not backtrace")
 else
-    is(f:read'*l', lua .. [[: (error object is not a string)]], "error")
-    is(f:read'*l', nil, "not backtrace")
+    equals(f:read'*l', lua .. [[: (error object is not a string)]], "error")
+    equals(f:read'*l', nil, "not backtrace")
 end
 f:close()
 
 cmd = lua .. [[ -e"a=1" -e "print(a)" hello-241.lua]]
 f = io.popen(cmd)
-is(f:read'*l', '1', "-e & script")
-is(f:read'*l', 'Hello World')
+equals(f:read'*l', '1', "-e & script")
+equals(f:read'*l', 'Hello World')
 f:close()
 
 cmd = lua .. [[ -e"a=1" -i < hello-241.lua 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', banner, "-e & -i")
+matches(f:read'*l', banner, "-e & -i")
 f:close()
 
 cmd = lua .. [[ -e "?syntax error?" 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', "^.-%d: unexpected symbol near '%?'", "-e bad")
+matches(f:read'*l', "^.-%d: unexpected symbol near '%?'", "-e bad")
 f:close()
 
 cmd = lua .. [[ -e 2>&1]]
 f = io.popen(cmd)
 if _VERSION ~= 'Lua 5.1' then
-    like(f:read'*l', "^[^:]+: '%-e' needs argument", "no file")
+    matches(f:read'*l', "^[^:]+: '%-e' needs argument", "-e w/o arg")
 end
-like(f:read'*l', "^usage: ", "no file")
+matches(f:read'*l', "^usage: ")
 f:close()
 
 cmd = lua .. [[ -v 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', banner, "-v")
+matches(f:read'*l', banner, "-v")
 f:close()
 
 cmd = lua .. [[ -v hello-241.lua 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', banner, "-v & script")
+matches(f:read'*l', banner, "-v & script")
 if ravi then
-    like(f:read'*l', '^Copyright %(C%)')
-    like(f:read'*l', '^Portions Copyright %(C%)')
-    like(f:read'*l', '^Options')
+    matches(f:read'*l', '^Copyright %(C%)')
+    matches(f:read'*l', '^Portions Copyright %(C%)')
+    matches(f:read'*l', '^Options')
 end
-is(f:read'*l', 'Hello World')
+equals(f:read'*l', 'Hello World')
 f:close()
 
 cmd = lua .. [[ -v -- 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', banner, "-v --")
+matches(f:read'*l', banner, "-v --")
 f:close()
 
 if has_opt_E then
     cmd = lua .. [[ -E hello-241.lua 2>&1]]
     f = io.popen(cmd)
-    is(f:read'*l', 'Hello World', "-E")
+    equals(f:read'*l', 'Hello World', "-E")
     f:close()
 else
     diag("no -E")
@@ -215,44 +215,52 @@ end
 cmd = lua .. [[ -u 2>&1]]
 f = io.popen(cmd)
 if _VERSION ~= 'Lua 5.1' then
-    like(f:read'*l', "^[^:]+: unrecognized option '%-u'", "unknown option")
+    matches(f:read'*l', "^[^:]+: unrecognized option '%-u'", "unknown option")
 end
-like(f:read'*l', "^usage: ", "no file")
+matches(f:read'*l', "^usage: ")
 f:close()
 
 cmd = lua .. [[ --u 2>&1]]
 f = io.popen(cmd)
 if _VERSION ~= 'Lua 5.1' then
-    like(f:read'*l', "^[^:]+: unrecognized option '%-%-u'", "unknown option")
+    matches(f:read'*l', "^[^:]+: unrecognized option '%-%-u'", "unknown option")
 end
-like(f:read'*l', "^usage: ", "no file")
+matches(f:read'*l', "^usage: ")
 f:close()
 
-cmd = lua .. [[ -ltap -e "print(type(ok))"]]
-f = io.popen(cmd)
-is(f:read'*l', 'function', "-ltap")
+f = io.open('foo.lua', 'w')
+f:write([[
+function FOO () end
+]])
 f:close()
 
-cmd = lua .. [[ -l tap -e "print(type(ok))"]]
+cmd = lua .. [[ -lfoo -e "print(type(FOO))"]]
 f = io.popen(cmd)
-is(f:read'*l', 'function', "-l tap")
+equals(f:read'*l', 'function', "-lfoo")
 f:close()
+
+cmd = lua .. [[ -l foo -e "print(type(FOO))"]]
+f = io.popen(cmd)
+equals(f:read'*l', 'function', "-l foo")
+f:close()
+
+os.remove('foo.lua') -- clean up
 
 cmd = lua .. [[ -l lpeg -e "print(1)" 2>&1]]
 f = io.popen(cmd)
-isnt(f:read'*l', nil, "-l lpeg")
+not_equals(f:read'*l', nil, "-l lpeg")
 f:close()
 
 cmd = lua .. [[ -l no_lib hello-241.lua 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', "^[^:]+: module 'no_lib' not found:", "-l no lib")
+matches(f:read'*l', "^[^:]+: module 'no_lib' not found:", "-l no lib")
 f:close()
 
 if has_opt_W then
     cmd = lua .. [[ -W -e "warn'foo'" 2>&1]]
     f = io.popen(cmd)
-    is(f:read'*l', 'Lua warning: foo', "-W")
-    is(f:read'*l', nil)
+    equals(f:read'*l', 'Lua warning: foo', "-W")
+    equals(f:read'*l', nil)
     f:close()
 else
     diag("no -W")
