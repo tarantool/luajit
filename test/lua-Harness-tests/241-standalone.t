@@ -29,21 +29,18 @@ L<https://www.lua.org/manual/5.4/manual.html#7>
 --]]
 
 require'test_assertion'
-
-if _TARANTOOL then
-    skip_all("tarantool")
-end
-
-local has_bytecode = not ujit and not ravi
+local has_bytecode = not ujit and not ravi and not _TARANTOOL
 local has_error52 = _VERSION >= 'Lua 5.2'
 local has_error53 = _VERSION >= 'Lua 5.3'
-local has_opt_E = _VERSION >= 'Lua 5.2' or jit
+local has_opt_E = _VERSION >= 'Lua 5.2' or (jit and not _TARANTOOL)
 local has_opt_W = _VERSION >= 'Lua 5.4'
 local banner = '^[%w%s%-%.]-Copyright %(C%) %d%d%d%d'
 if jit and jit.version:match'^RaptorJIT' then
     banner = '^[%w%s%.]- %-%- '
 elseif ravi then
     banner = '^Ravi %d%.%d%.%d'
+elseif _TARANTOOL then
+    banner = '^Tarantool %d%.%d+%.%d+'
 end
 
 local lua = _retrieve_progname()
@@ -74,7 +71,11 @@ f:close()
 
 cmd = lua .. " no_file-241.lua 2>&1"
 f = io.popen(cmd)
-matches(f:read'*l', "^[^:]+: cannot open no_file%-241%.lua", "no file")
+if _TARANTOOL then
+    matches(f:read'*l', "Can't open script no_file%-241%.lua", "no file")
+else
+    matches(f:read'*l', "^[^:]+: cannot open no_file%-241%.lua", "no file")
+end
 f:close()
 
 if has_bytecode then
@@ -121,6 +122,9 @@ if ravi then
     matches(f:read'*l', '^Portions Copyright %(C%)')
     matches(f:read'*l', '^Options')
 end
+if _TARANTOOL then
+    matches(f:read'*l', "^type 'help' for interactive help")
+end
 equals(f:read'*l', 'Hello World')
 f:close()
 
@@ -131,18 +135,26 @@ f:close()
 
 cmd = lua .. [[ -e "error('msg')"  2>&1]]
 f = io.popen(cmd)
-equals(f:read'*l', lua .. [[: (command line):1: msg]], "error")
-equals(f:read'*l', "stack traceback:", "backtrace")
+if _TARANTOOL then
+    equals(f:read'*l', "LuajitError: (command line):1: msg", "error")
+    equals(f:read'*l', "fatal error, exiting the event loop")
+else
+    equals(f:read'*l', lua .. [[: (command line):1: msg]], "error")
+    equals(f:read'*l', "stack traceback:", "backtrace")
+end
 f:close()
 
 cmd = lua .. [[ -e "error(setmetatable({}, {__tostring=function() return 'MSG' end}))"  2>&1]]
 f = io.popen(cmd)
-if has_error52 or jit then
+if _TARANTOOL then
+    equals(f:read'*l', "LuajitError: MSG", "error with object")
+    equals(f:read'*l', "fatal error, exiting the event loop")
+elseif has_error52 or jit then
     equals(f:read'*l', lua .. [[: MSG]], "error with object")
 else
     equals(f:read'*l', lua .. [[: (error object is not a string)]], "error with object")
 end
-if jit then
+if jit and not _TARANTOOL then
     equals(f:read'*l', "stack traceback:", "backtrace")
 else
     equals(f:read'*l', nil, "not backtrace")
@@ -156,6 +168,10 @@ if has_error53 then
     equals(f:read'l', "stack traceback:", "backtrace")
 elseif has_error52 then
     equals(f:read'*l', lua .. [[: (no error message)]], "error")
+    equals(f:read'*l', nil, "not backtrace")
+elseif _TARANTOOL then
+    matches(f:read'*l', "^LuajitError: table: ", "error")
+    equals(f:read'*l', "fatal error, exiting the event loop")
     equals(f:read'*l', nil, "not backtrace")
 else
     equals(f:read'*l', lua .. [[: (error object is not a string)]], "error")
@@ -184,12 +200,21 @@ f = io.popen(cmd)
 if _VERSION ~= 'Lua 5.1' then
     matches(f:read'*l', "^[^:]+: '%-e' needs argument", "-e w/o arg")
 end
-matches(f:read'*l', "^usage: ")
+if _TARANTOOL then
+    matches(f:read'*l', "^[^:]+: option requires an argument %-%- '?e'?", "-e w/o arg")
+else
+    matches(f:read'*l', "^usage: ")
+end
 f:close()
 
 cmd = lua .. [[ -v 2>&1]]
 f = io.popen(cmd)
 matches(f:read'*l', banner, "-v")
+if _TARANTOOL then
+    matches(f:read'*l', '^Target: ')
+    matches(f:read'*l', '^Build options: ')
+    matches(f:read'*l', '^Compiler: ')
+end
 f:close()
 
 cmd = lua .. [[ -v hello-241.lua 2>&1]]
@@ -200,12 +225,24 @@ if ravi then
     matches(f:read'*l', '^Portions Copyright %(C%)')
     matches(f:read'*l', '^Options')
 end
-equals(f:read'*l', 'Hello World')
+if _TARANTOOL then
+    matches(f:read'*l', '^Target: ')
+    matches(f:read'*l', '^Build options: ')
+    matches(f:read'*l', '^Compiler: ')
+    -- script is not runned
+else
+    equals(f:read'*l', 'Hello World')
+end
 f:close()
 
 cmd = lua .. [[ -v -- 2>&1]]
 f = io.popen(cmd)
 matches(f:read'*l', banner, "-v --")
+if _TARANTOOL then
+    matches(f:read'*l', '^Target: ')
+    matches(f:read'*l', '^Build options: ')
+    matches(f:read'*l', '^Compiler: ')
+end
 f:close()
 
 if has_opt_E then
@@ -222,15 +259,21 @@ f = io.popen(cmd)
 if _VERSION ~= 'Lua 5.1' then
     matches(f:read'*l', "^[^:]+: unrecognized option '%-u'", "unknown option")
 end
-matches(f:read'*l', "^usage: ")
+if _TARANTOOL then
+    matches(f:read'*l', "^[^:]+: invalid option %-%- '?u'?", "unknown option")
+else
+    matches(f:read'*l', "^usage: ")
+end
 f:close()
 
 cmd = lua .. [[ --u 2>&1]]
 f = io.popen(cmd)
-if _VERSION ~= 'Lua 5.1' then
-    matches(f:read'*l', "^[^:]+: unrecognized option '%-%-u'", "unknown option")
+if _VERSION ~= 'Lua 5.1' or _TARANTOOL then
+    matches(f:read'*l', "^[^:]+: unrecognized option [`']%-%-u'", "unknown option")
 end
-matches(f:read'*l', "^usage: ")
+if not _TARANTOOL then
+    matches(f:read'*l', "^usage: ")
+end
 f:close()
 
 f = io.open('foo.lua', 'w')
