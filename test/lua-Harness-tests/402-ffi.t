@@ -24,7 +24,7 @@ See L<http://luajit.org/ext_ffi.html>.
 
 --]]
 
-require 'tap'
+require 'test_assertion'
 
 if not jit then
     skip_all("only with LuaJIT")

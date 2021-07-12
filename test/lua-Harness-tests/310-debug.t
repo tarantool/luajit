@@ -30,7 +30,7 @@ L<https://www.lua.org/manual/5.4/manual.html#6.10>
 
 ]]
 
-require 'tap'
+require 'test_assertion'
 local profile = require'profile'
 local has_getfenv = _VERSION == 'Lua 5.1'
 local has_gethook54 = _VERSION >= 'Lua 5.4'

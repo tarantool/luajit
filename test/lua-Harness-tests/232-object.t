@@ -24,7 +24,7 @@ See section "Object-Oriented Programming" in "Programming in Lua".
 
 --]]
 
-require'tap'
+require'test_assertion'
 
 plan(18)
 
