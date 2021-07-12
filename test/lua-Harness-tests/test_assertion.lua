@@ -9,6 +9,14 @@
 
 ]]
 
+function _retrieve_progname ()
+    local i = 0
+    while arg[i] do
+        i = i - 1
+    end
+    return arg[i + 1]
+end
+
 if pcall(require, 'Test.Assertion') then
     diag 'Test.Assertion loaded'
     return
@@ -217,16 +225,6 @@ function todo (reason, count)
     count = count or 1
     todo_upto = curr_test + count
     todo_reason = reason
-end
-
--- The least arg element is guaranteed to be the name
--- of the tested binary.
-function get_lua_binary_name ()
-    local i = 0
-    while arg[i] do
-        i = i - 1
-    end
-    return arg[i + 1]
 end
 
 -- XXX: If tests is run out of the tests source tree, the

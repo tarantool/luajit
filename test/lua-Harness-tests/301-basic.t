@@ -48,7 +48,7 @@ local has_warn = _VERSION >= 'Lua 5.4'
 local has_xpcall52 = _VERSION >= 'Lua 5.2' or jit
 local has_xpcall53 = _VERSION >= 'Lua 5.3' or jit
 
-local lua = get_lua_binary_name()
+local lua = _retrieve_progname()
 
 plan'no_plan'
 
