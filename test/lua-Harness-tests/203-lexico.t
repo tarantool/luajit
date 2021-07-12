@@ -31,7 +31,7 @@ L<https://www.lua.org/manual/5.4/manual.html#3.1>
 
 --]]
 
-require'tap'
+require'test_assertion'
 local loadstring = loadstring or load
 local luajit21 = jit and (jit.version_num >= 20100 or jit.version:match'^RaptorJIT')
 

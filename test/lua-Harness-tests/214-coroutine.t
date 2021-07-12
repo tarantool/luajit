@@ -30,7 +30,7 @@ See section "Coroutines" in "Programming in Lua".
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 local luajit21 = jit and (jit.version_num >= 20100 or jit.version:match'^RaptorJIT')
 local has_coroutine52 = _VERSION >= 'Lua 5.2' or jit
