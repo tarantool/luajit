@@ -22,7 +22,7 @@
 
 ]]
 
-require'tap'
+require'test_assertion'
 local has_op53 = _VERSION >= 'Lua 5.3'
 
 plan'no_plan'

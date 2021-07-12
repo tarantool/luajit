@@ -24,7 +24,7 @@ See L<http://luajit.org/running.html>
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 
 if not jit or ujit then

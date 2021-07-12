@@ -30,7 +30,7 @@ L<https://www.lua.org/manual/5.4/manual.html#6.1>
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 local has_error53 = _VERSION >= 'Lua 5.3'
 local has_gcinfo = _VERSION == 'Lua 5.1'

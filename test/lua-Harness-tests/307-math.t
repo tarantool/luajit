@@ -30,7 +30,7 @@ L<https://www.lua.org/manual/5.4/manual.html#6.7>
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 local has_integer = _VERSION >= 'Lua 5.3' or (jit and jit.version:match'moonjit') or profile.integer
 local has_mathx = _VERSION < 'Lua 5.3' or profile.compat52 or profile.compat53 or profile.has_mathx

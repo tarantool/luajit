@@ -29,7 +29,7 @@ L<https://www.lua.org/manual/5.2/manual.html#6.7>
 
 --]]
 
-require 'tap'
+require 'test_assertion'
 local profile = require'profile'
 local has_bit32 = _VERSION == 'Lua 5.2' or profile.compat52 or profile.has_bit32
 

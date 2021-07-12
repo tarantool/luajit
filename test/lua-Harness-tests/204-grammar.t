@@ -28,7 +28,7 @@ L<https://www.lua.org/manual/5.4/manual.html#9>
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 local has_goto = _VERSION >= 'Lua 5.2' or jit
 local has_attr = _VERSION >= 'Lua 5.4'

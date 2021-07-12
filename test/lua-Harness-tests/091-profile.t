@@ -22,7 +22,7 @@
 
 ]]
 
-require'tap'
+require'test_assertion'
 
 plan'no_plan'
 

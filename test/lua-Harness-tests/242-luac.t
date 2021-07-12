@@ -28,7 +28,7 @@ L<https://www.lua.org/manual/5.4/manual.html#7>
 
 --]]
 
-require'tap'
+require'test_assertion'
 
 if jit then
     skip_all("LuaJIT")

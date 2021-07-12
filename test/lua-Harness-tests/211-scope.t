@@ -30,7 +30,7 @@ See section "Local Variables and Blocks" in "Programming in Lua".
 
 --]]
 
-require'tap'
+require'test_assertion'
 
 plan(10)
 

@@ -30,7 +30,7 @@ See section "Metatables and Metamethods" in "Programming in Lua".
 
 --]]
 
-require'tap'
+require'test_assertion'
 local profile = require'profile'
 local has_metamethod52 = _VERSION >= 'Lua 5.2' or profile.luajit_compat52
 local has_metamethod_ipairs = _VERSION == 'Lua 5.2' or profile.compat52 or profile.luajit_compat52

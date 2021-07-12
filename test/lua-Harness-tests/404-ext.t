@@ -24,7 +24,7 @@ See L<http://luajit.org/ext_jit.html>.
 
 --]]
 
-require 'tap'
+require 'test_assertion'
 local profile = require'profile'
 
 local luajit21 = jit and (jit.version_num >= 20100 or jit.version:match'^RaptorJIT')
