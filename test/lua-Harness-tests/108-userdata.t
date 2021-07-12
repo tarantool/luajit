@@ -119,7 +119,7 @@ t[u] = true
 truthy(t[u])
 
 if has_op53 then
-    make_specific_checks'lexico53/userdata.t'
+    _dofile'lexico53/userdata.t'
 end
 
 done_testing()
