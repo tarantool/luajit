@@ -30,7 +30,7 @@ See section "Functions" in "Programming in Lua".
 
 --]]
 
-require'tap'
+require'test_assertion'
 local loadstring = loadstring or load
 
 plan(68)

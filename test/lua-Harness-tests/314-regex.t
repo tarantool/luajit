@@ -49,7 +49,7 @@ Description of the test.
 
 --]]
 
-require'tap'
+require'test_assertion'
 local loadstring = loadstring or load
 
 plan(162)
