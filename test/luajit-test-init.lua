@@ -2,6 +2,8 @@
 -- `_loadfile()` exists and uses it for code loading from test
 -- files. If the variable is not defined then suite uses
 -- `loadfile()` as default. Same for the `_dofile()`.
+-- lua-Harness also uses the same implementation of `dofile()`
+-- for the same reason.
 
 -- XXX: Some tests in PUC Rio Lua 5.1 test suite clean `arg`
 -- variable, so evaluate this once and use later.
