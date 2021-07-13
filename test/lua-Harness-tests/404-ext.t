@@ -18,7 +18,7 @@
 
 =head2 Description
 
-See L<http://luajit.org/ext_jit.html>.
+See L<https://luajit.org/ext_jit.html>.
 
 =cut
 
