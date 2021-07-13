@@ -277,7 +277,7 @@ do -- format
     equals(string.format("%s %d", r, r:len()), r .. " 200")
 
     error_matches(function () string.format("%s %s", 1) end,
-            "^[^:]+:%d+: bad argument #3 to 'format' %(.-no value%)",
+            "^[^:]+:%d+: bad argument #3 to 'format' %(.-value.-%)",
             "function format (too few arg)")
 
     error_matches(function () string.format('%d', 'toto') end,

@@ -56,20 +56,20 @@ do -- abs
 end
 
 do -- acos
-    matches(math.acos(0.5), '^1%.047', "function acos")
+    near(math.acos(0.5), 1.047, 0.001, "function acos")
 end
 
 do -- asin
-    matches(math.asin(0.5), '^0%.523', "function asin")
+    near(math.asin(0.5), 0.523, 0.001, "function asin")
 end
 
 do -- atan
-    matches(math.atan(0.5), '^0%.463', "function atan")
+    near(math.atan(0.5), 0.463, 0.001, "function atan")
 end
 
 -- atan2
 if has_mathx then
-    matches(math.atan2(1.0, 2.0), '^0%.463', "function atan2")
+    near(math.atan2(1.0, 2.0), 0.463, 0.001, "function atan2")
 else
     is_nil(math.atan2, "function atan2 (removed)")
 end
@@ -84,12 +84,12 @@ do -- ceil
 end
 
 do -- cos
-    matches(math.cos(1.0), '^0%.540', "function cos")
+    near(math.cos(1.0), 0.540, 0.001, "function cos")
 end
 
 -- cosh
 if has_mathx then
-    matches(math.cosh(1.0), '^1%.543', "function cosh")
+    near(math.cosh(1.0), 1.543, 0.001, "function cosh")
 else
     is_nil(math.cosh, "function cosh (removed)")
 end
@@ -99,7 +99,7 @@ do -- deg
 end
 
 do -- exp
-    matches(math.exp(1.0), '^2%.718', "function exp")
+    near(math.exp(1.0), 2.718, 0.001, "function exp")
 end
 
 do -- floor
@@ -112,9 +112,9 @@ do -- floor
 end
 
 do -- fmod
-    matches(math.fmod(7.0001, 0.3), '^0%.100', "function fmod (float)")
-    matches(math.fmod(-7.0001, 0.3), '^-0%.100')
-    matches(math.fmod(-7.0001, -0.3), '^-0%.100')
+    near(math.fmod(7.0001, 0.3), 0.100, 0.001, "function fmod (float)")
+    near(math.fmod(-7.0001, 0.3), -0.100, 0.001)
+    near(math.fmod(-7.0001, -0.3), -0.100, 0.001)
     if math.type then
         equals(math.type(math.fmod(7.0, 0.3)), 'float')
     end
@@ -155,17 +155,17 @@ else
 end
 
 do -- log
-    matches(math.log(47), '^3%.85', "function log")
+    near(math.log(47), 3.85, 0.01, "function log")
     if has_log_with_base then
-        matches(math.log(47, math.exp(1)), '^3%.85', "function log (base e)")
-        matches(math.log(47, 2), '^5%.554', "function log (base 2)")
-        matches(math.log(47, 10), '^1%.672', "function log (base 10)")
+        near(math.log(47, math.exp(1)), 3.85, 0.01, "function log (base e)")
+        near(math.log(47, 2), 5.554, 0.001, "function log (base 2)")
+        near(math.log(47, 10), 1.672, 0.001, "function log (base 10)")
     end
 end
 
 -- log10
 if has_log10 then
-    matches(math.log10(47.0), '^1%.672', "function log10")
+    near(math.log10(47.0), 1.672, 0.001, "function log10")
 else
     is_nil(math.log10, "function log10 (removed)")
 end
@@ -223,7 +223,7 @@ do -- modf
 end
 
 do -- pi
-    matches(tostring(math.pi), '^3%.14', "variable pi")
+    near(math.pi, 3.14, 0.01, "variable pi")
 end
 
 -- pow
@@ -234,7 +234,7 @@ else
 end
 
 do -- rad
-    matches(math.rad(180), '^3%.14', "function rad")
+    near(math.rad(180), 3.14, 0.01, "function rad")
 end
 
 do -- random
@@ -291,27 +291,27 @@ do -- randomseed
 end
 
 do -- sin
-    matches(math.sin(1.0), '^0%.841', "function sin")
+    near(math.sin(1.0), 0.841, 0.001, "function sin")
 end
 
 -- sinh
 if has_mathx then
-    matches(math.sinh(1), '^1%.175', "function sinh")
+    near(math.sinh(1), 1.175, 0.001, "function sinh")
 else
     is_nil(math.sinh, "function sinh (removed)")
 end
 
 do -- sqrt
-    matches(math.sqrt(2), '^1%.414', "function sqrt")
+    near(math.sqrt(2), 1.414, 0.001, "function sqrt")
 end
 
 do -- tan
-    matches(math.tan(1.0), '^1%.557', "function tan")
+    near(math.tan(1.0), 1.557, 0.001, "function tan")
 end
 
 -- tanh
 if has_mathx then
-    matches(math.tanh(1), '^0%.761', "function tanh")
+    near(math.tanh(1), 0.761, 0.001, "function tanh")
 else
     is_nil(math.tanh, "function tanh (removed)")
 end

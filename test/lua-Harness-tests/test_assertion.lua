@@ -94,6 +94,15 @@ function not_equals (got, not_expected, name)
     end
 end
 
+function near (got, expected, tolerance, name)
+    local pass = got >= (expected - tolerance) and got <= (expected + tolerance)
+    truthy(pass, name)
+    if not pass then
+        diag("         got: " .. tostring(got))
+        diag("    expected: " .. tostring(expected) .. " +/- " .. tostring(tolerance))
+    end
+end
+
 function matches (got, pattern, name)
     local pass = tostring(got):match(pattern)
     truthy(pass, name)

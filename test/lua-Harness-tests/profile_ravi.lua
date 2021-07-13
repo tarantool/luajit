@@ -31,7 +31,7 @@ local profile = {
 --]]
 
     nocvtn2s = false,
-    nocvts2n = false,
+    nocvts2n = true,
 
     compat53 = false,
 --[[
@@ -51,7 +51,7 @@ package.loaded.profile = profile        -- prevents loading of default profile
 return profile
 
 --
--- Copyright (c) 2018-2019 Francois Perrad
+-- Copyright (c) 2018-2021 Francois Perrad
 --
 -- This library is licensed under the terms of the MIT/X11 license,
 -- like Lua itself.

@@ -32,7 +32,7 @@ if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
     skip_all "io.popen not supported"
 end
 
-plan(12)
+plan'no_plan'
 
 do
     local f = io.open('lib-320.lua', 'w')
@@ -49,7 +49,7 @@ end
 
     local cmd = lua .. [[ -e "dofile(); n = norm(3.4, 1.0); print(twice(n))" < lib-320.lua]]
     f = io.popen(cmd)
-    matches(f:read'*l', '^7%.088', "function dofile (stdin)")
+    near(f:read'*n', 7.088, 0.001, "function dofile (stdin)")
     f:close()
 
     os.remove('lib-320.lua') -- clean up
@@ -102,14 +102,14 @@ do
 
     local cmd = lua .. [[ -e "while true do local n1, n2, n3 = io.read('*number', '*number', '*number'); if not n1 then break end; print(math.max(n1, n2, n3)) end" < number-320.txt]]
     f = io.popen(cmd)
-    matches(f:read'*l', '15000%.?', "function io:read *number")
-    equals(f:read'*l', '1000001')
+    equals(f:read'*n', 15000, "function io:read *number")
+    equals(f:read'*n', 1000001)
     f:close()
 
     os.remove('number-320.txt') -- clean up
 end
 
-do
+if debug then
     local f = io.open('dbg-320.txt', 'w')
     f:write("print 'ok'\n")
     f:write("error 'dbg'\n")
@@ -123,7 +123,11 @@ do
     f:close()
 
     os.remove('dbg-320.txt') -- clean up
+else
+    diag("no debug")
 end
+
+done_testing()
 
 -- Local Variables:
 --   mode: lua

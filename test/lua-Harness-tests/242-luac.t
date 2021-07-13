@@ -41,6 +41,10 @@ end
 local lua = _retrieve_progname()
 local luac = lua .. 'c'
 
+if not io.open(luac, 'r') then
+    skip_all "no luac"
+end
+
 if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
     skip_all "io.popen not supported"
 end

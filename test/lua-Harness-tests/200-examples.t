@@ -70,7 +70,7 @@ equals(iter_factorial(7), 5040, "factorial (iter)")
 --[[
 
   Knuth's "man or boy" test.
-  See http://en.wikipedia.org/wiki/Man_or_boy_test
+  See https://en.wikipedia.org/wiki/Man_or_boy_test
 
 ]]
 

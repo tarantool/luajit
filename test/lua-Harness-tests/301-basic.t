@@ -167,7 +167,7 @@ end
     f:close()
     dofile('lib-301.lua')
     local n = norm(3.4, 1.0)
-    matches(twice(n), '^7%.088', "function dofile")
+    near(twice(n), 7.088, 0.001, "function dofile")
 
     os.remove('lib-301.lua') -- clean up
 
