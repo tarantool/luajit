@@ -42,8 +42,6 @@ local has_setmetatable52 = _VERSION >= 'Lua 5.2' or (profile.luajit_compat52 and
 local has_upvalueid = _VERSION >= 'Lua 5.2' or jit
 local has_upvaluejoin = _VERSION >= 'Lua 5.2' or jit
 
-local debug = require 'debug'
-
 if not debug then
     skip_all("no debug")
 end

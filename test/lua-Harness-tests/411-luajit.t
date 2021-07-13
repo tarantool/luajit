@@ -18,7 +18,7 @@
 
 =head2 Description
 
-See L<http://luajit.org/running.html>
+See L<https://luajit.org/running.html>
 
 =cut
 
