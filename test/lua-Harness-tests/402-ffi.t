@@ -18,7 +18,7 @@
 
 =head2 Description
 
-See L<http://luajit.org/ext_ffi.html>.
+See L<https://luajit.org/ext_ffi.html>.
 
 =cut
 

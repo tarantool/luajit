@@ -19,7 +19,7 @@
 =head2 Description
 
 See "Lua 5.3 Reference Manual", section 3.1 "Lexical Conventions",
-L<http://www.lua.org/manual/5.3/manual.html#3.1>.
+L<https://www.lua.org/manual/5.3/manual.html#3.1>.
 
 See section "Lexical Conventions"
 L<https://www.lua.org/manual/5.1/manual.html#2.1>,
