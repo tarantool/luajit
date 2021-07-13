@@ -18,7 +18,7 @@
 
 =head2 Description
 
-See L<http://bitop.luajit.org/>.
+See L<https://bitop.luajit.org/>.
 
 =cut
 

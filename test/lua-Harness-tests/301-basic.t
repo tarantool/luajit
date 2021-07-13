@@ -53,13 +53,15 @@ local lua = _retrieve_progname()
 plan'no_plan'
 
 do -- assert
-    local v, msg = assert('text', "assert string")
+    local v, msg, extra = assert('text', "assert string", 'extra')
     equals(v, 'text', "function assert")
     equals(msg, "assert string")
-    v, msg = assert({}, "assert table")
+    equals(extra, 'extra')
+    v, msg, extra = assert({}, "assert table", 'extra')
     equals(msg, "assert table")
+    equals(extra, 'extra')
 
-    error_matches(function () assert(false, "ASSERTION TEST") end,
+    error_matches(function () assert(false, "ASSERTION TEST", 'extra') end,
             "^[^:]+:%d+: ASSERTION TEST",
             "function assert(false, msg)")
 
@@ -73,7 +75,7 @@ do -- assert
     else
         error_matches(function () assert(false, 42) end,
                 "^[^:]+:%d+: 42",
-                "function assert(false, 42)")
+                "function assert(false, 42) --> invalid")
     end
 
     if has_error53 then
@@ -167,7 +169,7 @@ end
     f:close()
     dofile('lib-301.lua')
     local n = norm(3.4, 1.0)
-    matches(twice(n), '^7%.088', "function dofile")
+    near(twice(n), 7.088, 0.001, "function dofile")
 
     os.remove('lib-301.lua') -- clean up
 
