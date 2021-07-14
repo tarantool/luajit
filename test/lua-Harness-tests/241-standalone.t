@@ -202,7 +202,7 @@ if _VERSION ~= 'Lua 5.1' then
     matches(f:read'*l', "^[^:]+: '%-e' needs argument", "-e w/o arg")
 end
 if _TARANTOOL then
-    matches(f:read'*l', "^[^:]+: option requires an argument %-%- 'e'", "-e w/o arg")
+    matches(f:read'*l', "^[^:]+: option requires an argument %-%- '?e'?", "-e w/o arg")
 else
     matches(f:read'*l', "^usage: ")
 end
@@ -261,7 +261,7 @@ if _VERSION ~= 'Lua 5.1' then
     matches(f:read'*l', "^[^:]+: unrecognized option '%-u'", "unknown option")
 end
 if _TARANTOOL then
-    matches(f:read'*l', "^[^:]+: invalid option %-%- 'u'", "unknown option")
+    matches(f:read'*l', "^[^:]+: invalid option %-%- '?u'?", "unknown option")
 else
     matches(f:read'*l', "^usage: ")
 end
@@ -270,7 +270,7 @@ f:close()
 cmd = lua .. [[ --u 2>&1]]
 f = io.popen(cmd)
 if _VERSION ~= 'Lua 5.1' or _TARANTOOL then
-    matches(f:read'*l', "^[^:]+: unrecognized option '%-%-u'", "unknown option")
+    matches(f:read'*l', "^[^:]+: unrecognized option [`']%-%-u'", "unknown option")
 end
 if not _TARANTOOL then
     matches(f:read'*l', "^usage: ")
