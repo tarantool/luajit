@@ -130,8 +130,9 @@ end
 
 -- searchpath
 if has_searcherpath then
-    local p = package.searchpath('test_assertion', '?.lua')
-    equals(p, "test_assertion.lua", "searchpath")
+    local p = package.searchpath('test_assertion', package.path)
+    is_string(p, "searchpath")
+    matches(p, "test_assertion.lua$", "searchpath")
     p = package.searchpath('test_assertion', 'bad path')
     is_nil(p)
 else
