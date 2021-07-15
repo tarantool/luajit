@@ -19,40 +19,9 @@
 #include "lj_trace.h"
 #endif
 #include "lj_profile.h"
+#include "lj_profile_timer.h"
 
 #include "luajit.h"
-
-#if LJ_PROFILE_SIGPROF
-
-#include <sys/time.h>
-#include <signal.h>
-#define profile_lock(ps)	UNUSED(ps)
-#define profile_unlock(ps)	UNUSED(ps)
-
-#elif LJ_PROFILE_PTHREAD
-
-#include <pthread.h>
-#include <time.h>
-#if LJ_TARGET_PS3
-#include <sys/timer.h>
-#endif
-#define profile_lock(ps)	pthread_mutex_lock(&ps->lock)
-#define profile_unlock(ps)	pthread_mutex_unlock(&ps->lock)
-
-#elif LJ_PROFILE_WTHREAD
-
-#define WIN32_LEAN_AND_MEAN
-#if LJ_TARGET_XBOX360
-#include <xtl.h>
-#include <xbox.h>
-#else
-#include <windows.h>
-#endif
-typedef unsigned int (WINAPI *WMM_TPFUNC)(unsigned int);
-#define profile_lock(ps)	EnterCriticalSection(&ps->lock)
-#define profile_unlock(ps)	LeaveCriticalSection(&ps->lock)
-
-#endif
 
 /* Profiler state. */
 typedef struct ProfileState {
@@ -60,25 +29,9 @@ typedef struct ProfileState {
   luaJIT_profile_callback cb;	/* Profiler callback. */
   void *data;			/* Profiler callback data. */
   SBuf sb;			/* String buffer for stack dumps. */
-  int interval;			/* Sample interval in milliseconds. */
   int samples;			/* Number of samples for next callback. */
   int vmstate;			/* VM state when profile timer triggered. */
-#if LJ_PROFILE_SIGPROF
-  struct sigaction oldsa;	/* Previous SIGPROF state. */
-#elif LJ_PROFILE_PTHREAD
-  pthread_mutex_t lock;		/* g->hookmask update lock. */
-  pthread_t thread;		/* Timer thread. */
-  int abort;			/* Abort timer thread. */
-#elif LJ_PROFILE_WTHREAD
-#if LJ_TARGET_WINDOWS
-  HINSTANCE wmm;		/* WinMM library handle. */
-  WMM_TPFUNC wmm_tbp;		/* WinMM timeBeginPeriod function. */
-  WMM_TPFUNC wmm_tep;		/* WinMM timeEndPeriod function. */
-#endif
-  CRITICAL_SECTION lock;	/* g->hookmask update lock. */
-  HANDLE thread;		/* Timer thread. */
-  int abort;			/* Abort timer thread. */
-#endif
+  lj_profile_timer timer;	/* Profiling timer */
 } ProfileState;
 
 /* Sadly, we have to use a static profiler state.
@@ -168,129 +121,21 @@ static void profile_trigger(ProfileState *ps)
   profile_unlock(ps);
 }
 
-/* -- OS-specific profile timer handling ---------------------------------- */
-
 #if LJ_PROFILE_SIGPROF
 
-/* SIGPROF handler. */
-static void profile_signal(int sig)
+static void profile_handler(int sig, siginfo_t *info, void *ctx)
 {
   UNUSED(sig);
+  UNUSED(info);
+  UNUSED(ctx);
   profile_trigger(&profile_state);
 }
 
-/* Start profiling timer. */
-static void profile_timer_start(ProfileState *ps)
-{
-  int interval = ps->interval;
-  struct itimerval tm;
-  struct sigaction sa;
-  tm.it_value.tv_sec = tm.it_interval.tv_sec = interval / 1000;
-  tm.it_value.tv_usec = tm.it_interval.tv_usec = (interval % 1000) * 1000;
-  setitimer(ITIMER_PROF, &tm, NULL);
-  sa.sa_flags = SA_RESTART;
-  sa.sa_handler = profile_signal;
-  sigemptyset(&sa.sa_mask);
-  sigaction(SIGPROF, &sa, &ps->oldsa);
-}
-
-/* Stop profiling timer. */
-static void profile_timer_stop(ProfileState *ps)
-{
-  struct itimerval tm;
-  tm.it_value.tv_sec = tm.it_interval.tv_sec = 0;
-  tm.it_value.tv_usec = tm.it_interval.tv_usec = 0;
-  setitimer(ITIMER_PROF, &tm, NULL);
-  sigaction(SIGPROF, &ps->oldsa, NULL);
-}
-
-#elif LJ_PROFILE_PTHREAD
-
-/* POSIX timer thread. */
-static void *profile_thread(ProfileState *ps)
-{
-  int interval = ps->interval;
-#if !LJ_TARGET_PS3
-  struct timespec ts;
-  ts.tv_sec = interval / 1000;
-  ts.tv_nsec = (interval % 1000) * 1000000;
-#endif
-  while (1) {
-#if LJ_TARGET_PS3
-    sys_timer_usleep(interval * 1000);
 #else
-    nanosleep(&ts, NULL);
-#endif
-    if (ps->abort) break;
-    profile_trigger(ps);
-  }
-  return NULL;
-}
 
-/* Start profiling timer thread. */
-static void profile_timer_start(ProfileState *ps)
+static void profile_handler()
 {
-  pthread_mutex_init(&ps->lock, 0);
-  ps->abort = 0;
-  pthread_create(&ps->thread, NULL, (void *(*)(void *))profile_thread, ps);
-}
-
-/* Stop profiling timer thread. */
-static void profile_timer_stop(ProfileState *ps)
-{
-  ps->abort = 1;
-  pthread_join(ps->thread, NULL);
-  pthread_mutex_destroy(&ps->lock);
-}
-
-#elif LJ_PROFILE_WTHREAD
-
-/* Windows timer thread. */
-static DWORD WINAPI profile_thread(void *psx)
-{
-  ProfileState *ps = (ProfileState *)psx;
-  int interval = ps->interval;
-#if LJ_TARGET_WINDOWS && !LJ_TARGET_UWP
-  ps->wmm_tbp(interval);
-#endif
-  while (1) {
-    Sleep(interval);
-    if (ps->abort) break;
-    profile_trigger(ps);
-  }
-#if LJ_TARGET_WINDOWS && !LJ_TARGET_UWP
-  ps->wmm_tep(interval);
-#endif
-  return 0;
-}
-
-/* Start profiling timer thread. */
-static void profile_timer_start(ProfileState *ps)
-{
-#if LJ_TARGET_WINDOWS && !LJ_TARGET_UWP
-  if (!ps->wmm) {  /* Load WinMM library on-demand. */
-    ps->wmm = LJ_WIN_LOADLIBA("winmm.dll");
-    if (ps->wmm) {
-      ps->wmm_tbp = (WMM_TPFUNC)GetProcAddress(ps->wmm, "timeBeginPeriod");
-      ps->wmm_tep = (WMM_TPFUNC)GetProcAddress(ps->wmm, "timeEndPeriod");
-      if (!ps->wmm_tbp || !ps->wmm_tep) {
-	ps->wmm = NULL;
-	return;
-      }
-    }
-  }
-#endif
-  InitializeCriticalSection(&ps->lock);
-  ps->abort = 0;
-  ps->thread = CreateThread(NULL, 0, profile_thread, ps, 0, NULL);
-}
-
-/* Stop profiling timer thread. */
-static void profile_timer_stop(ProfileState *ps)
-{
-  ps->abort = 1;
-  WaitForSingleObject(ps->thread, INFINITE);
-  DeleteCriticalSection(&ps->lock);
+  profile_trigger(&profile_state);
 }
 
 #endif
@@ -327,12 +172,13 @@ LUA_API void luaJIT_profile_start(lua_State *L, const char *mode,
     if (ps->g) return;  /* Profiler in use by another VM. */
   }
   ps->g = G(L);
-  ps->interval = interval;
   ps->cb = cb;
   ps->data = data;
   ps->samples = 0;
   lj_buf_init(L, &ps->sb);
-  profile_timer_start(ps);
+  ps->timer.opt.interval_msec = interval;
+  ps->timer.opt.handler = profile_handler;
+  lj_profile_timer_start(&ps->timer);
 }
 
 /* Stop profiling. */
@@ -341,7 +187,7 @@ LUA_API void luaJIT_profile_stop(lua_State *L)
   ProfileState *ps = &profile_state;
   global_State *g = ps->g;
   if (G(L) == g) {  /* Only stop profiler if started by this VM. */
-    profile_timer_stop(ps);
+    lj_profile_timer_stop(&ps->timer);
     g->hookmask &= ~HOOK_PROFILE;
     lj_dispatch_update(g);
 #if LJ_HASJIT
