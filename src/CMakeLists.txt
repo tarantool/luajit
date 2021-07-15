@@ -68,6 +68,7 @@ make_source_list(SOURCES_UTILS
 make_source_list(SOURCES_PROFILER
   SOURCES
     lj_memprof.c
+    lj_profile_timer.c
     lj_profile.c
 )
 
