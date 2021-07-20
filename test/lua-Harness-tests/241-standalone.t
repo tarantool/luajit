@@ -112,22 +112,26 @@ f = io.popen(cmd)
 equals(f:read'*l', 'Hello World', "redirect")
 f:close()
 
-cmd = lua .. " -i hello-241.lua < hello-241.lua 2>&1"
-f = io.popen(cmd)
-matches(f:read'*l', banner, "-i")
-if ujit then
-    matches(f:read'*l', '^JIT:')
+-- FIXME: Tarantool interactive mode misbehaviour on
+-- FreeBSD (for more info, see #6231).
+if jit.os ~= 'BSD' then
+    cmd = lua .. " -i hello-241.lua < hello-241.lua 2>&1"
+    f = io.popen(cmd)
+    matches(f:read'*l', banner, "-i")
+    if ujit then
+        matches(f:read'*l', '^JIT:')
+    end
+    if ravi then
+        matches(f:read'*l', '^Copyright %(C%)')
+        matches(f:read'*l', '^Portions Copyright %(C%)')
+        matches(f:read'*l', '^Options')
+    end
+    if _TARANTOOL then
+        matches(f:read'*l', "^type 'help' for interactive help")
+    end
+    equals(f:read'*l', 'Hello World')
+    f:close()
 end
-if ravi then
-    matches(f:read'*l', '^Copyright %(C%)')
-    matches(f:read'*l', '^Portions Copyright %(C%)')
-    matches(f:read'*l', '^Options')
-end
-if _TARANTOOL then
-    matches(f:read'*l', "^type 'help' for interactive help")
-end
-equals(f:read'*l', 'Hello World')
-f:close()
 
 cmd = lua .. [[ -e"a=1" -e "print(a)"]]
 f = io.popen(cmd)
@@ -186,10 +190,14 @@ equals(f:read'*l', '1', "-e & script")
 equals(f:read'*l', 'Hello World')
 f:close()
 
-cmd = lua .. [[ -e"a=1" -i < hello-241.lua 2>&1]]
-f = io.popen(cmd)
-matches(f:read'*l', banner, "-e & -i")
-f:close()
+-- FIXME: Tarantool interactive mode misbehaviour on
+-- FreeBSD (for more info, see #6231).
+if jit.os ~= 'BSD' then
+    cmd = lua .. [[ -e"a=1" -i < hello-241.lua 2>&1]]
+    f = io.popen(cmd)
+    matches(f:read'*l', banner, "-e & -i")
+    f:close()
+end
 
 cmd = lua .. [[ -e "?syntax error?" 2>&1]]
 f = io.popen(cmd)
