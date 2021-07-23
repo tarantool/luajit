@@ -45,6 +45,7 @@
 #include "lj_mapi.c"
 #include "lj_profile.c"
 #include "lj_profile_timer.c"
+#include "lj_symtab.c"
 #include "lj_memprof.c"
 #include "lj_lex.c"
 #include "lj_parse.c"
