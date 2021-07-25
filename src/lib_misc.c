@@ -110,14 +110,14 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
 	     "length argument is greater than buffer size");
 
   for (;;) {
-    const size_t written = write(fd, data, len - write_total);
+    const ssize_t written = write(fd, data, len - write_total);
 
     if (LJ_UNLIKELY(written == -1)) {
       /* Re-tries write in case of EINTR. */
       if (errno != EINTR) {
-	/* Will be freed as whole chunk later. */
-	*buf_addr = NULL;
-	return write_total;
+  /* Will be freed as whole chunk later. */
+  *buf_addr = NULL;
+  return write_total;
       }
 
       errno = 0;
@@ -140,16 +140,232 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
 /* Default on stop callback. Just close the corresponding descriptor. */
 static int on_stop_cb_default(void *opt, uint8_t *buf)
 {
-  struct profile_ctx *ctx = opt;
-  const int fd = ctx->fd;
+  struct profile_ctx *ctx = NULL;
+  int fd = 0;
+
+  if (opt == NULL) {
+    /* Nothing to do. */
+    return 0;
+  }
+
+  ctx = opt;
+  fd = ctx->fd;
   UNUSED(buf);
   lj_mem_free(ctx->g, ctx, sizeof(*ctx));
   return close(fd);
 }
 
+/* ----- misc.sysprof module ---------------------------------------------- */
+
+#define LJLIB_MODULE_misc_sysprof
+
+/* The default profiling interval equals to 11 ms. */
+#define SYSPROF_DEFAULT_INTERVAL 10
+#define SYSPROF_DEFAULT_OUTPUT "sysprof.bin"
+
+int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
+  struct profile_ctx *ctx = opt->ctx;
+  int fd = 0;
+  lj_assertX(path != NULL, "path is not given");
+  fd = open(path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+  if(fd == -1) {
+    return PROFILE_ERRIO;
+  }
+  ctx->fd = fd;
+  return PROFILE_SUCCESS;
+}
+
+int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, int idx) {
+  GCtab *options = lj_lib_checktab(L, idx);
+
+  /* Get profiling mode. */
+  {
+    const char *mode = NULL;
+
+    cTValue *mode_opt = lj_tab_getstr(options, lj_str_newlit(L, "mode"));
+    if (!mode_opt || !tvisstr(mode_opt)) {
+      return PROFILE_ERRUSE;
+    }
+
+    mode = strVdata(mode_opt);
+    if (mode[1] != '\0')
+      return PROFILE_ERRUSE;
+
+    switch (*mode) {
+      case 'D':
+        opt->mode = LUAM_SYSPROF_DEFAULT;
+        break;
+      case 'L':
+        opt->mode = LUAM_SYSPROF_LEAF;
+        break;
+      case 'C':
+        opt->mode = LUAM_SYSPROF_CALLGRAPH;
+        break;
+      default:
+        return PROFILE_ERRUSE;
+    }
+  }
+
+  /* Get profiling interval. */
+  {
+    cTValue *interval = lj_tab_getstr(options, lj_str_newlit(L, "interval"));
+    opt->interval = SYSPROF_DEFAULT_INTERVAL;
+    if (interval && tvisnum(interval)) {
+      int32_t signed_interval = numberVint(interval);
+      if (signed_interval < 1)
+        return PROFILE_ERRUSE;
+      opt->interval = signed_interval;
+    }
+  }
+
+  /* Get output path. */
+  if (opt->mode != LUAM_SYSPROF_DEFAULT)
+  {
+    const char *path = NULL;
+    struct profile_ctx *ctx = NULL;
+    int status = 0;
+
+    cTValue *pathtv = lj_tab_getstr(options, lj_str_newlit(L, "path"));
+    if (!pathtv)
+      path = SYSPROF_DEFAULT_OUTPUT;
+    else if (!tvisstr(pathtv))
+      return PROFILE_ERRUSE;
+    else
+      path = strVdata(pathtv);
+
+    ctx = lj_mem_new(L, sizeof(*ctx));
+    ctx->g = G(L);
+    opt->ctx = ctx;
+    opt->buf = ctx->buf;
+    opt->len = STREAM_BUFFER_SIZE;
+
+    status = set_output_path(path, opt);
+    if (status != PROFILE_SUCCESS) {
+      lj_mem_free(ctx->g, ctx, sizeof(*ctx));
+      return status;
+    }
+  }
+
+  return PROFILE_SUCCESS;
+}
+
+int parse_options(lua_State *L, struct luam_Sysprof_Options *opt)
+{
+  if (lua_gettop(L) != 1)
+    return PROFILE_ERRUSE;
+
+  if (!lua_istable(L, 1))
+    return PROFILE_ERRUSE;
+
+  return parse_sysprof_opts(L, opt, 1);
+}
+
+int sysprof_error(lua_State *L, int status)
+{
+  switch (status) {
+    case PROFILE_ERRUSE:
+      lua_pushnil(L);
+      lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
+      lua_pushinteger(L, EINVAL);
+      return 3;
+#if LJ_HASSYSPROF
+    case PROFILE_ERRRUN:
+      lua_pushnil(L);
+      lua_pushstring(L, err2msg(LJ_ERR_PROF_ISRUNNING));
+      lua_pushinteger(L, EINVAL);
+      return 3;
+    case PROFILE_ERRIO:
+      return luaL_fileresult(L, 0, NULL);
+#endif
+    default:
+      lj_assertX(0, "unreachable");
+      return 0;
+  }
+}
+
+/* local res, err, errno = sysprof.start(options) */
+LJLIB_CF(misc_sysprof_start)
+{
+  int status = PROFILE_SUCCESS;
+
+  struct luam_Sysprof_Options opt = {};
+  struct luam_Sysprof_Config conf = {};
+
+
+  status = parse_options(L, &opt);
+  if (LJ_UNLIKELY(status != PROFILE_SUCCESS)) {
+    return sysprof_error(L, status);
+  }
+
+  conf.writer = buffer_writer_default;
+  conf.on_stop = on_stop_cb_default;
+  conf.backtracer = NULL;
+
+  status = luaM_sysprof_configure(&conf);
+  if (LJ_UNLIKELY(status != PROFILE_SUCCESS)) {
+    on_stop_cb_default(opt.ctx, opt.buf);
+    return sysprof_error(L, status);
+  }
+
+  status = luaM_sysprof_start(L, &opt);
+  if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
+    /* Allocated memory will be freed in on_stop callback. */
+    return sysprof_error(L, status);
+
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+/* local res, err, errno = profile.sysprof_stop() */
+LJLIB_CF(misc_sysprof_stop)
+{
+  int status = luaM_sysprof_stop(L);
+  if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
+    return sysprof_error(L, status);
+
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+/* local counters, err, errno = sysprof.report() */
+LJLIB_CF(misc_sysprof_report)
+{
+  struct luam_Sysprof_Counters counters = {};
+  GCtab *data_tab = NULL;
+  GCtab *count_tab = NULL;
+
+  int status = luaM_sysprof_report(&counters);
+  if (status != PROFILE_SUCCESS)
+    return sysprof_error(L, status);
+
+  lua_createtable(L, 0, 3);
+  data_tab = tabV(L->top - 1);
+
+  setnumfield(L, data_tab, "samples", counters.samples);
+
+  lua_createtable(L, 0, LJ_VMST__MAX + 1);
+  count_tab = tabV(L->top - 1);
+
+  setnumfield(L, count_tab, "INTERP", counters.vmst_interp);
+  setnumfield(L, count_tab, "LFUNC",  counters.vmst_lfunc);
+  setnumfield(L, count_tab, "FFUNC",  counters.vmst_ffunc);
+  setnumfield(L, count_tab, "CFUNC",  counters.vmst_cfunc);
+  setnumfield(L, count_tab, "GC",     counters.vmst_gc);
+  setnumfield(L, count_tab, "EXIT",   counters.vmst_exit);
+  setnumfield(L, count_tab, "RECORD", counters.vmst_record);
+  setnumfield(L, count_tab, "OPT",    counters.vmst_opt);
+  setnumfield(L, count_tab, "ASM",    counters.vmst_asm);
+  setnumfield(L, count_tab, "TRACE",  counters.vmst_trace);
+
+  lua_setfield(L, -2, "vmstate");
+
+  return 1;
+}
+
 /* ----- misc.memprof module ---------------------------------------------- */
 
 #define LJLIB_MODULE_misc_memprof
+
 /* local started, err, errno = misc.memprof.start(fname) */
 LJLIB_CF(misc_memprof_start)
 {
@@ -241,5 +457,7 @@ LUALIB_API int luaopen_misc(struct lua_State *L)
 {
   LJ_LIB_REG(L, LUAM_MISCLIBNAME, misc);
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".memprof", misc_memprof);
+  LJ_LIB_REG(L, LUAM_MISCLIBNAME ".sysprof", misc_sysprof);
+
   return 1;
 }
