@@ -8,8 +8,9 @@
 #define lib_misc_c
 #define LUA_LIB
 
-#include <stdio.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "lua.h"
 #include "lmisclib.h"
@@ -75,9 +76,7 @@ LJLIB_CF(misc_getmetrics)
 
 #include "lj_libdef.h"
 
-/* ----- misc.memprof module ---------------------------------------------- */
-
-#define LJLIB_MODULE_misc_memprof
+/* --------- profile common section --------------------------------------- */
 
 /*
 ** Yep, 8Mb. Tuned in order not to bother the platform with too often flushes.
@@ -85,9 +84,9 @@ LJLIB_CF(misc_getmetrics)
 #define STREAM_BUFFER_SIZE (8 * 1024 * 1024)
 
 /* Structure given as ctx to memprof writer and on_stop callback. */
-struct memprof_ctx {
-  /* Output file stream for data. */
-  FILE *stream;
+struct profile_ctx {
+  /* Output file descriptor for data. */
+  int fd;
   /* Profiled global_State for lj_mem_free at on_stop callback. */
   global_State *g;
   /* Buffer for data. */
@@ -96,13 +95,13 @@ struct memprof_ctx {
 
 /*
 ** Default buffer writer function.
-** Just call fwrite to the corresponding FILE.
+** Just call write to the corresponding descriptor.
 */
 static size_t buffer_writer_default(const void **buf_addr, size_t len,
 				    void *opt)
 {
-  struct memprof_ctx *ctx = opt;
-  FILE *stream = ctx->stream;
+  struct profile_ctx *ctx = opt;
+  const int fd = ctx->fd;
   const void * const buf_start = *buf_addr;
   const void *data = *buf_addr;
   size_t write_total = 0;
@@ -111,9 +110,9 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
 	     "length argument is greater than buffer size");
 
   for (;;) {
-    const size_t written = fwrite(data, 1, len - write_total, stream);
+    const size_t written = write(fd, data, len - write_total);
 
-    if (LJ_UNLIKELY(written == 0)) {
+    if (LJ_UNLIKELY(written == -1)) {
       /* Re-tries write in case of EINTR. */
       if (errno != EINTR) {
 	/* Will be freed as whole chunk later. */
@@ -138,22 +137,25 @@ static size_t buffer_writer_default(const void **buf_addr, size_t len,
   return write_total;
 }
 
-/* Default on stop callback. Just close the corresponding stream. */
+/* Default on stop callback. Just close the corresponding descriptor. */
 static int on_stop_cb_default(void *opt, uint8_t *buf)
 {
-  struct memprof_ctx *ctx = opt;
-  FILE *stream = ctx->stream;
+  struct profile_ctx *ctx = opt;
+  const int fd = ctx->fd;
   UNUSED(buf);
   lj_mem_free(ctx->g, ctx, sizeof(*ctx));
-  return fclose(stream);
+  return close(fd);
 }
 
+/* ----- misc.memprof module ---------------------------------------------- */
+
+#define LJLIB_MODULE_misc_memprof
 /* local started, err, errno = misc.memprof.start(fname) */
 LJLIB_CF(misc_memprof_start)
 {
   struct lj_memprof_options opt = {0};
   const char *fname = strdata(lj_lib_checkstr(L, 1));
-  struct memprof_ctx *ctx;
+  struct profile_ctx *ctx;
   int memprof_status;
 
   /*
@@ -168,9 +170,9 @@ LJLIB_CF(misc_memprof_start)
   opt.len = STREAM_BUFFER_SIZE;
 
   ctx->g = G(L);
-  ctx->stream = fopen(fname, "wb");
+  ctx->fd = open(fname, O_CREAT | O_WRONLY | O_TRUNC, 0644);
 
-  if (ctx->stream == NULL) {
+  if (ctx->fd == -1) {
     lj_mem_free(ctx->g, ctx, sizeof(*ctx));
     return luaL_fileresult(L, 0, fname);
   }
