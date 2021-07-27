@@ -1,6 +1,0 @@
-#!/bin/bash
-#
-# Launcher for sysprof parser.
-
-LUA_PATH="@LUAJIT_TOOLS_DIR@/?.lua;;" \
-  @LUAJIT_TOOLS_BIN@ @LUAJIT_TOOLS_DIR@/sysprof.lua $@
