@@ -72,9 +72,21 @@ static void print_usage(void)
   "  -O[opt]   Control LuaJIT optimizations.\n"
   "  -i        Enter interactive mode after executing " LUA_QL("script") ".\n"
   "  -v        Show version information.\n"
+  "  -t<cmd>   Execute tool.\n"
   "  -E        Ignore environment variables.\n"
   "  --        Stop handling options.\n"
   "  -         Execute stdin and stop handling options.\n", stderr);
+  fflush(stderr);
+}
+
+static void print_tools_usage(void)
+{
+  fputs("usage: ", stderr);
+  fputs(progname, stderr);
+  fputs(" -t<cmd>\n"
+  "Available tools are:\n"
+  "  -m [--leak-only] input  Memprof profile data parser.\n"
+  "  -s input                Sysprof profile data parser.\n", stderr);
   fflush(stderr);
 }
 
@@ -361,6 +373,37 @@ static int dojitcmd(lua_State *L, const char *cmd)
   return runcmdopt(L, opt ? opt+1 : opt);
 }
 
+static int runtoolcmd(lua_State *L, const char *tool_name)
+{
+  lua_getglobal(L, "require");
+  lua_pushstring(L, tool_name);
+  if (lua_pcall(L, 1, 1, 0)) {
+    const char *msg = lua_tostring(L, -1);
+    if (msg) {
+      if (!strncmp(msg, "module ", 7))
+	msg = "unknown luaJIT command or tools not installed";
+      l_message(progname, msg);
+    }
+    return 1;
+  }
+  lua_getglobal(L, "arg");
+  return report(L, lua_pcall(L, 1, 1, 0));
+}
+
+static int dotoolcmd(lua_State *L, const char *cmd)
+{
+  switch (cmd[0]) {
+  case 'm':
+    return runtoolcmd(L, "memprof");
+  case 's':
+    return runtoolcmd(L, "sysprof");
+  default:
+    print_tools_usage();
+    break;
+  }
+  return -1;
+}
+
 /* Optimization flags. */
 static int dojitopt(lua_State *L, const char *opt)
 {
@@ -398,6 +441,7 @@ static int dobytecode(lua_State *L, char **argv)
 #define FLAGS_EXEC		4
 #define FLAGS_OPTION		8
 #define FLAGS_NOENV		16
+#define FLAGS_TOOL		32
 
 static int collectargs(char **argv, int *flags)
 {
@@ -419,6 +463,9 @@ static int collectargs(char **argv, int *flags)
       notail(argv[i]);
       *flags |= FLAGS_VERSION;
       break;
+    case 't':
+      *flags |= FLAGS_TOOL;
+      return i + 1;
     case 'e':
       *flags |= FLAGS_EXEC;
       /* fallthrough */
@@ -475,6 +522,10 @@ static int runargs(lua_State *L, char **argv, int argn)
 	return 1;
       break;
       }
+    case 't': { /* Tarantool's fork extension. */
+      const char *cmd = argv[i] + 2;
+      return dotoolcmd(L, cmd) != LUA_OK;
+    }
     case 'O':  /* LuaJIT extension. */
       if (dojitopt(L, argv[i] + 2))
 	return 1;
@@ -536,7 +587,7 @@ static int pmain(lua_State *L)
   luaL_openlibs(L);
   lua_gc(L, LUA_GCRESTART, -1);
 
-  createargtable(L, argv, s->argc, argn);
+  createargtable(L, argv, s->argc, (flags & FLAGS_TOOL) ? argn - 1 : argn);
 
   if (!(flags & FLAGS_NOENV)) {
     s->status = handle_luainit(L);

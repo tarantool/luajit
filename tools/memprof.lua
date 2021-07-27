@@ -107,7 +107,9 @@ local function dump(inputfile)
   local dheap = process.form_heap_delta(events, symbols)
   view.leak_info(dheap)
   view.aliases(symbols)
-  os.exit(0)
+  -- XXX: The second argument is required to properly close Lua
+  -- universe (i.e. invoke <lua_close> before exiting).
+  os.exit(0, true)
 end
 
 -- XXX: When this script is used as a preloaded module by an
@@ -118,10 +120,4 @@ local function dump_wrapped(...)
   return dump(parseargs(...))
 end
 
--- FIXME: this script should be application-independent.
-local args = {...}
-if #args == 1 and args[1] == "memprof" then
-  return dump_wrapped
-else
-  dump_wrapped(args)
-end
+return dump_wrapped

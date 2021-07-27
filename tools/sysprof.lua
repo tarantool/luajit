@@ -85,13 +85,17 @@ local function dump(inputfile)
   for stack, count in pairs(events) do
     print(stack, count)
   end
-  os.exit(0)
+  -- XXX: The second argument is required to properly close Lua
+  -- universe (i.e. invoke <lua_close> before exiting).
+  os.exit(0, true)
 end
 
--- FIXME: this script should be application-independent.
-local args = {...}
-if #args == 1 and args[1] == "sysprof" then
-  return dump
-else
-  dump(parseargs(args))
+-- XXX: When this script is used as a preloaded module by an
+-- application, it should return one function for correct parsing
+-- of command line flags like --leak-only and dumping profile
+-- info.
+local function dump_wrapped(...)
+  return dump(parseargs(...))
 end
+
+return dump_wrapped
