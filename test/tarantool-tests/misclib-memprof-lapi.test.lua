@@ -235,19 +235,25 @@ test:test("jit-output", function(subtest)
   jit.opt.start(3, "hotloop=10")
   jit.flush()
 
-  -- Pregenerate traces to fill symtab entries in the next run.
-  default_payload()
-
+  -- On this run traces are generated, JIT-related allocations
+  -- will be recorded as well.
   local symbols, events = generate_parsed_output(default_payload)
 
   local alloc = fill_ev_type(events, symbols, "alloc")
-  local free = fill_ev_type(events, symbols, "free")
+
+  -- Test for marking JIT-related allocations as internal.
+  -- See also https://github.com/tarantool/tarantool/issues/5679.
+  subtest:ok(alloc.line[0] == nil)
+
+  -- Run already generated traces.
+  symbols, events = generate_parsed_output(default_payload)
+
+  alloc = fill_ev_type(events, symbols, "alloc")
 
   -- We expect, that loop will be compiled into a trace.
   subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 37 }, 20))
   -- See same checks with jit.off().
   subtest:ok(check_alloc_report(alloc, { line = 34, linedefined = 32 }, 2))
-  subtest:ok(free.INTERNAL.num == 22)
 
   -- Restore default JIT settings.
   jit.opt.start(unpack(jit_opt_default))

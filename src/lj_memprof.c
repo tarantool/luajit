@@ -135,19 +135,27 @@ static void memprof_write_lfunc(struct lj_wbuf *out, uint8_t aevent,
 				GCfunc *fn, struct lua_State *L,
 				cTValue *nextframe)
 {
-  const BCLine line = lj_debug_frameline(L, fn, nextframe);
-  lj_wbuf_addbyte(out, aevent | ASOURCE_LFUNC);
-  lj_wbuf_addu64(out, (uintptr_t)funcproto(fn));
   /*
-  ** Line is >= 0 if we are inside a Lua function.
-  ** There are cases when the memory profiler attempts
-  ** to attribute allocations triggered by JIT engine recording
-  ** phase with a Lua function to be recorded. At this case
-  ** lj_debug_frameline() may return BC_NOPOS (i.e. a negative value).
-  ** Equals to zero when LuaJIT is built with the
+  ** Line equals to zero when LuaJIT is built with the
   ** -DLUAJIT_DISABLE_DEBUGINFO flag.
   */
-  lj_wbuf_addu64(out, line >= 0 ? (uint64_t)line : 0);
+  const BCLine line = lj_debug_frameline(L, fn, nextframe);
+
+  if (line < 0) {
+    /*
+    ** Line is >= 0 if we are inside a Lua function.
+    ** There are cases when the memory profiler attempts
+    ** to attribute allocations triggered by JIT engine recording
+    ** phase with a Lua function to be recorded. It this case,
+    ** lj_debug_frameline() may return BC_NOPOS (i.e. a negative value).
+    ** We report such allocations as internal in order not to confuse users.
+    */
+    lj_wbuf_addbyte(out, aevent | ASOURCE_INT);
+  } else {
+    lj_wbuf_addbyte(out, aevent | ASOURCE_LFUNC);
+    lj_wbuf_addu64(out, (uintptr_t)funcproto(fn));
+    lj_wbuf_addu64(out, (uint64_t)line);
+  }
 }
 
 static void memprof_write_cfunc(struct lj_wbuf *out, uint8_t aevent,
