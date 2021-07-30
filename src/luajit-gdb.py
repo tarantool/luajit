@@ -157,9 +157,10 @@ def frame_prev(framelink):
 LJ_64 = None
 LJ_GC64 = None
 LJ_FR2 = None
+LJ_DUALNUM = None
 
 LJ_GCVMASK = ((1 << 47) - 1)
-
+LJ_TISNUM = None
 PADDING = None
 
 # }}}
@@ -238,8 +239,11 @@ def jit_state(g):
         0x15: 'ERR',
     }.get(int(J(g)['state']), 'INVALID')
 
+def tvisint(o):
+    return LJ_DUALNUM and itype(o) == LJ_TISNUM
+
 def tvisnumber(o):
-    return itype(o) <= (0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX'])
+    return itype(o) <= LJ_TISNUM
 
 def tvislightud(o):
     if LJ_64 and not LJ_GC64:
@@ -343,7 +347,10 @@ def dump_lj_tudata(tv):
     return 'userdata @ {}'.format(strx64(gcval(tv['gcr'])))
 
 def dump_lj_tnumx(tv):
-    return 'number {}'.format(cast('double', tv['n']))
+    if tvisint(tv):
+        return 'integer {}'.format(cast('int32_t', tv['i']))
+    else:
+        return 'number {}'.format(cast('double', tv['n']))
 
 def dump_lj_invalid(tv):
     return 'not valid type @ {}'.format(strx64(gcval(tv['gcr'])))
@@ -500,10 +507,14 @@ pointers respectively.
     '''
 
     def invoke(self, arg, from_tty):
-        gdb.write('LJ_64: {LJ_64}, LJ_GC64: {LJ_GC64}\n'.format(
-            LJ_64 = LJ_64,
-            LJ_GC64 = LJ_GC64
-        ))
+        gdb.write(
+            'LJ_64: {LJ_64}, LJ_GC64: {LJ_GC64}, LJ_DUALNUM: {LJ_DUALNUM}\n'
+            .format(
+                LJ_64 = LJ_64,
+                LJ_GC64 = LJ_GC64,
+                LJ_DUALNUM = LJ_DUALNUM
+            )
+        )
 
 class LJDumpTValue(LJBase):
     '''
@@ -683,7 +694,7 @@ The command requires no args and dumps current GC stats:
         ))
 
 def init(commands):
-    global LJ_64, LJ_GC64, LJ_FR2, PADDING
+    global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, LJ_TISNUM, PADDING
 
     # XXX Fragile: though connecting the callback looks like a crap but it
     # respects both Python 2 and Python 3 (see #4828).
@@ -724,6 +735,7 @@ def init(commands):
     try:
         LJ_64 = str(gdb.parse_and_eval('IRT_PTR')) == 'IRT_P64'
         LJ_FR2 = LJ_GC64 = str(gdb.parse_and_eval('IRT_PGC')) == 'IRT_P64'
+        LJ_DUALNUM = gdb.lookup_global_symbol('lj_lib_checknumber') is not None
     except:
         gdb.write('luajit-gdb.py failed to load: '
                   'no debugging symbols found for libluajit\n')
@@ -733,6 +745,7 @@ def init(commands):
         command(name)
 
     PADDING = ' ' * len(':' + hex((1 << (47 if LJ_GC64 else 32)) - 1))
+    LJ_TISNUM = 0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX']
 
     gdb.write('luajit-gdb.py is successfully loaded\n')
 
