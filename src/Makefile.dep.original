@@ -220,7 +220,7 @@ lj_trace.o: lj_trace.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_err.h lj_errmsg.h lj_debug.h lj_str.h lj_frame.h lj_bc.h \
  lj_state.h lj_ir.h lj_jit.h lj_iropt.h lj_mcode.h lj_trace.h \
  lj_dispatch.h lj_traceerr.h lj_snap.h lj_gdbjit.h lj_record.h lj_asm.h \
- lj_vm.h lj_vmevent.h lj_target.h lj_target_*.h lj_prng.h
+ lj_vm.h lj_vmevent.h lj_target.h lj_target_*.h lj_prng.h lj_memprof.h lj_wbuf.h
 lj_udata.o: lj_udata.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_err.h lj_errmsg.h lj_udata.h
 lj_utils_leb128.o: lj_utils_leb128.c lj_utils.h lj_def.h lua.h luaconf.h

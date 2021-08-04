@@ -41,9 +41,7 @@ static void dump_symtab_trace(struct lj_wbuf *out, const GCtrace *trace)
 
   lineno = lj_debug_line(pt, proto_bcpos(pt, startpc));
 
-  lj_wbuf_addbyte(out, SYMTAB_TRACE);
   lj_wbuf_addu64(out, (uint64_t)trace->traceno);
-  lj_wbuf_addu64(out, (uint64_t)trace->mcode);
   /*
   ** The information about the prototype, associated with the
   ** trace's start has already been dumped, as it is anchored
@@ -91,6 +89,7 @@ static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
       break;
     }
     case (~LJ_TTRACE): {
+      lj_wbuf_addbyte(out, SYMTAB_TRACE);
       dump_symtab_trace(out, gco2trace(o));
       break;
     }
@@ -216,12 +215,9 @@ static void memprof_write_trace(struct memprof *mp, uint8_t aevent)
 {
   struct lj_wbuf *out = &mp->out;
   const global_State *g = mp->g;
-  const jit_State *J = G2J(g);
   const TraceNo traceno = g->vmstate;
-  const GCtrace *trace = traceref(J, traceno);
   lj_wbuf_addbyte(out, aevent | ASOURCE_TRACE);
   lj_wbuf_addu64(out, (uint64_t)traceno);
-  lj_wbuf_addu64(out, (uintptr_t)trace->mcode);
 }
 
 #else
@@ -435,6 +431,17 @@ void lj_memprof_add_proto(const struct GCproto *pt)
   dump_symtab_proto(&mp->out, pt);
 }
 
+void lj_memprof_add_trace(const struct GCtrace *tr)
+{
+  struct memprof *mp = &memprof;
+
+  if (mp->state != MPS_PROFILE)
+    return;
+
+  lj_wbuf_addbyte(&mp->out, AEVENT_SYMTAB | ASOURCE_TRACE);
+  dump_symtab_trace(&mp->out, tr);
+}
+
 #else /* LJ_HASMEMPROF */
 
 int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
@@ -454,6 +461,11 @@ int lj_memprof_stop(struct lua_State *L)
 void lj_memprof_add_proto(const struct GCproto *pt)
 {
   UNUSED(pt);
+}
+
+void lj_memprof_add_trace(const struct GCtrace *tr)
+{
+  UNUSED(tr);
 }
 
 #endif /* LJ_HASMEMPROF */

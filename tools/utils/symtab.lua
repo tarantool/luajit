@@ -58,23 +58,21 @@ function M.parse_sym_lfunc(reader, symtab)
   })
 end
 
-local function parse_sym_trace(reader, symtab)
+function M.parse_sym_trace(reader, symtab)
   local traceno = reader:read_uleb128()
-  local trace_addr = reader:read_uleb128()
   local sym_addr = reader:read_uleb128()
   local sym_line = reader:read_uleb128()
 
   symtab.trace[traceno] = symtab.trace[traceno] or {}
 
   table.insert(symtab.trace[traceno], {
-    addr = trace_addr,
     start = M.loc(symtab, { addr = sym_addr, line = sym_line })
   })
 end
 
 local parsers = {
   [SYMTAB_LFUNC] = M.parse_sym_lfunc,
-  [SYMTAB_TRACE] = parse_sym_trace,
+  [SYMTAB_TRACE] = M.parse_sym_trace,
 }
 
 function M.parse(reader)
@@ -128,18 +126,14 @@ end
 
 local function demangle_trace(symtab, loc)
   local traceno = loc.traceno
-  local addr = loc.addr
 
   assert(traceno ~= 0, "Location is a trace")
 
-  local trace_str = string_format("TRACE [%d] %#x", traceno, addr)
+  local trace_str = string_format("TRACE [%d]", traceno)
   local gens = symtab.trace[traceno]
   local trace = gens and gens[loc.gen]
 
-  -- If trace, which was remembered in the symtab, has not
-  -- been flushed, associate it with a proto, where trace
-  -- recording started.
-  if trace and trace.addr == addr then
+  if trace then
     assert(trace.start.traceno == 0, "Trace start is not a trace")
     return trace_str.." started at "..M.demangle(symtab, trace.start)
   end

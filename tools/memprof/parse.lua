@@ -75,7 +75,6 @@ local function parse_location(reader, asource, symbols)
     args.line = reader:read_uleb128()
   elseif asource == ASOURCE_TRACE then
     args.traceno = reader:read_uleb128()
-    args.addr = reader:read_uleb128()
   else
     error("Unknown asource "..asource)
   end
@@ -142,6 +141,8 @@ end
 local function parse_symtab(reader, asource, _, _, symbols)
   if asource == ASOURCE_LFUNC then
     symtab.parse_sym_lfunc(reader, symbols)
+  elseif asource == ASOURCE_TRACE then
+    symtab.parse_sym_trace(reader, symbols)
   end
 end
 

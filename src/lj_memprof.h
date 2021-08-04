@@ -27,7 +27,7 @@
 ** reserved       := <BYTE> <BYTE> <BYTE>
 ** sym            := sym-lua | sym-trace | sym-final
 ** sym-lua        := sym-header sym-addr sym-chunk sym-line
-** sym-trace      := sym-header trace-no trace-addr sym-addr sym-line
+** sym-trace      := sym-header trace-no sym-addr sym-line
 ** sym-header     := <BYTE>
 ** sym-addr       := <ULEB128>
 ** sym-chunk      := string
@@ -74,12 +74,13 @@
 ** event-free     := event-header loc? oaddr osize
 ** event-symtab   := event-header sym
 ** event-header   := <BYTE>
-** sym            := sym-lua
+** sym            := sym-lua | sym-trace
 ** sym-lua        := sym-addr sym-chunk sym-line
+** sym-trace      := trace-no loc-lua
 ** loc            := loc-lua | loc-c | loc-trace
 ** loc-lua        := sym-addr line-no
 ** loc-c          := sym-addr
-** loc-trace      := trace-no trace-addr
+** loc-trace      := trace-no
 ** sym-addr       := <ULEB128>
 ** sym-chunk      := string
 ** sym-line       := <ULEB128>
@@ -158,6 +159,7 @@ struct lj_memprof_options {
 /* Avoid to provide additional interfaces described in other headers. */
 struct lua_State;
 struct GCproto;
+struct GCtrace;
 
 /*
 ** Starts profiling. Returns PROFILE_SUCCESS on success and one of
@@ -179,5 +181,11 @@ int lj_memprof_stop(struct lua_State *L);
 ** is running.
 */
 void lj_memprof_add_proto(const struct GCproto *pt);
+
+/*
+** Enriches the profiler symbol table with a new trace, if the profiler
+** is running.
+*/
+void lj_memprof_add_trace(const struct GCtrace *tr);
 
 #endif

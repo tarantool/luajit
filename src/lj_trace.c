@@ -31,6 +31,9 @@
 #include "lj_vmevent.h"
 #include "lj_target.h"
 #include "lj_prng.h"
+#if LJ_HASMEMPROF
+#include "lj_memprof.h"
+#endif
 
 /* -- Error handling ------------------------------------------------------ */
 
@@ -164,6 +167,11 @@ static void trace_save(jit_State *J, GCtrace *T)
   lj_gdbjit_addtrace(J, T);
 #ifdef LUAJIT_USE_PERFTOOLS
   perftools_addtrace(T);
+#endif
+
+  /* Add a new trace to the profiler. */
+#if LJ_HASMEMPROF
+  lj_memprof_add_trace(T);
 #endif
 }
 

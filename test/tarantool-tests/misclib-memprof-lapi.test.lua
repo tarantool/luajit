@@ -272,7 +272,7 @@ test:test("jit-output", function(subtest)
     return
   end
 
-  subtest:plan(3)
+  subtest:plan(4)
 
   jit.opt.start(3, "hotloop=10")
   jit.flush()
@@ -287,13 +287,12 @@ test:test("jit-output", function(subtest)
   -- See also https://github.com/tarantool/tarantool/issues/5679.
   subtest:is(alloc.source[form_source_line(0)], nil)
 
-  -- Run already generated traces.
-  symbols, events = generate_parsed_output(default_payload)
-
-  alloc = fill_ev_type(events, symbols, "alloc")
-
   -- We expect, that loop will be compiled into a trace.
-  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 38 }, 20))
+  -- 10 allocations in interpreter mode, 1 allocation for a trace
+  -- recording and assembling and next 9 allocations will happen
+  -- while running the trace.
+  subtest:ok(check_alloc_report(alloc, { line = 40, linedefined = 33 }, 11))
+  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 38 }, 9))
   -- See same checks with jit.off().
   subtest:ok(check_alloc_report(alloc, { line = 35, linedefined = 33 }, 2))
 
