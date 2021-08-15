@@ -57,6 +57,7 @@ macro(BuildTestCLib lib sources)
 endmacro()
 
 add_subdirectory(gh-4427-ffi-sandwich)
+add_subdirectory(gh-6189-cur_L)
 add_subdirectory(lj-49-bad-lightuserdata)
 add_subdirectory(lj-flush-on-trace)
 add_subdirectory(misclib-getmetrics-capi)
