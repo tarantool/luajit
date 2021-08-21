@@ -45,6 +45,13 @@ function M.parse_sym_lfunc(reader, symtab)
 
   symtab.lfunc[sym_addr] = symtab.lfunc[sym_addr] or {}
 
+  if sym_chunk:find('\n') and not symtab.alias[sym_chunk] then
+    table.insert(symtab.alias, sym_chunk)
+    symtab.alias[sym_chunk] = string_format(
+      "function_alias_%d", #symtab.alias
+    )
+  end
+
   table.insert(symtab.lfunc[sym_addr], {
     source = sym_chunk,
     linedefined = sym_line,
@@ -74,6 +81,7 @@ function M.parse(reader)
   local symtab = {
     lfunc = {},
     trace = {},
+    alias = {},
   }
   local magic = reader:read_octets(3)
   local version = reader:read_octets(1)
@@ -151,9 +159,8 @@ function M.demangle(symtab, loc)
   end
 
   if symtab.lfunc[addr] and symtab.lfunc[addr][gen] then
-    return string_format(
-      "%s:%d", symtab.lfunc[addr][gen].source, loc.line
-    )
+    local source = symtab.lfunc[addr][gen].source
+    return string_format("%s:%d", symtab.alias[source] or source, loc.line)
   end
 
   return string_format("CFUNC %#x", addr)

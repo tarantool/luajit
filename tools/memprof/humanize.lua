@@ -81,4 +81,18 @@ function M.leak_info(dheap)
   print("")
 end
 
+function M.aliases(symbols)
+  if #symbols.alias == 0 then return end
+  print("ALIASES:")
+  for _, source in ipairs(symbols.alias) do
+    print(symbols.alias[source]..":")
+    local lineno = 1
+    for line in source:gmatch("([^\n]+)") do
+      print(string.format("%d\t| %s", lineno, line))
+      lineno = lineno + 1
+    end
+    print("\n")
+  end
+end
+
 return M

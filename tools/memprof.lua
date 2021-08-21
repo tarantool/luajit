@@ -106,6 +106,7 @@ local function dump(inputfile)
   end
   local dheap = process.form_heap_delta(events, symbols)
   view.leak_info(dheap)
+  view.aliases(symbols)
   os.exit(0)
 end
 
