@@ -15,6 +15,7 @@ jit.flush()
 
 local bufread = require("utils.bufread")
 local symtab = require("utils.symtab")
+local sysprof = require("sysprof.parse")
 
 local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.sysprofdata.tmp.bin")
 local BAD_PATH = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%1/sysprofdata.tmp.bin")
@@ -51,7 +52,8 @@ local function check_mode(mode, interval)
   end
 
   local reader = bufread.new(TMP_BINFILE)
-  symtab.parse(reader)
+  local symbols = symtab.parse(reader)
+  sysprof.parse(reader, symbols)
 end
 
 -- GENERAL

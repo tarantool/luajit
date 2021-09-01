@@ -19,4 +19,5 @@ cmake_uninstall.cmake
 compile_commands.json
 install_manifest.txt
 luajit-parse-memprof
+luajit-parse-sysprof
 luajit.pc

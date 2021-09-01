@@ -157,7 +157,7 @@ local function demangle_trace(symtab, loc)
 end
 
 function M.demangle(symtab, loc)
-  if loc.traceno ~= 0 then
+  if loc.traceno ~= 0 and loc.traceno ~= nil then
     return demangle_trace(symtab, loc)
   end
 
