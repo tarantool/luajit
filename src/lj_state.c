@@ -34,6 +34,10 @@
 #include "lj_memprof.h"
 #endif
 
+#if LJ_HASSYSPROF
+#include "lj_sysprof.h"
+#endif
+
 /* -- Stack handling ------------------------------------------------------ */
 
 /* Stack sizes. */
@@ -295,6 +299,9 @@ LUA_API void lua_close(lua_State *L)
   L = mainthread(g);  /* Only the main thread can be closed. */
 #if LJ_HASMEMPROF
   lj_memprof_stop(L);
+#endif
+#if LJ_HASSYSPROF
+  lj_sysprof_stop(L);
 #endif
 #if LJ_HASPROFILE
   luaJIT_profile_stop(L);

@@ -1,0 +1,1 @@
+BuildTestCLib(testsysprof testsysprof.c)

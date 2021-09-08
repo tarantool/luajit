@@ -15,6 +15,7 @@
 
 #include "lj_def.h"
 #include "lj_wbuf.h"
+#include "lmisclib.h"
 
 #define LJM_CURRENT_FORMAT_VERSION 0x03
 
@@ -86,13 +87,6 @@
 #define ASOURCE_TRACE ((uint8_t)(4 << 2))
 
 #define LJM_EPILOGUE_HEADER 0x80
-
-/* Profiler public API. */
-#define PROFILE_SUCCESS 0
-#define PROFILE_ERRUSE  1
-#define PROFILE_ERRRUN  2
-#define PROFILE_ERRMEM  3
-#define PROFILE_ERRIO   4
 
 /* Profiler options. */
 struct lj_memprof_options {

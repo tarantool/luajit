@@ -21,7 +21,7 @@ LuaJITArch(LUAJIT_ARCH "${TESTARCH}")
 # distribute the binaries to a different machine you could also
 # use: -march=native.
 if(LUAJIT_ARCH STREQUAL "x86")
-  AppendFlags(TARGET_C_FLAGS -march=i686 -msse -msse2 -mfpmath=sse)
+  AppendFlags(TARGET_C_FLAGS -march=i686 -msse -msse2 -mfpmath=sse -fno-omit-frame-pointer)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
