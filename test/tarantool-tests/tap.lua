@@ -166,7 +166,7 @@ local function is_deeply(test, got, expected, message, extra)
 
     for k, v in pairs(got) do
       has[k] = true
-      extra.path = path .. "." .. k
+      extra.path = path .. "." .. tostring(k)
       if not cmpdeeply(v, expected[k], extra) then
         return false
       end
@@ -175,7 +175,7 @@ local function is_deeply(test, got, expected, message, extra)
     -- Check if expected contains more keys then got.
     for k, v in pairs(expected) do
       if has[k] ~= true and (extra.strict or v ~= NULL) then
-        extra.path = path .. "." .. k
+        extra.path = path .. "." .. tostring(k)
         extra.expected = "key (exists): " ..  tostring(k)
         extra.got = "key (missing): " .. tostring(k)
         return false
