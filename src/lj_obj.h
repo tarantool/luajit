@@ -689,6 +689,7 @@ typedef struct global_State {
   MRef ctype_state;	/* Pointer to C type state. */
   PRNGState prng;	/* Global PRNG state. */
   GCRef gcroot[GCROOT_MAX];  /* GC roots. */
+  TValue *top_frame;	/* Top frame for sysprof. */
 } global_State;
 
 #define mainthread(g)	(&gcref(g->mainthref)->th)
