@@ -186,6 +186,14 @@ static TRef recff_bufhdr(jit_State *J)
 		lj_ir_kptr(J, &J2G(J)->tmpbuf), IRBUFHDR_RESET);
 }
 
+/* Emit TMPREF. */
+static TRef recff_tmpref(jit_State *J, TRef tr, int mode)
+{
+  if (!LJ_DUALNUM && tref_isinteger(tr))
+    tr = emitir(IRTN(IR_CONV), tr, IRCONV_NUM_INT);
+  return emitir(IRT(IR_TMPREF, IRT_PGC), tr, mode);
+}
+
 /* -- Base library fast functions ----------------------------------------- */
 
 static void LJ_FASTCALL recff_assert(jit_State *J, RecordFFData *rd)
@@ -300,7 +308,7 @@ int32_t lj_ffrecord_select_mode(jit_State *J, TRef tr, TValue *tv)
     } else {
       TRef trptr = emitir(IRT(IR_STRREF, IRT_PGC), tr, lj_ir_kint(J, 0));
       TRef trchar = emitir(IRT(IR_XLOAD, IRT_U8), trptr, IRXLOAD_READONLY);
-      emitir(IRTG(IR_EQ, IRT_INT), trchar, lj_ir_kint(J, '#'));
+      emitir(IRTGI(IR_EQ), trchar, lj_ir_kint(J, '#'));
     }
     return 0;
   } else {  /* select(n, ...) */
