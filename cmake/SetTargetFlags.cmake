@@ -16,7 +16,11 @@ LuaJITTestArch(TESTARCH "${TARGET_C_FLAGS}")
 LuaJITArch(LUAJIT_ARCH "${TESTARCH}")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  AppendFlags(TARGET_C_FLAGS -DLUAJIT_UNWIND_EXTERNAL)
+  # Ext. unwinding is broken on OSX/ARM64 until someone finds a
+  # fix. See https://github.com/LuaJIT/LuaJIT/issues/698.
+  if(NOT LUAJIT_ARCH STREQUAL "arm64")
+    AppendFlags(TARGET_C_FLAGS -DLUAJIT_UNWIND_EXTERNAL)
+  endif()
 else()
   string(FIND ${TARGET_C_FLAGS} "LJ_NO_UNWIND 1" UNWIND_POS)
   if(UNWIND_POS EQUAL -1)
