@@ -7,7 +7,14 @@ require("utils").skipcond(
 local tap = require("tap")
 
 local test = tap.test("misc-memprof-lapi")
-test:plan(3)
+test:plan(4)
+
+local jit_opt_default = {
+    3, -- level
+    "hotloop=56",
+    "hotexit=10",
+    "minstitch=0",
+}
 
 jit.off()
 jit.flush()
@@ -24,10 +31,10 @@ local BAD_PATH = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%1/memprofdata.tmp.bin")
 
 local function default_payload()
   -- Preallocate table to avoid table array part reallocations.
-  local _ = table_new(100, 0)
+  local _ = table_new(20, 0)
 
-  -- Want too see 100 objects here.
-  for i = 1, 100 do
+  -- Want too see 20 objects here.
+  for i = 1, 20 do
     -- Try to avoid crossing with "test" module objects.
     _[i] = "memprof-str-"..i
   end
@@ -72,16 +79,26 @@ local function generate_parsed_output(payload)
 end
 
 local function fill_ev_type(events, symbols, event_type)
-  local ev_type = {}
+  local ev_type = {
+    line = {},
+    trace = {},
+  }
   for _, event in pairs(events[event_type]) do
     local addr = event.loc.addr
-    if addr == 0 then
+    local traceno = event.loc.traceno
+
+    if traceno ~= 0 then
+      ev_type.trace[traceno] = {
+        name = string.format("TRACE [%d]", traceno),
+        num = event.num,
+      }
+    elseif addr == 0 then
       ev_type.INTERNAL = {
         name = "INTERNAL",
         num = event.num,
-    }
+      }
     elseif symbols[addr] then
-      ev_type[event.loc.line] = {
+      ev_type.line[event.loc.line] = {
         name = string.format(
           "%s:%d", symbols[addr].source, symbols[addr].linedefined
         ),
@@ -96,10 +113,22 @@ local function form_source_line(line)
   return string.format("@%s:%d", arg[0], line)
 end
 
-local function check_alloc_report(alloc, line, function_line, nevents)
-  assert(form_source_line(function_line) == alloc[line].name)
-  assert(alloc[line].num == nevents, ("got=%d, expected=%d"):format(
-    alloc[line].num,
+local function check_alloc_report(alloc, location, nevents)
+  local expected_name, event
+  local traceno = location.traceno
+  if traceno then
+    expected_name = string.format("TRACE [%d]", traceno)
+    event = alloc.trace[traceno]
+  else
+    expected_name = form_source_line(location.linedefined)
+    event = alloc.line[location.line]
+  end
+  assert(expected_name == event.name, ("got='%s', expected='%s'"):format(
+    event.name,
+    expected_name
+  ))
+  assert(event.num == nevents, ("got=%d, expected=%d"):format(
+    event.num,
     nevents
   ))
   return true
@@ -145,18 +174,18 @@ test:test("output", function(subtest)
   -- one is the number of allocations. 1 event - alocation of
   -- table by itself + 1 allocation of array part as far it is
   -- bigger than LJ_MAX_COLOSIZE (16).
-  subtest:ok(check_alloc_report(alloc, 27, 25, 2))
-  -- 100 strings allocations.
-  subtest:ok(check_alloc_report(alloc, 32, 25, 100))
+  subtest:ok(check_alloc_report(alloc, { line = 34, linedefined = 32 }, 2))
+  -- 20 strings allocations.
+  subtest:ok(check_alloc_report(alloc, { line = 39, linedefined = 32 }, 20))
 
   -- Collect all previous allocated objects.
-  subtest:ok(free.INTERNAL.num == 102)
+  subtest:ok(free.INTERNAL.num == 22)
 
   -- Tests for leak-only option.
   -- See also https://github.com/tarantool/tarantool/issues/5812.
   local heap_delta = process.form_heap_delta(events, symbols)
-  local tab_alloc_stats = heap_delta[form_source_line(27)]
-  local str_alloc_stats = heap_delta[form_source_line(32)]
+  local tab_alloc_stats = heap_delta[form_source_line(34)]
+  local str_alloc_stats = heap_delta[form_source_line(39)]
   subtest:ok(tab_alloc_stats.nalloc == tab_alloc_stats.nfree)
   subtest:ok(tab_alloc_stats.dbytes == 0)
   subtest:ok(str_alloc_stats.nalloc == str_alloc_stats.nfree)
@@ -185,5 +214,38 @@ test:test("stack-resize", function(subtest)
   misc.memprof.stop()
 end)
 
+-- Test profiler with enabled JIT.
 jit.on()
+
+test:test("jit-output", function(subtest)
+  -- Disabled on *BSD due to #4819.
+  if jit.os == 'BSD' then
+    subtest:plan(1)
+    subtest:skip('Disabled due to #4819')
+    return
+  end
+
+  subtest:plan(3)
+
+  jit.opt.start(3, "hotloop=10")
+  jit.flush()
+
+  -- Pregenerate traces to fill symtab entries in the next run.
+  default_payload()
+
+  local symbols, events = generate_parsed_output(default_payload)
+
+  local alloc = fill_ev_type(events, symbols, "alloc")
+  local free = fill_ev_type(events, symbols, "free")
+
+  -- We expect, that loop will be compiled into a trace.
+  subtest:ok(check_alloc_report(alloc, { traceno = 1 }, 20))
+  -- See same checks with jit.off().
+  subtest:ok(check_alloc_report(alloc, { line = 34, linedefined = 32 }, 2))
+  subtest:ok(free.INTERNAL.num == 22)
+
+  -- Restore default JIT settings.
+  jit.opt.start(unpack(jit_opt_default))
+end)
+
 os.exit(test:check() and 0 or 1)

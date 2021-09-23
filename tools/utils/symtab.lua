@@ -74,10 +74,14 @@ function M.parse(reader)
 end
 
 function M.id(loc)
-  return string_format("f%#xl%d", loc.addr, loc.line)
+  return string_format("f%#xl%dt%d", loc.addr, loc.line, loc.traceno)
 end
 
 function M.demangle(symtab, loc)
+  if loc.traceno ~= 0 then
+    return string_format("TRACE [%d] %#x", loc.traceno, loc.addr)
+  end
+
   local addr = loc.addr
 
   if addr == 0 then

@@ -13,7 +13,7 @@ local string_format = string.format
 local symtab = require "utils.symtab"
 
 local LJM_MAGIC = "ljm"
-local LJM_CURRENT_VERSION = 1
+local LJM_CURRENT_VERSION = 0x02
 
 local LJM_EPILOGUE_HEADER = 0x80
 
@@ -26,8 +26,11 @@ local AEVENT_MASK = 0x3
 local ASOURCE_INT = lshift(1, 2)
 local ASOURCE_LFUNC = lshift(2, 2)
 local ASOURCE_CFUNC = lshift(3, 2)
+local ASOURCE_TRACE = lshift(4, 2)
 
-local ASOURCE_MASK = lshift(0x3, 2)
+local ASOURCE_MASK = lshift(0x7, 2)
+
+local EV_HEADER_MAX = ASOURCE_TRACE + AEVENT_REALLOC
 
 local M = {}
 
@@ -65,6 +68,7 @@ local function parse_location(reader, asource)
   local loc = {
     addr = 0,
     line = 0,
+    traceno = 0,
   }
   if asource == ASOURCE_INT then -- luacheck: ignore
   elseif asource == ASOURCE_CFUNC then
@@ -72,6 +76,9 @@ local function parse_location(reader, asource)
   elseif asource == ASOURCE_LFUNC then
     loc.addr = reader:read_uleb128()
     loc.line = reader:read_uleb128()
+  elseif asource == ASOURCE_TRACE then
+    loc.traceno = reader:read_uleb128()
+    loc.addr = reader:read_uleb128()
   else
     error("Unknown asource "..asource)
   end
@@ -141,7 +148,7 @@ local parsers = {
 }
 
 local function ev_header_is_valid(evh)
-  return evh <= 0x0f or evh == LJM_EPILOGUE_HEADER
+  return evh <= EV_HEADER_MAX or evh == LJM_EPILOGUE_HEADER
 end
 
 -- Splits event header into event type (aka aevent = allocation

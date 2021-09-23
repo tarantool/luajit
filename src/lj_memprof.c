@@ -19,6 +19,10 @@
 #include "lj_frame.h"
 #include "lj_debug.h"
 
+#if LJ_HASJIT
+#include "lj_dispatch.h"
+#endif
+
 /* --------------------------------- Symtab --------------------------------- */
 
 static const unsigned char ljs_header[] = {'l', 'j', 's', LJS_CURRENT_VERSION,
@@ -146,6 +150,31 @@ static void memprof_write_func(struct memprof *mp, uint8_t aevent)
     lj_assertX(0, "unreachable");
 }
 
+#if LJ_HASJIT
+
+static void memprof_write_trace(struct memprof *mp, uint8_t aevent)
+{
+  struct lj_wbuf *out = &mp->out;
+  const global_State *g = mp->g;
+  const jit_State *J = G2J(g);
+  const TraceNo traceno = g->vmstate;
+  const GCtrace *trace = traceref(J, traceno);
+  lj_wbuf_addbyte(out, aevent | ASOURCE_TRACE);
+  lj_wbuf_addu64(out, (uint64_t)traceno);
+  lj_wbuf_addu64(out, (uintptr_t)trace->mcode);
+}
+
+#else
+
+static void memprof_write_trace(struct memprof *mp, uint8_t aevent)
+{
+  UNUSED(mp);
+  UNUSED(aevent);
+  lj_assertX(0, "unreachable");
+}
+
+#endif
+
 static void memprof_write_hvmstate(struct memprof *mp, uint8_t aevent)
 {
   lj_wbuf_addbyte(&mp->out, aevent | ASOURCE_INT);
@@ -168,9 +197,12 @@ static const memprof_writer memprof_writers[] = {
   ** But since traces must follow the semantics of the original code,
   ** behaviour of Lua and JITted code must match 1:1 in terms of allocations,
   ** which makes using memprof with enabled JIT virtually redundant.
-  ** Hence use the stub below.
+  ** But if one wants to investigate allocations with JIT enabled,
+  ** memprof_write_trace() dumps trace number and mcode starting address
+  ** to the binary output. It can be useful to compare with with jit.v or
+  ** jit.dump outputs.
   */
-  memprof_write_hvmstate /* LJ_VMST_TRACE */
+  memprof_write_trace /* LJ_VMST_TRACE */
 };
 
 static void memprof_write_caller(struct memprof *mp, uint8_t aevent)

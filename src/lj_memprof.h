@@ -53,7 +53,7 @@
 #define SYMTAB_LFUNC ((uint8_t)0)
 #define SYMTAB_FINAL ((uint8_t)0x80)
 
-#define LJM_CURRENT_FORMAT_VERSION 0x01
+#define LJM_CURRENT_FORMAT_VERSION 0x02
 
 /*
 ** Event stream format:
@@ -69,11 +69,14 @@
 ** event-realloc  := event-header loc? oaddr osize naddr nsize
 ** event-free     := event-header loc? oaddr osize
 ** event-header   := <BYTE>
-** loc            := loc-lua | loc-c
+** loc            := loc-lua | loc-c | loc-trace
 ** loc-lua        := sym-addr line-no
 ** loc-c          := sym-addr
+** loc-trace      := trace-no trace-addr
 ** sym-addr       := <ULEB128>
 ** line-no        := <ULEB128>
+** trace-no       := <ULEB128>
+** trace-addr     := <ULEB128>
 ** oaddr          := <ULEB128>
 ** naddr          := <ULEB128>
 ** osize          := <ULEB128>
@@ -88,10 +91,10 @@
 ** version: [VVVVVVVV]
 **  * VVVVVVVV: Byte interpreted as a plain integer version number
 **
-** event-header: [FUUUSSEE]
+** event-header: [FUUSSSEE]
 **  * EE   : 2 bits for representing allocation event type (AEVENT_*)
-**  * SS   : 2 bits for representing allocation source type (ASOURCE_*)
-**  * UUU  : 3 unused bits
+**  * SSS  : 3 bits for representing allocation source type (ASOURCE_*)
+**  * UU   : 2 unused bits
 **  * F    : 0 for regular events, 1 for epilogue's *F*inal header
 **           (if F is set to 1, all other bits are currently ignored)
 */
@@ -105,6 +108,7 @@
 #define ASOURCE_INT   ((uint8_t)(1 << 2))
 #define ASOURCE_LFUNC ((uint8_t)(2 << 2))
 #define ASOURCE_CFUNC ((uint8_t)(3 << 2))
+#define ASOURCE_TRACE ((uint8_t)(4 << 2))
 
 #define LJM_EPILOGUE_HEADER 0x80
 

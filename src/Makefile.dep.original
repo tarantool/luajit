@@ -154,7 +154,8 @@ lj_mcode.o: lj_mcode.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_err.h lj_errmsg.h lj_jit.h lj_ir.h lj_mcode.h lj_trace.h \
  lj_dispatch.h lj_bc.h lj_traceerr.h lj_prng.h lj_vm.h
 lj_memprof.o: lj_memprof.c lj_arch.h lua.h luaconf.h lj_memprof.h \
- lj_def.h lj_wbuf.h lj_obj.h lj_frame.h lj_bc.h lj_debug.h
+ lj_def.h lj_wbuf.h lj_obj.h lj_frame.h lj_bc.h lj_debug.h lj_dispatch.h \
+ lj_jit.h lj_ir.h
 lj_meta.o: lj_meta.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h lj_gc.h \
  lj_err.h lj_errmsg.h lj_buf.h lj_str.h lj_tab.h lj_meta.h lj_frame.h \
  lj_bc.h lj_vm.h lj_strscan.h lj_strfmt.h lj_lib.h
