@@ -73,6 +73,10 @@ function M.parse(reader)
   return symtab
 end
 
+function M.id(loc)
+  return string_format("f%#xl%d", loc.addr, loc.line)
+end
+
 function M.demangle(symtab, loc)
   local addr = loc.addr
 

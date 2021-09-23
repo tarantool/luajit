@@ -10,6 +10,8 @@ local lshift = bit.lshift
 
 local string_format = string.format
 
+local symtab = require "utils.symtab"
+
 local LJM_MAGIC = "ljm"
 local LJM_CURRENT_VERSION = 1
 
@@ -59,22 +61,21 @@ local function link_to_previous(heap_chunk, e, nsize)
   end
 end
 
-local function id_location(addr, line)
-  return string_format("f%#xl%d", addr, line), {
-    addr = addr,
-    line = line,
-  }
-end
-
 local function parse_location(reader, asource)
-  if asource == ASOURCE_INT then
-    return id_location(0, 0)
+  local loc = {
+    addr = 0,
+    line = 0,
+  }
+  if asource == ASOURCE_INT then -- luacheck: ignore
   elseif asource == ASOURCE_CFUNC then
-    return id_location(reader:read_uleb128(), 0)
+    loc.addr = reader:read_uleb128()
   elseif asource == ASOURCE_LFUNC then
-    return id_location(reader:read_uleb128(), reader:read_uleb128())
+    loc.addr = reader:read_uleb128()
+    loc.line = reader:read_uleb128()
+  else
+    error("Unknown asource "..asource)
   end
-  error("Unknown asource "..asource)
+  return symtab.id(loc), loc
 end
 
 local function parse_alloc(reader, asource, events, heap)
