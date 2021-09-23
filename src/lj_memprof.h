@@ -16,7 +16,7 @@
 #include "lj_def.h"
 #include "lj_wbuf.h"
 
-#define LJS_CURRENT_VERSION 0x1
+#define LJS_CURRENT_VERSION 0x2
 
 /*
 ** symtab format:
@@ -25,13 +25,16 @@
 ** prologue       := 'l' 'j' 's' version reserved
 ** version        := <BYTE>
 ** reserved       := <BYTE> <BYTE> <BYTE>
-** sym            := sym-lua | sym-final
+** sym            := sym-lua | sym-trace | sym-final
 ** sym-lua        := sym-header sym-addr sym-chunk sym-line
+** sym-trace      := sym-header trace-no trace-addr sym-addr sym-line
 ** sym-header     := <BYTE>
 ** sym-addr       := <ULEB128>
 ** sym-chunk      := string
 ** sym-line       := <ULEB128>
 ** sym-final      := sym-header
+** trace-no       := <ULEB128>
+** trace-addr     := <ULEB128>
 ** string         := string-len string-payload
 ** string-len     := <ULEB128>
 ** string-payload := <BYTE> {string-len}
@@ -51,6 +54,7 @@
 */
 
 #define SYMTAB_LFUNC ((uint8_t)0)
+#define SYMTAB_TRACE ((uint8_t)1)
 #define SYMTAB_FINAL ((uint8_t)0x80)
 
 #define LJM_CURRENT_FORMAT_VERSION 0x02

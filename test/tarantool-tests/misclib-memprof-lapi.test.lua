@@ -87,9 +87,13 @@ local function fill_ev_type(events, symbols, event_type)
     local addr = event.loc.addr
     local traceno = event.loc.traceno
 
-    if traceno ~= 0 then
+    if traceno ~= 0 and symbols.trace[traceno] then
+      local trace_loc = symbols.trace[traceno].start
+      addr = trace_loc.addr
       ev_type.trace[traceno] = {
-        name = string.format("TRACE [%d]", traceno),
+        name = string.format("TRACE [%d] %s:%d",
+          traceno, symbols.lfunc[addr].source, trace_loc.line
+        ),
         num = event.num,
       }
     elseif addr == 0 then
@@ -97,10 +101,10 @@ local function fill_ev_type(events, symbols, event_type)
         name = "INTERNAL",
         num = event.num,
       }
-    elseif symbols[addr] then
+    elseif symbols.lfunc[addr] then
       ev_type.line[event.loc.line] = {
         name = string.format(
-          "%s:%d", symbols[addr].source, symbols[addr].linedefined
+          "%s:%d", symbols.lfunc[addr].source, symbols.lfunc[addr].linedefined
         ),
         num = event.num,
       }
@@ -117,7 +121,8 @@ local function check_alloc_report(alloc, location, nevents)
   local expected_name, event
   local traceno = location.traceno
   if traceno then
-    expected_name = string.format("TRACE [%d]", traceno)
+    expected_name = string.format("TRACE [%d] ", traceno)..
+                    form_source_line(location.line)
     event = alloc.trace[traceno]
   else
     expected_name = form_source_line(location.linedefined)
@@ -239,7 +244,7 @@ test:test("jit-output", function(subtest)
   local free = fill_ev_type(events, symbols, "free")
 
   -- We expect, that loop will be compiled into a trace.
-  subtest:ok(check_alloc_report(alloc, { traceno = 1 }, 20))
+  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 37 }, 20))
   -- See same checks with jit.off().
   subtest:ok(check_alloc_report(alloc, { line = 34, linedefined = 32 }, 2))
   subtest:ok(free.INTERNAL.num == 22)

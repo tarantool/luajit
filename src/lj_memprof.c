@@ -28,6 +28,44 @@
 static const unsigned char ljs_header[] = {'l', 'j', 's', LJS_CURRENT_VERSION,
 					   0x0, 0x0, 0x0};
 
+#if LJ_HASJIT
+
+static void dump_symtab_trace(struct lj_wbuf *out, const GCtrace *trace)
+{
+  GCproto *pt = &gcref(trace->startpt)->pt;
+  BCLine lineno = 0;
+
+  const BCIns *startpc = mref(trace->startpc, const BCIns);
+  lj_assertX(startpc >= proto_bc(pt) &&
+             startpc < proto_bc(pt) + pt->sizebc, "assertion failed");
+
+  lineno = lj_debug_line(pt, proto_bcpos(pt, startpc));
+
+  lj_wbuf_addbyte(out, SYMTAB_TRACE);
+  lj_wbuf_addu64(out, (uint64_t)trace->traceno);
+  lj_wbuf_addu64(out, (uint64_t)trace->mcode);
+  /*
+  ** The information about the prototype, associated with the
+  ** trace's start has already been dumped, as it is anchored
+  ** via the trace and is not collected while the trace is alive.
+  ** For this reason, we do not need to repeat dumping the chunk
+  ** name for the prototype.
+  */
+  lj_wbuf_addu64(out, (uintptr_t)pt);
+  lj_wbuf_addu64(out, (uint64_t)lineno);
+}
+
+#else
+
+static void dump_symtab_trace(struct lj_wbuf *out, const GCtrace *trace)
+{
+  UNUSED(out);
+  UNUSED(trace);
+  lj_assertX(0, "unreachable");
+}
+
+#endif
+
 static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
 {
   const GCRef *iter = &g->gc.root;
@@ -45,6 +83,10 @@ static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
       lj_wbuf_addu64(out, (uintptr_t)pt);
       lj_wbuf_addstring(out, proto_chunknamestr(pt));
       lj_wbuf_addu64(out, (uint64_t)pt->firstline);
+      break;
+    }
+    case (~LJ_TTRACE): {
+      dump_symtab_trace(out, gco2trace(o));
       break;
     }
     default:
