@@ -475,9 +475,8 @@ end
 
 local co = coroutine.create(f)
 coroutine.resume(co, 3)
--- FIXME: Behavior is different for LuaJIT.
--- See the comment to `h()` above. Test is disabled for LuaJIT.
--- checktraceback(co, {"yield", "db.lua", "tail", "tail", "tail"})
+-- Test is adapted to the behavior of LuaJIT.
+checktraceback(co, {"yield", "db.lua"})
 
 
 co = coroutine.create(function (x)
