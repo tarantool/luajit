@@ -24,11 +24,33 @@ local prepfile = function (s, p)
   assert(io.close())
 end
 
-function checkout (s)
+-- Taken from PUC-Rio Lua 5.2 test suite.
+-- See comment for checkprogout().
+function getoutput ()
   io.input(out)
   local t = io.read("*a")
   io.input():close()
   assert(os.remove(out))
+  return t
+end
+
+-- Version and status are printed in stdout instead of stderr
+-- since LuaJIT-2.0.0-beta11 (as it is not an error message).
+-- See commit 0bd1a66f2f055211ef55834ccebca3b82d03c735
+-- (Print version and JIT status to stdout, not stderr.).
+-- This behavior is the same as in Lua 5.2.
+-- See also https://github.com/tarantool/tarantool/issues/5687.
+-- This function is adapted from PUC-Rio Lua 5.2 test suite.
+-- It is used for test commands with -i flag.
+function checkprogout (s)
+  local t = getoutput()
+  for line in string.gmatch(s, ".-\n") do
+    assert(string.find(t, line, 1, true))
+  end
+end
+
+function checkout (s)
+  local t = getoutput()
   if s ~= t then print(string.format("'%s' - '%s'\n", s, t)) end
   assert(s == t)
   return t
@@ -117,39 +139,53 @@ prepfile[[
 RUN("lua - < %s > %s", prog, out)
 checkout("1\tnil\n")
 
--- FIXME: Version and status are printed to stdout instead of
--- stderr since LuaJIT-2.0.0-beta11 (as it is not an error
--- message). See commit 0bd1a66f2f055211ef55834ccebca3b82d03c735
--- (Print version and JIT status to stdout, not stderr.).
--- This behavior is the same as in Lua 5.2.
--- In Lua 5.2 this feature was introduced via commit
--- 9e7de9473c65baee1f567852a778f2d33a47ea83.
--- See also https://github.com/tarantool/tarantool/issues/5687.
-prepfile[[
+-- FIXME: The following chunk is disabled for Tarantool since
+-- its interactive shell doesn't support '=' at the beginning
+-- of statements.
+-- Here is an example:
+-- $ luajit
+-- LuaJIT 2.1.0-beta3 -- Copyright (C) 2005-2017 Mike Pall. http://luajit.org/
+-- JIT: ON SSE2 SSE3 SSE4.1 BMI2 fold cse dce fwd dse narrow loop abc sink fuse
+-- > = (6*2-6) -- ===
+-- 6
+
+-- $ tarantool
+-- Tarantool 2.10.0-beta1-80-g201905544
+-- type 'help' for interactive help
+-- tarantool> = (6*2-6) -- ===
+-- ---
+-- - error: ' (6*2-6) -- ===:1: unexpected symbol near ''='''
+-- ...
+if not _TARANTOOL then
+-- Test is adapted from PUC-Rio Lua 5.2 test suite.
+-- See comment for checkprogout().
+  prepfile[[
 = (6*2-6) -- ===
 a
 = 10
 print(a)
 = a]]
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
--- checkout("6\n10\n10\n\n")
+  RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
+  checkprogout("6\n10\n10\n\n")
 
-prepfile("a = [[b\nc\nd\ne]]\n=a")
-print(prog)
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
--- checkout("b\nc\nd\ne\n\n")
+-- Test is adapted from PUC-Rio Lua 5.2 test suite.
+-- See comment for checkprogout().
+  prepfile("a = [[b\nc\nd\ne]]\n=a")
+  print(prog)
+  RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
+  checkprogout("b\nc\nd\ne\n\n")
 
-prompt = "alo"
-prepfile[[ --
+-- Test is adapted from PUC-Rio Lua 5.2 test suite.
+-- See comment for checkprogout().
+  prompt = "alo"
+  prepfile[[ --
 a = 2
 ]]
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- RUN([[lua "-e_PROMPT='%s'" -i < %s > %s]], prompt, prog, out)
--- checkout(string.rep(prompt, 3).."\n")
+  RUN([[lua "-e_PROMPT='%s'" -i < %s > %s]], prompt, prog, out)
+  local t = getoutput()
+  assert(string.find(t, prompt .. ".*" .. prompt .. ".*" .. prompt))
 
-s = [=[ --
+  s = [=[ --
 function f ( x )
   local a = [[
 xuxu
@@ -163,11 +199,11 @@ end
 =( f( 10 ) )
 assert( a == b )
 =f( 11 )  ]=]
-s = string.gsub(s, ' ', '\n\n')
-prepfile(s)
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
--- checkout("11\n1\t2\n\n")
+  s = string.gsub(s, ' ', '\n\n')
+  prepfile(s)
+  RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
+  checkprogout("11\n1\t2\n\n")
+end -- not _TARANTOOL
 
 prepfile[[#comment in 1st line without \n at the end]]
 RUN("lua %s", prog)
