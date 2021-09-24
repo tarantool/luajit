@@ -208,23 +208,17 @@ end -- not _TARANTOOL
 prepfile[[#comment in 1st line without \n at the end]]
 RUN("lua %s", prog)
 
--- FIXME: Loading bytecode with an extra header (BOM or "#")
+-- Loading bytecode with an extra header (BOM or "#")
 -- is disabled for security reasons since LuaJIT-2.0.0-beta10.
 -- For more information see comment for `lj_lex_setup()`
 -- in <src/lj_lex.c>.
 -- Also see commit 53a285c0c3544ff5dea7c67b741c3c2d06d22b47
 -- (Disable loading bytecode with an extra header (BOM or #!).).
 -- See also https://github.com/tarantool/tarantool/issues/5691.
--- The test is disabled for LuaJIT.
-prepfile("#comment with a binary file\n"..string.dump(loadstring("print(1)")))
--- RUN("lua %s > %s", prog, out)
--- checkout("1\n")
-
-prepfile("#comment with a binary file\r\n"..string.dump(loadstring("print(1)")))
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- The test is disabled for LuaJIT.
--- RUN("lua %s > %s", prog, out)
--- checkout("1\n")
+-- The test is adapted to LuaJIT behavior.
+prepfile(string.dump(loadstring("print(1)")))
+RUN("lua %s > %s", prog, out)
+checkout("1\n")
 
 -- close Lua with an open file
 prepfile(string.format([[io.output(%q); io.write('alo')]], out))
