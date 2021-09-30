@@ -380,19 +380,19 @@ end
 
 
 -- tests for tail calls
+-- LuaJIT does not provide information about tail calls,
+-- unlike Lua does. See also https://luajit.org/status.html.
+-- getfenv() behavior is also different here, because tail calls
+-- do not provide additional call frame for LuaJIT.
+-- See also https://github.com/tarantool/tarantool/issues/5702.
+-- This function is adapted to LuaJIT behavior.
 local function f (x)
   if x then
     assert(debug.getinfo(1, "S").what == "Lua")
     local tail = debug.getinfo(2)
-    assert(not pcall(getfenv, 3))
-    assert(tail.what == "tail" and tail.short_src == "(tail call)" and
-           tail.linedefined == -1 and tail.func == nil)
-    assert(debug.getinfo(3, "f").func == g1)
+    assert(tail.what == "Lua" and tail.linedefined == 402 and tail.func == g1)
     assert(getfenv(3))
-    assert(debug.getinfo(4, "S").what == "tail")
-    assert(not pcall(getfenv, 5))
-    assert(debug.getinfo(5, "S").what == "main")
-    assert(getfenv(5))
+    assert(debug.getinfo(3, "S").what == "main")
     print"+"
     end
 end
@@ -403,43 +403,43 @@ function g1(x) g(x) end
 
 local function h (x) local f=g1; return f(x) end
 
--- FIXME: LuaJIT does not provide information about tail calls,
--- unlike Lua does. See also https://luajit.org/status.html.
--- getfenv() behaviour is also different here, because tail calls
--- do not provide additional call frame for LuaJIT and level
--- number should be changed.
--- Test is disabled for LuaJIT.
--- See also https://github.com/tarantool/tarantool/issues/5702.
--- h(true)
+h(true)
 
 local b = {}
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- Test is disabled for LuaJIT.
--- debug.sethook(function (e) table.insert(b, e) end, "cr")
--- h(false)
--- debug.sethook()
-local res = {"return",   -- first return (from sethook)
+debug.sethook(function (e) table.insert(b, e) end, "cr")
+-- This function is adapted to LuaJIT behavior.
+-- See the comment above.
+h(false)
+debug.sethook()
+-- This chunk is adapted to LuaJIT behavior.
+-- See the comment above.
+local res = {
+  -- XXX: there is no "return" for debug.sethook() since it is
+  -- LuaJIT builtin function and its return is not dispatched via
+  -- RETM, RET, RET0 or RET1.
   "call", "call", "call", "call",
-  "return", "tail return", "return", "tail return",
+  "return", "return",
   "call",    -- last call (to sethook)
 }
--- FIXME: Behavior is different for LuaJIT. See the comment above.
--- Test is disabled for LuaJIT.
--- for _, k in ipairs(res) do assert(k == table.remove(b, 1)) end
+for _, k in ipairs(res) do assert(k == table.remove(b, 1)) end
 
 
 lim = 30000
+-- This function is adapted to LuaJIT behavior.
+-- See the comment above.
 local function foo (x)
   if x==0 then
-    assert(debug.getinfo(lim+2).what == "main")
-    for i=2,lim do assert(debug.getinfo(i, "S").what == "tail") end
+    -- XXX: As it is mentioned above, there is no additional
+    -- frames created for tail call, so only two frames need to
+    -- be checked: the one used for foo(0) (i.e debug.getinfo()
+    -- caller) and the one used for foo(lim).
+    assert(debug.getinfo(2, "S").what == "main")
+    assert(debug.getinfo(3, "S").what == "main")
   else return foo(x-1)
   end
 end
 
--- FIXME: Behavior is different for LuaJIT.
--- See the comment to `h()` above. Test is disabled for LuaJIT.
--- foo(lim)
+foo(lim)
 
 
 print"+"
