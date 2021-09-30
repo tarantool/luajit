@@ -206,12 +206,16 @@ function rev (s)
   return string.gsub(s, "(.)(.+)", function (c,s1) return rev(s1)..c end)
 end
 
-local x = string.rep('012345', 10)
--- FIXME: The first Tarantool's fiber has only 512Kb of stack.
--- It is not enough for this recursive call.
+-- The first fiber in Tarantool has only 512Kb of the stack,
+-- which is not enough to handle such a deep call chain. Thus,
+-- the chunk of code being considered cores with SIGSEGV as a
+-- result of C stack overflow.
+--
+-- This test is adapted to match the stack size of the first fiber
+-- in Tarantool by decreasing the string length.
 -- See also https://github.com/tarantool/tarantool/issues/5782.
--- The test is disabled for Tarantool binary.
--- assert(rev(rev(x)) == x)
+local x = string.rep('01234', 10)
+assert(rev(rev(x)) == x)
 
 
 -- gsub with tables
