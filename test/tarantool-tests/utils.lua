@@ -10,7 +10,6 @@ local LJ_STR_HASHLEN = 8
 local GCref = ffi.abi('gc64') and 'uint64_t' or 'uint32_t'
 
 ffi.cdef([[
-  int setenv(const char *name, const char *value, int overwrite);
   typedef struct {
 ]]..GCref..[[ nextgc;
     uint8_t   marked;
@@ -102,18 +101,6 @@ function M.skipcond(condition, message)
   test:plan(1)
   test:skip(message)
   os.exit(test:check() and 0 or 1)
-end
-
-function M.tweakenv(condition, variable)
-  if not condition or os.getenv(variable) then return end
-  local testvar = assert(os.getenv('TEST_' .. variable),
-                         ('Neither %s nor auxiliary TEST_%s variables are set')
-                         :format(variable, variable))
-  -- XXX: The third argument of setenv(3) is set to zero to forbid
-  -- overwriting the <variable>. Since there is the check above
-  -- whether this <variable> is set in the process environment, it
-  -- just makes this solution foolproof.
-  ffi.C.setenv(variable, testvar, 0)
 end
 
 function M.hasbc(f, bytecode)

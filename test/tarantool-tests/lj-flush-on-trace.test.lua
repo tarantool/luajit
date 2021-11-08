@@ -3,10 +3,6 @@ local utils = require('utils')
 -- Disabled on *BSD due to #4819.
 utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
--- XXX: Tweak the process environment to get around SIP.
--- See the comment in suite CMakeLists.txt for more info.
-utils.tweakenv(jit.os == 'OSX', 'DYLD_LIBRARY_PATH')
-
 utils.selfrun(arg, {
   {
     arg = {
