@@ -64,29 +64,26 @@ local function link_to_previous(heap_chunk, e, nsize)
   end
 end
 
-local function parse_location(reader, asource)
-  local loc = {
-    addr = 0,
-    line = 0,
-    traceno = 0,
-  }
+local function parse_location(reader, asource, symbols)
+  local args = {}
   if asource == ASOURCE_INT then -- luacheck: ignore
   elseif asource == ASOURCE_CFUNC then
-    loc.addr = reader:read_uleb128()
+    args.addr = reader:read_uleb128()
   elseif asource == ASOURCE_LFUNC then
-    loc.addr = reader:read_uleb128()
-    loc.line = reader:read_uleb128()
+    args.addr = reader:read_uleb128()
+    args.line = reader:read_uleb128()
   elseif asource == ASOURCE_TRACE then
-    loc.traceno = reader:read_uleb128()
-    loc.addr = reader:read_uleb128()
+    args.traceno = reader:read_uleb128()
+    args.addr = reader:read_uleb128()
   else
     error("Unknown asource "..asource)
   end
+  local loc = symtab.loc(symbols, args)
   return symtab.id(loc), loc
 end
 
-local function parse_alloc(reader, asource, events, heap)
-  local id, loc = parse_location(reader, asource)
+local function parse_alloc(reader, asource, events, heap, symbols)
+  local id, loc = parse_location(reader, asource, symbols)
 
   local naddr = reader:read_uleb128()
   local nsize = reader:read_uleb128()
@@ -101,8 +98,8 @@ local function parse_alloc(reader, asource, events, heap)
   heap[naddr] = {nsize, id, loc}
 end
 
-local function parse_realloc(reader, asource, events, heap)
-  local id, loc = parse_location(reader, asource)
+local function parse_realloc(reader, asource, events, heap, symbols)
+  local id, loc = parse_location(reader, asource, symbols)
 
   local oaddr = reader:read_uleb128()
   local osize = reader:read_uleb128()
@@ -123,8 +120,8 @@ local function parse_realloc(reader, asource, events, heap)
   heap[naddr] = {nsize, id, loc}
 end
 
-local function parse_free(reader, asource, events, heap)
-  local id, loc = parse_location(reader, asource)
+local function parse_free(reader, asource, events, heap, symbols)
+  local id, loc = parse_location(reader, asource, symbols)
 
   local oaddr = reader:read_uleb128()
   local osize = reader:read_uleb128()
@@ -157,7 +154,7 @@ local function ev_header_split(evh)
   return band(evh, AEVENT_MASK), band(evh, ASOURCE_MASK)
 end
 
-local function parse_event(reader, events)
+local function parse_event(reader, events, symbols)
   local ev_header = reader:read_octet()
 
   assert(ev_header_is_valid(ev_header), "Bad ev_header "..ev_header)
@@ -171,12 +168,12 @@ local function parse_event(reader, events)
 
   assert(parser, "Bad aevent "..aevent)
 
-  parser.parse(reader, asource, events[parser.evname], events.heap)
+  parser.parse(reader, asource, events[parser.evname], events.heap, symbols)
 
   return true
 end
 
-function M.parse(reader)
+function M.parse(reader, symbols)
   local events = {
     alloc = {},
     realloc = {},
@@ -201,7 +198,7 @@ function M.parse(reader)
     ))
   end
 
-  while parse_event(reader, events) do
+  while parse_event(reader, events, symbols) do
     -- Empty body.
   end
 

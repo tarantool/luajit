@@ -19,16 +19,36 @@ local SYMTAB_TRACE = 1
 
 local M = {}
 
+function M.loc(symtab, args)
+  local loc = {
+    addr = args.addr or 0,
+    line = args.line or 0,
+    traceno = args.traceno or 0,
+  }
+
+  if loc.traceno ~= 0 and symtab.trace[loc.traceno] then
+    loc.gen = #symtab.trace[loc.traceno]
+  elseif symtab.lfunc[loc.addr] then
+    loc.gen = #symtab.lfunc[loc.addr]
+  else
+    loc.gen = 1
+  end
+
+  return loc
+end
+
 -- Parse a single entry in a symtab: lfunc symbol.
 local function parse_sym_lfunc(reader, symtab)
   local sym_addr = reader:read_uleb128()
   local sym_chunk = reader:read_string()
   local sym_line = reader:read_uleb128()
 
-  symtab.lfunc[sym_addr] = {
+  symtab.lfunc[sym_addr] = symtab.lfunc[sym_addr] or {}
+
+  table.insert(symtab.lfunc[sym_addr], {
     source = sym_chunk,
     linedefined = sym_line,
-  }
+  })
 end
 
 local function parse_sym_trace(reader, symtab)
@@ -37,17 +57,12 @@ local function parse_sym_trace(reader, symtab)
   local sym_addr = reader:read_uleb128()
   local sym_line = reader:read_uleb128()
 
-  symtab.trace[traceno] = {
+  symtab.trace[traceno] = symtab.trace[traceno] or {}
+
+  table.insert(symtab.trace[traceno], {
     addr = trace_addr,
-    -- The structure <start> is the same as the one
-    -- yielded from the <parse_location> function
-    -- in the <memprof/parse.lua> module.
-    start = {
-      addr = sym_addr,
-      line = sym_line,
-      traceno = 0,
-    },
-  }
+    start = M.loc(symtab, { addr = sym_addr, line = sym_line })
+  })
 end
 
 local parsers = {
@@ -98,7 +113,9 @@ function M.parse(reader)
 end
 
 function M.id(loc)
-  return string_format("f%#xl%dt%d", loc.addr, loc.line, loc.traceno)
+  return string_format(
+    "f%#xl%dt%dg%d", loc.addr, loc.line, loc.traceno, loc.gen
+  )
 end
 
 local function demangle_trace(symtab, loc)
@@ -108,7 +125,8 @@ local function demangle_trace(symtab, loc)
   assert(traceno ~= 0, "Location is a trace")
 
   local trace_str = string_format("TRACE [%d] %#x", traceno, addr)
-  local trace = symtab.trace[traceno]
+  local gens = symtab.trace[traceno]
+  local trace = gens and gens[loc.gen]
 
   -- If trace, which was remembered in the symtab, has not
   -- been flushed, associate it with a proto, where trace
@@ -126,13 +144,16 @@ function M.demangle(symtab, loc)
   end
 
   local addr = loc.addr
+  local gen = loc.gen
 
   if addr == 0 then
     return "INTERNAL"
   end
 
-  if symtab.lfunc[addr] then
-    return string_format("%s:%d", symtab.lfunc[addr].source, loc.line)
+  if symtab.lfunc[addr] and symtab.lfunc[addr][gen] then
+    return string_format(
+      "%s:%d", symtab.lfunc[addr][gen].source, loc.line
+    )
   end
 
   return string_format("CFUNC %#x", addr)
