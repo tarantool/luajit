@@ -22,6 +22,9 @@
 #include "lj_bcdump.h"
 #include "lj_state.h"
 #include "lj_strfmt.h"
+#if LJ_HASMEMPROF
+#include "lj_memprof.h"
+#endif
 
 /* Reuse some lexer fields for our own purposes. */
 #define bcread_flags(ls)	ls->level
@@ -382,6 +385,12 @@ GCproto *lj_bcread_proto(LexState *ls)
     setmref(pt->uvinfo, NULL);
     setmref(pt->varinfo, NULL);
   }
+
+  /* Add a new prototype to the profiler. */
+#if LJ_HASMEMPROF
+  lj_memprof_add_proto(pt);
+#endif
+
   return pt;
 }
 

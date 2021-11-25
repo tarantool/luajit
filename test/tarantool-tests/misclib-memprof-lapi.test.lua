@@ -7,7 +7,7 @@ require("utils").skipcond(
 local tap = require("tap")
 
 local test = tap.test("misc-memprof-lapi")
-test:plan(4)
+test:plan(5)
 
 local jit_opt_default = {
     3, -- level
@@ -130,12 +130,13 @@ local function check_alloc_report(alloc, location, nevents)
   local expected_name, event
   local traceno = location.traceno
 
+  local source = location.source or SRC_PATH
   if traceno then
-    expected_name = form_trace_line(traceno, location.line)
+    expected_name = form_trace_line(traceno, location.line, source)
     event = alloc.trace[traceno]
   else
-    expected_name = form_source_line(location.linedefined)
-    event = alloc.source[SRC_PATH][location.line]
+    expected_name = form_source_line(location.linedefined, source)
+    event = alloc.source[source][location.line]
   end
   assert(expected_name == event.name, ("got='%s', expected='%s'"):format(
     event.name,
@@ -226,6 +227,38 @@ test:test("stack-resize", function(subtest)
   local co = coroutine.create(f)
   coroutine.resume(co)
   misc.memprof.stop()
+end)
+
+-- Test for extending symtab with function prototypes
+-- while profiler is running.
+test:test("symtab-enrich-str", function(subtest)
+  subtest:plan(2)
+
+  local payloadstr = [[
+    local M = {
+      tmp = string.rep("tmpstr", 100) -- line 2.
+    }
+
+    function M.payload()
+      local _ = string.rep("payloadstr", 100) -- line 6.
+    end
+
+    return M
+  ]]
+
+  local symbols, events = generate_parsed_output(function()
+    local strchunk = assert(load(payloadstr, "strchunk"))()
+    strchunk.payload()
+  end)
+
+  local alloc = fill_ev_type(events, symbols, "alloc")
+
+  subtest:ok(check_alloc_report(
+    alloc, { source = "strchunk", line = 2, linedefined = 0 }, 1)
+  )
+  subtest:ok(check_alloc_report(
+    alloc, { source = "strchunk", line = 6, linedefined = 5 }, 1)
+  )
 end)
 
 -- Test profiler with enabled JIT.

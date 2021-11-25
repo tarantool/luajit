@@ -57,7 +57,7 @@
 #define SYMTAB_TRACE ((uint8_t)1)
 #define SYMTAB_FINAL ((uint8_t)0x80)
 
-#define LJM_CURRENT_FORMAT_VERSION 0x02
+#define LJM_CURRENT_FORMAT_VERSION 0x03
 
 /*
 ** Event stream format:
@@ -68,16 +68,21 @@
 ** prologue       := 'l' 'j' 'm' version reserved
 ** version        := <BYTE>
 ** reserved       := <BYTE> <BYTE> <BYTE>
-** event          := event-alloc | event-realloc | event-free
+** event          := event-alloc | event-realloc | event-free | event-symtab
 ** event-alloc    := event-header loc? naddr nsize
 ** event-realloc  := event-header loc? oaddr osize naddr nsize
 ** event-free     := event-header loc? oaddr osize
+** event-symtab   := event-header sym
 ** event-header   := <BYTE>
+** sym            := sym-lua
+** sym-lua        := sym-addr sym-chunk sym-line
 ** loc            := loc-lua | loc-c | loc-trace
 ** loc-lua        := sym-addr line-no
 ** loc-c          := sym-addr
 ** loc-trace      := trace-no trace-addr
 ** sym-addr       := <ULEB128>
+** sym-chunk      := string
+** sym-line       := <ULEB128>
 ** line-no        := <ULEB128>
 ** trace-no       := <ULEB128>
 ** trace-addr     := <ULEB128>
@@ -85,6 +90,9 @@
 ** naddr          := <ULEB128>
 ** osize          := <ULEB128>
 ** nsize          := <ULEB128>
+** string         := string-len string-payload
+** string-len     := <ULEB128>
+** string-payload := <BYTE> {string-len}
 ** epilogue       := event-header
 **
 ** <BYTE>   :  A single byte (no surprises here)
@@ -104,6 +112,7 @@
 */
 
 /* Allocation events. */
+#define AEVENT_SYMTAB  ((uint8_t)0)
 #define AEVENT_ALLOC   ((uint8_t)1)
 #define AEVENT_FREE    ((uint8_t)2)
 #define AEVENT_REALLOC ((uint8_t)(AEVENT_ALLOC | AEVENT_FREE))
@@ -148,6 +157,7 @@ struct lj_memprof_options {
 
 /* Avoid to provide additional interfaces described in other headers. */
 struct lua_State;
+struct GCproto;
 
 /*
 ** Starts profiling. Returns PROFILE_SUCCESS on success and one of
@@ -163,5 +173,11 @@ int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt);
 ** returns non-zero value, returns PROFILE_ERRIO.
 */
 int lj_memprof_stop(struct lua_State *L);
+
+/*
+** Enriches the profiler symbol table with a new proto, if the profiler
+** is running.
+*/
+void lj_memprof_add_proto(const struct GCproto *pt);
 
 #endif

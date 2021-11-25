@@ -27,6 +27,9 @@
 #include "lj_parse.h"
 #include "lj_vm.h"
 #include "lj_vmevent.h"
+#if LJ_HASMEMPROF
+#include "lj_memprof.h"
+#endif
 
 /* -- Parser structures and definitions ----------------------------------- */
 
@@ -1604,6 +1607,11 @@ static GCproto *fs_finish(LexState *ls, BCLine line)
   lj_vmevent_send(L, BC,
     setprotoV(L, L->top++, pt);
   );
+
+  /* Add a new prototype to the profiler. */
+#if LJ_HASMEMPROF
+  lj_memprof_add_proto(pt);
+#endif
 
   L->top--;  /* Pop table of constants. */
   ls->vtop = fs->vbase;  /* Reset variable stack. */

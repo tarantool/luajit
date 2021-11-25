@@ -66,6 +66,13 @@ static void dump_symtab_trace(struct lj_wbuf *out, const GCtrace *trace)
 
 #endif
 
+static void dump_symtab_proto(struct lj_wbuf *out, const GCproto *pt)
+{
+  lj_wbuf_addu64(out, (uintptr_t)pt);
+  lj_wbuf_addstring(out, proto_chunknamestr(pt));
+  lj_wbuf_addu64(out, (uint64_t)pt->firstline);
+}
+
 static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
 {
   const GCRef *iter = &g->gc.root;
@@ -80,9 +87,7 @@ static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
     case (~LJ_TPROTO): {
       const GCproto *pt = gco2pt(o);
       lj_wbuf_addbyte(out, SYMTAB_LFUNC);
-      lj_wbuf_addu64(out, (uintptr_t)pt);
-      lj_wbuf_addstring(out, proto_chunknamestr(pt));
-      lj_wbuf_addu64(out, (uint64_t)pt->firstline);
+      dump_symtab_proto(out, pt);
       break;
     }
     case (~LJ_TTRACE): {
@@ -152,6 +157,11 @@ static void memprof_write_lfunc(struct lj_wbuf *out, uint8_t aevent,
     */
     lj_wbuf_addbyte(out, aevent | ASOURCE_INT);
   } else {
+    /*
+    ** As a prototype is a source of an allocation, it has
+    ** already been inserted into the symtab: on the start
+    ** of the profiling or right after its creation.
+    */
     lj_wbuf_addbyte(out, aevent | ASOURCE_LFUNC);
     lj_wbuf_addu64(out, (uintptr_t)funcproto(fn));
     lj_wbuf_addu64(out, (uint64_t)line);
@@ -414,6 +424,17 @@ errio:
   return PROFILE_ERRIO;
 }
 
+void lj_memprof_add_proto(const struct GCproto *pt)
+{
+  struct memprof *mp = &memprof;
+
+  if (mp->state != MPS_PROFILE)
+    return;
+
+  lj_wbuf_addbyte(&mp->out, AEVENT_SYMTAB | ASOURCE_LFUNC);
+  dump_symtab_proto(&mp->out, pt);
+}
+
 #else /* LJ_HASMEMPROF */
 
 int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
@@ -428,6 +449,11 @@ int lj_memprof_stop(struct lua_State *L)
 {
   UNUSED(L);
   return PROFILE_ERRUSE;
+}
+
+void lj_memprof_add_proto(const struct GCproto *pt)
+{
+  UNUSED(pt);
 }
 
 #endif /* LJ_HASMEMPROF */

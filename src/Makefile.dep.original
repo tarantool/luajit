@@ -67,7 +67,7 @@ lj_bc.o: lj_bc.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h lj_bc.h \
 lj_bcread.o: lj_bcread.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_err.h lj_errmsg.h lj_buf.h lj_str.h lj_tab.h lj_bc.h \
  lj_ctype.h lj_cdata.h lualib.h lj_lex.h lj_bcdump.h lj_state.h \
- lj_strfmt.h
+ lj_strfmt.h lj_memprof.h lj_wbuf.h
 lj_bcwrite.o: lj_bcwrite.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_buf.h lj_str.h lj_bc.h lj_ctype.h lj_dispatch.h lj_jit.h \
  lj_ir.h lj_strfmt.h lj_bcdump.h lj_lex.h lj_err.h lj_errmsg.h lj_vm.h
@@ -183,7 +183,7 @@ lj_opt_split.o: lj_opt_split.c lj_obj.h lua.h luaconf.h lj_def.h \
 lj_parse.o: lj_parse.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_err.h lj_errmsg.h lj_debug.h lj_buf.h lj_str.h lj_tab.h \
  lj_func.h lj_state.h lj_bc.h lj_ctype.h lj_strfmt.h lj_lex.h lj_parse.h \
- lj_vm.h lj_vmevent.h
+ lj_vm.h lj_vmevent.h lj_memprof.h lj_wbuf.h
 lj_prng.o: lj_prng.c lj_def.h lua.h luaconf.h lj_arch.h lj_prng.h
 lj_profile.o: lj_profile.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_buf.h lj_gc.h lj_str.h lj_frame.h lj_bc.h lj_debug.h lj_dispatch.h \

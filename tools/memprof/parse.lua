@@ -13,10 +13,11 @@ local string_format = string.format
 local symtab = require "utils.symtab"
 
 local LJM_MAGIC = "ljm"
-local LJM_CURRENT_VERSION = 0x02
+local LJM_CURRENT_VERSION = 0x03
 
 local LJM_EPILOGUE_HEADER = 0x80
 
+local AEVENT_SYMTAB = 0
 local AEVENT_ALLOC = 1
 local AEVENT_FREE = 2
 local AEVENT_REALLOC = 3
@@ -138,7 +139,14 @@ local function parse_free(reader, asource, events, heap, symbols)
   heap[oaddr] = nil
 end
 
+local function parse_symtab(reader, asource, _, _, symbols)
+  if asource == ASOURCE_LFUNC then
+    symtab.parse_sym_lfunc(reader, symbols)
+  end
+end
+
 local parsers = {
+  [AEVENT_SYMTAB] = {evname = "symtab", parse = parse_symtab},
   [AEVENT_ALLOC] = {evname = "alloc", parse = parse_alloc},
   [AEVENT_FREE] = {evname = "free", parse = parse_free},
   [AEVENT_REALLOC] = {evname = "realloc", parse = parse_realloc},

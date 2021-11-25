@@ -38,7 +38,7 @@ function M.loc(symtab, args)
 end
 
 -- Parse a single entry in a symtab: lfunc symbol.
-local function parse_sym_lfunc(reader, symtab)
+function M.parse_sym_lfunc(reader, symtab)
   local sym_addr = reader:read_uleb128()
   local sym_chunk = reader:read_string()
   local sym_line = reader:read_uleb128()
@@ -66,7 +66,7 @@ local function parse_sym_trace(reader, symtab)
 end
 
 local parsers = {
-  [SYMTAB_LFUNC] = parse_sym_lfunc,
+  [SYMTAB_LFUNC] = M.parse_sym_lfunc,
   [SYMTAB_TRACE] = parse_sym_trace,
 }
 
