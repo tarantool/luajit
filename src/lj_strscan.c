@@ -63,6 +63,7 @@
 #define STRSCAN_MAXDIG	800		/* 772 + extra are sufficient. */
 #define STRSCAN_DDIG	(STRSCAN_DIG/2)
 #define STRSCAN_DMASK	(STRSCAN_DDIG-1)
+#define STRSCAN_MAXEXP	(1 << 20)
 
 /* Helpers for circular buffer. */
 #define DNEXT(a)	(((a)+1) & STRSCAN_DMASK)
@@ -449,6 +450,7 @@ StrScanFmt lj_strscan_scan(const uint8_t *p, MSize len, TValue *o,
       if (dig) {
 	ex = (int32_t)(dp-(p-1)); dp = p-1;
 	while (ex < 0 && *dp-- == '0') ex++, dig--;  /* Skip trailing zeros. */
+	if (ex <= -STRSCAN_MAXEXP) return STRSCAN_ERROR;
 	if (base == 16) ex *= 4;
       }
     }
@@ -462,7 +464,8 @@ StrScanFmt lj_strscan_scan(const uint8_t *p, MSize len, TValue *o,
       if (!lj_char_isdigit(*p)) return STRSCAN_ERROR;
       xx = (*p++ & 15);
       while (lj_char_isdigit(*p)) {
-	if (xx < 65536) xx = xx * 10 + (*p & 15);
+	xx = xx * 10 + (*p & 15);
+	if (xx >= STRSCAN_MAXEXP) return STRSCAN_ERROR;
 	p++;
       }
       ex += negx ? -(int32_t)xx : (int32_t)xx;
