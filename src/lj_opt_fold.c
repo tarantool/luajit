@@ -585,15 +585,36 @@ LJFOLDF(kfold_strcmp)
 LJFOLD(BUFPUT BUFHDR BUFSTR)
 LJFOLDF(bufput_append)
 {
-  /* New buffer, no other buffer op inbetween and same buffer? */
-  if ((J->flags & JIT_F_OPT_FWD) &&
-      !(fleft->op2 & IRBUFHDR_APPEND) &&
-      fleft->prev == fright->op2 &&
-      fleft->op1 == IR(fright->op2)->op1) {
-    IRRef ref = fins->op1;
-    IR(ref)->op2 = (fleft->op2 | IRBUFHDR_APPEND);  /* Modify BUFHDR. */
-    IR(ref)->op1 = fright->op1;
-    return ref;
+  if ((J->flags & JIT_F_OPT_FWD)) {
+    IRRef hdr = fright->op2;
+    /* New buffer, no other buffer op inbetween and same buffer? */
+    if (fleft->o == IR_BUFHDR && fleft->op2 == IRBUFHDR_RESET &&
+	fleft->prev == hdr &&
+	fleft->op1 == IR(hdr)->op1 &&
+	!(irt_isphi(fright->t) && IR(hdr)->prev)) {
+      IRRef ref = fins->op1;
+      IR(ref)->op2 = IRBUFHDR_APPEND;  /* Modify BUFHDR. */
+      IR(ref)->op1 = fright->op1;
+      return ref;
+    }
+    /* Replay puts to global temporary buffer. */
+    if (IR(hdr)->op2 == IRBUFHDR_RESET) {
+      IRIns *ir = IR(fright->op1);
+      /* For now only handle single string.reverse .lower .upper .rep. */
+      if (ir->o == IR_CALLL &&
+	  ir->op2 >= IRCALL_lj_buf_putstr_reverse &&
+	  ir->op2 <= IRCALL_lj_buf_putstr_rep) {
+	IRIns *carg1 = IR(ir->op1);
+	if (ir->op2 == IRCALL_lj_buf_putstr_rep) {
+	  IRIns *carg2 = IR(carg1->op1);
+	  if (carg2->op1 == hdr) {
+	    return lj_ir_call(J, ir->op2, fins->op1, carg2->op2, carg1->op2);
+	  }
+	} else if (carg1->op1 == hdr) {
+	  return lj_ir_call(J, ir->op2, fins->op1, carg1->op2);
+	}
+      }
+    }
   }
   return EMITFOLD;  /* Always emit, CSE later. */
 }
