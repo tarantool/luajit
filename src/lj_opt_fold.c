@@ -584,7 +584,8 @@ LJFOLDF(bufput_append)
   if ((J->flags & JIT_F_OPT_FWD) &&
       !(fleft->op2 & IRBUFHDR_APPEND) &&
       fleft->prev == fright->op2 &&
-      fleft->op1 == IR(fright->op2)->op1) {
+      fleft->op1 == IR(fright->op2)->op1 &&
+      !(irt_isphi(fright->t) && IR(fright->op2)->prev)) {
     IRRef ref = fins->op1;
     IR(ref)->op2 = (fleft->op2 | IRBUFHDR_APPEND);  /* Modify BUFHDR. */
     IR(ref)->op1 = fright->op1;
