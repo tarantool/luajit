@@ -1,0 +1,1 @@
+BuildTestCLib(mymprotect mymprotect.c)
