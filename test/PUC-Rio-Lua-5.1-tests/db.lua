@@ -8,6 +8,24 @@ do
 local a=1
 end
 
+-- The LuaJIT's virtual machine interprets the bytecode
+-- following the return from function (i.e. the one succeeding
+-- the call made) and located on the line other than that return
+-- bytecode, as a new line trigger for line hooks, unlike Lua
+-- does.
+-- Here is an example (it is joined in one line intend):
+--[[
+debug.sethook(function(_, l) print("LINE: "..l) end, "l") loadstring("\n\ns=nil")() debug.sethook()
+--]]
+-- This chunk prints for LuaJIT:
+--[[
+LINE: 3
+LINE: 1
+--]]
+-- But for Lua 5.1 it is only "LINE: 3" in the output.
+-- See also https://github.com/tarantool/tarantool/issues/5693.
+-- This function is modified to correspond with LuaJIT's
+-- line triggers.
 function test (s, l, p)
   collectgarbage()   -- avoid gc during trace
   local function f (event, line)
@@ -16,6 +34,12 @@ function test (s, l, p)
     if p then print(l, line) end
     assert(l == line, "wrong trace!!")
   end
+  -- Despite `loadstring` and `debug.sethook` are on the same
+  -- line, LuaJIT generates separate line events for them. The
+  -- test is adapted to LuaJIT behavior by adding corresponding
+  -- line numbers into the test table.
+  table.insert(l, 1, 43)
+  table.insert(l, 43)
   debug.sethook(f,"l"); loadstring(s)(); debug.sethook()
   assert(table.getn(l) == 0)
 end
@@ -25,8 +49,8 @@ do
   local a = debug.getinfo(print)
   assert(a.what == "C" and a.short_src == "[C]")
   local b = debug.getinfo(test, "SfL")
-  assert(b.name == nil and b.what == "Lua" and b.linedefined == 11 and
-         b.lastlinedefined == b.linedefined + 10 and
+  assert(b.name == nil and b.what == "Lua" and b.linedefined == 29 and
+         b.lastlinedefined == b.linedefined + 16 and
          b.func == test and not string.find(b.short_src, "%["))
   assert(b.activelines[b.linedefined + 1] and
          b.activelines[b.lastlinedefined])
@@ -95,26 +119,6 @@ repeat
   assert(g(f) == 'a')
 until 1
 
--- FIXME: The LuaJIT's virtual machine interprets the bytecode
--- following the return from function (i.e. the one succeeding
--- the call made) and located on the line other than that return
--- bytecode, as a new line trigger for line hooks, unlike Lua
--- does.
--- Here is an example (it is joined in one line intend):
---[[
-debug.sethook(function(_, l) print("LINE: "..l) end, "l") loadstring("\n\ns=nil")() debug.sethook()
---]]
--- This chunk prints for LuaJIT:
---[[
-LINE: 3
-LINE: 1
---]]
--- But for Lua 5.1 it is only "LINE: 3" in the output.
--- See also https://github.com/tarantool/tarantool/issues/5693.
--- Considering implementation-defined behaviour difference
--- (see also https://luajit.org/status.html) test is disabled for
--- LuaJIT.
---[=[
 test([[if
 math.sin(1)
 then
@@ -132,23 +136,25 @@ else
 end
 ]], {2,5,6})
 
+-- Test is adapted to the behaviour of LuaJIT.
 test([[a=1
 repeat
   a=a+1
 until a==3
-]], {1,3,4,3,4})
+]], {1,2,3,4,2,3,4})
 
 test([[ do
   return
 end
 ]], {2})
 
+-- Test is adapted to the behaviour of LuaJIT.
 test([[local a
 a=1
 while a<=3 do
   a=a+1
 end
-]], {2,3,4,3,4,3,4,3,5})
+]], {1,2,3,4,3,4,3,4,3,5})
 
 test([[while math.sin(1) do
   if math.sin(1)
@@ -168,8 +174,10 @@ test([[for i,v in pairs{'a','b'} do
 end
 ]], {1,2,1,2,1,3})
 
-test([[for i=1,4 do a=1 end]], {1,1,1,1,1})
---]=]
+-- Test is adapted to the behaviour of LuaJIT, as it generates
+-- only four line events, unlike Lua, which generates five
+-- of them.
+test([[for i=1,4 do a=1 end]], {1,1,1,1})
 
 
 print'+'
@@ -390,7 +398,7 @@ local function f (x)
   if x then
     assert(debug.getinfo(1, "S").what == "Lua")
     local tail = debug.getinfo(2)
-    assert(tail.what == "Lua" and tail.linedefined == 402 and tail.func == g1)
+    assert(tail.what == "Lua" and tail.linedefined == 410 and tail.func == g1)
     assert(getfenv(3))
     assert(debug.getinfo(3, "S").what == "main")
     print"+"
