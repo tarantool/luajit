@@ -391,47 +391,49 @@ def dump_framelink(L, fr):
         f = dump_lj_tfunc(fr),
     )
 
-def dump_stack_slot(L, slot, base=None, top=None):
+def dump_stack_slot(L, slot, base=None, top=None, eol='\n'):
     base = base or L['base']
     top = top or L['top']
 
-    return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}\n'.format(
+    return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}{eol}'.format(
         addr = strx64(slot),
         padding = PADDING,
         B = 'B' if slot == base else ' ',
         T = 'T' if slot == top else ' ',
         M = 'M' if slot == mref('TValue *', L['maxstack']) else ' ',
         value = dump_tvalue(slot),
+        eol = eol,
     )
 
 def dump_stack(L, base=None, top=None):
     base = base or L['base']
     top = top or L['top']
+    stack = mref('TValue *', L['stack'])
     maxstack = mref('TValue *', L['maxstack'])
     red = 5 + 2 * LJ_FR2
 
     dump = '\n'.join([
-        '{start}:{end} [    ] {n} slots: Red zone'.format(
-             start = strx64(maxstack + 1),
-             end = strx64(maxstack + red),
-             n = red,
+        '{padding} Red zone: {nredslots: >2} slots {padding}'.format(
+            padding = '-' * len(PADDING),
+            nredslots = red,
         ),
-        '{maxstack}{padding} [   M]'.format(
-            maxstack = strx64(maxstack),
-            padding = PADDING,
+        *(
+            dump_stack_slot(L, maxstack + offset, base, top, '')
+                for offset in range(red, 0, -1)
         ),
+        '{padding} Stack: {nstackslots: >5} slots {padding}'.format(
+            padding = '-' * len(PADDING),
+            nstackslots = int((tou64(maxstack) - tou64(stack)) >> 3),
+        ),
+        dump_stack_slot(L, maxstack, base, top, ''),
         '{start}:{end} [    ] {nfreeslots} slots: Free stack slots'.format(
             start = strx64(top + 1),
             end = strx64(maxstack - 1),
             nfreeslots = int((tou64(maxstack) - tou64(top) - 8) >> 3),
         ),
-        '{top}{padding} [  T ]'.format(
-            top = strx64(top),
-            padding = PADDING,
-        )
     ]) + '\n'
 
-    slot = top - 1
+    slot = top
     framelink = base - (1 + LJ_FR2)
 
     # XXX: Lua stack unwinding algorithm consists of the following steps:
@@ -447,7 +449,7 @@ def dump_stack(L, base=None, top=None):
         dump += dump_stack_slot(L, slot, base, top)
         slot -= 1
 
-    while framelink > mref('TValue *', L['stack']):
+    while framelink > stack:
         assert slot == framelink + LJ_FR2, "Invalid slot during frame unwind"
         dump += dump_framelink(L, framelink)
         framelink = frame_prev(framelink + LJ_FR2) - LJ_FR2
