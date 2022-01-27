@@ -34,7 +34,7 @@ jobs:
         BUILDTYPE: [Debug, Release]
         ARCH: [ARM64, x86_64]
         GC64: [ON, OFF]
-        FLAVOR: [checkhook, dualnum, gdbjit, nojit, nounwind]
+        FLAVOR: [checkhook, dualnum, dynamic_build, gdbjit, nojit, nounwind]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -42,6 +42,8 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
           - FLAVOR: dualnum
             FLAVORFLAGS: -DLUAJIT_NUMMODE=2
+          - FLAVOR: dynamic_build
+            FLAVORFLAGS: -DBUILDMODE=dynamic
           - FLAVOR: checkhook
             FLAVORFLAGS: -DLUAJIT_ENABLE_CHECKHOOK=ON
           - FLAVOR: nojit

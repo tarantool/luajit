@@ -36,6 +36,14 @@ add_test_suite_target(tarantool-c-tests
   DEPENDS libluajit libtest tarantool-c-tests-build
 )
 
+# XXX: The tarantool-c-tests target cannot be linked with the
+# LuaJIT library when it is built as shared. The test suite is
+# disabled for the dynamic build mode.
+if(BUILDMODE STREQUAL "dynamic")
+  message("Dynamic build mode, tarantool-c-tests suite is empty")
+  return()
+endif()
+
 set(CTEST_SRC_SUFFIX ".test.c")
 file(GLOB tests "${CMAKE_CURRENT_SOURCE_DIR}/*${CTEST_SRC_SUFFIX}")
 foreach(test_source ${tests})
