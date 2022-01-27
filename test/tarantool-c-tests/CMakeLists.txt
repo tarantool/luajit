@@ -41,6 +41,14 @@ file(GLOB tests "${CMAKE_CURRENT_SOURCE_DIR}/*${CTEST_SRC_SUFFIX}")
 foreach(test_source ${tests})
   # Get test name without suffix. Needed to set OUTPUT_NAME.
   get_filename_component(exe ${test_source} NAME_WE)
+
+  # Test requires static build, since it inspects internal
+  # symbols.
+  if(exe STREQUAL "gh-8594-sysprof-ffunc-crash" AND
+     BUILDMODE STREQUAL "dynamic")
+    continue()
+  endif()
+
   add_executable(${exe} EXCLUDE_FROM_ALL ${test_source})
   target_include_directories(${exe} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
