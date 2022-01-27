@@ -34,7 +34,7 @@ jobs:
         BUILDTYPE: [Debug, Release]
         ARCH: [ARM64, x86_64]
         GC64: [ON, OFF]
-        FLAVOR: [checkhook, dualnum, gdbjit, nojit, nounwind, tablebump]
+        FLAVOR: [checkhook, dualnum, dynamic, gdbjit, nojit, nounwind, tablebump]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -42,6 +42,8 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
           - FLAVOR: dualnum
             FLAVORFLAGS: -DLUAJIT_NUMMODE=2
+          - FLAVOR: dynamic
+            FLAVORFLAGS: -DBUILDMODE=dynamic
           - FLAVOR: checkhook
             FLAVORFLAGS: -DLUAJIT_ENABLE_CHECKHOOK=ON
           - FLAVOR: nojit
@@ -58,6 +60,12 @@ jobs:
           # DUALNUM is default for ARM64, no need for additional testing.
           - FLAVOR: dualnum
             ARCH: ARM64
+          # There is no need to test any scenarios except the most
+          # common one for the shared library build.
+          - FLAVOR: dynamic
+            ARCH: ARM64
+          - FLAVOR: dynamic
+            BUILDTYPE: Release
           # With table bump optimization enabled (and due to our modification
           # related to metrics), some offsets in GG_State stop fitting in 12bit
           # immediate. Hence, the build failed due to the DASM error
