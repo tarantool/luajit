@@ -179,6 +179,9 @@ def gcval(obj):
     return cast('GCobj *', obj['gcptr64'] & LJ_GCVMASK if LJ_GC64
         else cast('uintptr_t', obj['gcptr32']))
 
+def gcnext(obj):
+    return gcref(obj)['gch']['nextgc']
+
 def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
     # XXX Fragile: though the loop initialization looks like a crap but it
@@ -272,12 +275,29 @@ def funcproto(func):
     return cast('GCproto *',
         mref('char *', func['pc']) - gdb.lookup_type('GCproto').sizeof)
 
-def gclistlen(root):
+def gclistlen(root, end=0x0):
     count = 0
-    while(gcref(root)):
+    while(gcref(root) != end):
         count += 1
-        root = gcref(root)['gch']['nextgc']
+        root = gcnext(root)
     return count
+
+def gcringlen(root):
+    if not gcref(root):
+        return 0
+    elif gcref(root) == gcref(gcnext(root)):
+        return 1
+    else:
+        return 1 + gclistlen(gcnext(root), gcref(root))
+
+gclen = {
+    'root': gclistlen,
+    'gray': gclistlen,
+    'grayagain': gclistlen,
+    'weak': gclistlen,
+    # XXX: gc.mmudata is a ring-list.
+    'mmudata': gcringlen,
+}
 
 # Dumpers {{{
 
@@ -482,11 +502,9 @@ def dump_gc(g):
     ) ]
 
     stats += [ '{key}: {number} objects'.format(
-        key = f,
-        number = gclistlen(gc[f]),
-    ) for f in ('root', 'gray', 'grayagain', 'weak') ]
-
-    # TODO: mmudata
+        key = stat,
+        number = handler(gc[stat])
+    ) for stat, handler in gclen.items() ]
 
     return '\n'.join(map(lambda s: '\t' + s, stats))
 
@@ -686,6 +704,7 @@ The command requires no args and dumps current GC stats:
 * gray: <number of gray objects>
 * grayagain: <number of objects for atomic traversal>
 * weak: <number of weak tables (to be cleared)>
+* mmudata: <number of udata|cdata to be finalized>
     '''
 
     def invoke(self, arg, from_tty):
