@@ -56,10 +56,12 @@ LUAMISC_API void luaM_metrics(lua_State *L, struct luam_Metrics *metrics)
   metrics->jit_trace_abort = J->ntraceabort;
   metrics->jit_mcode_size = J->szallmcarea;
   metrics->jit_trace_num = J->tracenum;
+  metrics->jit_trace_enter = J->ntraceenter;
 #else
   metrics->jit_snap_restore = 0;
   metrics->jit_trace_abort = 0;
   metrics->jit_mcode_size = 0;
   metrics->jit_trace_num = 0;
+  metrics->jit_trace_enter = NULL;
 #endif
 }

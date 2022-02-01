@@ -32,12 +32,18 @@ static LJ_AINLINE void setnumfield(struct lua_State *L, GCtab *t,
   setnumV(lj_tab_setstr(L, t, lj_str_newz(L, name)), (double)val);
 }
 
+static LJ_AINLINE void settabfield(struct lua_State *L, GCtab *t,
+				   const char *name, GCtab *val)
+{
+  settabV(L, lj_tab_setstr(L, t, lj_str_newz(L, name)), val);
+}
+
 #define LJLIB_MODULE_misc
 
 LJLIB_CF(misc_getmetrics)
 {
   struct luam_Metrics metrics;
-  GCtab *m;
+  GCtab *m, *traceenter;
 
   lua_createtable(L, 0, 19);
   m = tabV(L->top - 1);
@@ -67,6 +73,12 @@ LJLIB_CF(misc_getmetrics)
   setnumfield(L, m, "jit_trace_abort", metrics.jit_trace_abort);
   setnumfield(L, m, "jit_mcode_size", metrics.jit_mcode_size);
   setnumfield(L, m, "jit_trace_num", metrics.jit_trace_num);
+
+  lua_createtable(L, metrics.jit_trace_num, 0);
+  traceenter = tabV(--L->top);
+  for (size_t i = 1; metrics.jit_trace_enter && i <= metrics.jit_trace_num; i++)
+    setnumV(lj_tab_setint(L, traceenter, i), (double)metrics.jit_trace_enter[i]);
+  settabfield(L, m, "jit_trace_enter", traceenter);
 
   return 1;
 }

@@ -5327,6 +5327,10 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
   case BC_JLOOP:
     |.if JIT
     |  ins_AD	// RA = base (ignored), RD = traceno
+    |  mov RA, [DISPATCH+DISPATCH_J(ntraceenter)]
+    |  mov RBa, [RA+RD*8]
+    |  inc RBa
+    |  mov [RA+RD*8], RBa
     |  mov RA, [DISPATCH+DISPATCH_J(trace)]
     |  mov TRACE:RD, [RA+RD*4]
     |  mov RDa, TRACE:RD->mcode

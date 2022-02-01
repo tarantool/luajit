@@ -72,8 +72,11 @@ static TraceNo trace_findfree(jit_State *J)
   if (osz >= lim)
     return 0;  /* Too many traces. */
   lj_mem_growvec(J->L, J->trace, J->sizetrace, lim, GCRef);
-  for (; osz < J->sizetrace; osz++)
+  lj_mem_reallocvec(J->L, J->ntraceenter, osz, J->sizetrace, size_t);
+  for (; osz < J->sizetrace; osz++) {
     setgcrefnull(J->trace[osz]);
+    J->ntraceenter[osz] = 0;
+  }
   return J->freetrace;
 }
 
@@ -363,6 +366,7 @@ void lj_trace_freestate(global_State *g)
   lj_mem_freevec(g, J->snapbuf, J->sizesnap, SnapShot);
   lj_mem_freevec(g, J->irbuf + J->irbotlim, J->irtoplim - J->irbotlim, IRIns);
   lj_mem_freevec(g, J->trace, J->sizetrace, GCRef);
+  lj_mem_freevec(g, J->ntraceenter, J->sizetrace, size_t);
 }
 
 /* -- Penalties and blacklisting ------------------------------------------ */

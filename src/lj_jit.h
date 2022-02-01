@@ -477,6 +477,7 @@ typedef struct jit_State {
   size_t tracenum;	/* Overall number of traces. */
   size_t nsnaprestore;	/* Overall number of snap restores. */
   size_t ntraceabort;	/* Overall number of abort traces. */
+  size_t *ntraceenter;	/* Overall number of trace starts. */
 
   TValue errinfo;	/* Additional info element for trace errors. */
 

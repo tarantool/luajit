@@ -52,6 +52,8 @@ struct luam_Metrics {
   size_t jit_snap_restore;
   /* Overall number of abort traces. */
   size_t jit_trace_abort;
+  /* Overall number of trace starts. */
+  size_t *jit_trace_enter;
   /* Total size of all allocated machine code areas. */
   size_t jit_mcode_size;
   /* Amount of JIT traces. */
