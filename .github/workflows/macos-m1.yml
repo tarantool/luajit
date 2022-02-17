@@ -1,0 +1,73 @@
+name: "LuaJIT test workflow (macOS/m1)"
+
+on:
+  push:
+    branches-ignore:
+      - '**-notest'
+      - 'upstream-**'
+    tags-ignore:
+      - '**'
+
+concurrency:
+  # An update of a developer branch cancels the previously
+  # scheduled workflow run for this branch. However, the default
+  # branch, and long-term branch (tarantool-1.10, tarantool-2.8,
+  # etc.) workflow runs are never canceled.
+  #
+  # We use a trick here: define the concurrency group as 'workflow
+  # run ID' + # 'workflow run attempt' because it is a unique
+  # combination for any run. So it effectively discards grouping.
+  #
+  # XXX: we cannot use `github.sha` as a unique identifier because
+  # pushing a tag may cancel a run that works on a branch push
+  # event.
+  group: ${{ (
+    github.ref == 'refs/heads/tarantool' ||
+    startsWith(github.ref, 'refs/heads/tarantool-')) &&
+    format('{0}-{1}', github.run_id, github.run_attempt) ||
+    format('{0}-{1}', github.workflow, github.ref) }}
+  cancel-in-progress: true
+
+env:
+  # XXX: Github Actions agent uses x86_64 simulation, so we have
+  # to explicitly make it use native environment for job steps.
+  ARCH: arch -arm64
+
+jobs:
+  test-macos-m1:
+    runs-on: macos-11-m1
+    strategy:
+      fail-fast: false
+      matrix:
+        BUILDTYPE: [Debug, Release]
+        GC64: [ON, OFF]
+        include:
+          - BUILDTYPE: Debug
+            CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
+          - BUILDTYPE: Release
+            CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    name: macOS/m1 ${{ matrix.BUILDTYPE }} GC64:${{ matrix.GC64 }}
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: setup
+        run: |
+          # Install brew using the command from Homebrew repository
+          # instructions: https://github.com/Homebrew/install.
+          # XXX: 'echo' command below is required since brew installation
+          # script obliges the one to enter a newline for confirming the
+          # installation via Ruby script.
+          ${ARCH} brew update ||
+            echo | ${ARCH} /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+          # Try to install the packages either upgrade it to avoid of fails
+          # if the package already exists with the previous version.
+          ${ARCH} brew install --force cmake gcc make perl ||
+            ${ARCH} brew upgrade cmake gcc make perl
+      - name: configure
+        run: ${ARCH} cmake . ${{ matrix.CMAKEFLAGS }} -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
+      - name: build
+        run: ${ARCH} make -j
+      - name: test
+        run: ${ARCH} make -j test
