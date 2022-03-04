@@ -34,7 +34,8 @@ function M.loc(symtab, args)
   elseif symtab.lfunc[loc.addr] then
     loc.gen = #symtab.lfunc[loc.addr]
   else
-    loc.gen = 1
+    local _, csym = avl.floor(symtab.cfunc, loc.addr)
+    loc.gen = csym and #csym or 1
   end
 
   return loc
@@ -74,7 +75,7 @@ function M.parse_sym_trace(reader, symtab)
 end
 
 -- Parse a single entry in a symtab: .so library
-local function parse_sym_cfunc(reader, symtab)
+function M.parse_sym_cfunc(reader, symtab)
   local addr = reader:read_uleb128()
   local name = reader:read_string()
 
@@ -86,7 +87,7 @@ end
 local parsers = {
   [SYMTAB_LFUNC] = M.parse_sym_lfunc,
   [SYMTAB_TRACE] = M.parse_sym_trace,
-  [SYMTAB_CFUNC] = parse_sym_cfunc,
+  [SYMTAB_CFUNC] = M.parse_sym_cfunc,
 }
 
 function M.parse(reader)
@@ -175,7 +176,7 @@ function M.demangle(symtab, loc)
   local key, value = avl.floor(symtab.cfunc, addr)
 
   if key then
-    return string_format("%s:%#x", value.name, key)
+    return string_format("%s:%#x", value[gen].name, key)
   end
 
   return string_format("CFUNC %#x", addr)

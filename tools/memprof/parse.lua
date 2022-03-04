@@ -143,6 +143,8 @@ local function parse_symtab(reader, asource, _, _, symbols)
     symtab.parse_sym_lfunc(reader, symbols)
   elseif asource == ASOURCE_TRACE then
     symtab.parse_sym_trace(reader, symbols)
+  elseif asource == ASOURCE_CFUNC then
+    symtab.parse_sym_cfunc(reader, symbols)
   end
 end
 

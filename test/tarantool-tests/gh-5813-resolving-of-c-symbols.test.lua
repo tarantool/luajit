@@ -23,9 +23,12 @@ local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.memprofdata.tmp.
 local function tree_contains(node, name)
   if node == nil then
     return false
-  elseif node.value.name == name then
-    return true
   else
+    for i = 1, #node.value do
+      if node.value[i].name == name then
+        return true
+      end
+    end
     return tree_contains(node.left, name) or tree_contains(node.right, name)
   end
 end
@@ -71,8 +74,7 @@ end)
 -- Static symbols resolution.
 test:ok(tree_contains(symbols.cfunc, "luaopen_os"))
 
--- Dynamic symbols resolution.
-symbols = generate_parsed_symtab(require("resstripped").allocate_string)
+-- Dynamic symbol resolution. Newly loaded symbol resolution.
 test:ok(tree_contains(symbols.cfunc, "allocate_string"))
 
 -- .hash style symbol table.

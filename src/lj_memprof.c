@@ -129,7 +129,8 @@ static uint32_t ghashtab_size(ElfW(Addr) ghashtab)
 }
 
 static void write_c_symtab(ElfW(Sym *) sym, char *strtab, ElfW(Addr) so_addr,
-			   size_t sym_cnt, struct lj_wbuf *buf)
+			   size_t sym_cnt, const uint8_t header,
+			   struct lj_wbuf *buf)
 {
   /*
   ** Index 0 in ELF symtab is used to represent undefined symbols. Hence, we
@@ -150,7 +151,7 @@ static void write_c_symtab(ElfW(Sym *) sym, char *strtab, ElfW(Addr) so_addr,
     if (ELF32_ST_TYPE(sym[sym_index].st_info) == STT_FUNC &&
         sym[sym_index].st_name != 0) {
       char *sym_name = &strtab[sym[sym_index].st_name];
-      lj_wbuf_addbyte(buf, SYMTAB_CFUNC);
+      lj_wbuf_addbyte(buf, header);
       lj_wbuf_addu64(buf, sym[sym_index].st_value + so_addr);
       lj_wbuf_addstring(buf, sym_name);
     }
@@ -158,7 +159,8 @@ static void write_c_symtab(ElfW(Sym *) sym, char *strtab, ElfW(Addr) so_addr,
 }
 
 static int dump_sht_symtab(const char *elf_name, struct lj_wbuf *buf,
-			   lua_State *L, const ElfW(Addr) so_addr)
+			   lua_State *L, const uint8_t header,
+			   const ElfW(Addr) so_addr)
 {
   int status = 0;
 
@@ -253,7 +255,7 @@ static int dump_sht_symtab(const char *elf_name, struct lj_wbuf *buf,
       sizeof(char) * strtab_size && ferror(elf_file) != 0)
     goto error;
 
-  write_c_symtab(sym, strtab, so_addr, sym_cnt, buf);
+  write_c_symtab(sym, strtab, so_addr, sym_cnt, header, buf);
 
   goto end;
 
@@ -273,7 +275,8 @@ end:
   return status;
 }
 
-static int dump_dyn_symtab(struct dl_phdr_info *info, struct lj_wbuf *buf)
+static int dump_dyn_symtab(struct dl_phdr_info *info, const uint8_t header,
+			   struct lj_wbuf *buf)
 {
   size_t header_index;
   for (header_index = 0; header_index < info->dlpi_phnum; ++header_index) {
@@ -336,7 +339,7 @@ static int dump_dyn_symtab(struct dl_phdr_info *info, struct lj_wbuf *buf)
       ** For more, see https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-48031.html
       */
       sym_cnt = ghashtab == 0 ? hashtab[1] : ghashtab_size(ghashtab);
-      write_c_symtab(sym, strtab, info->dlpi_addr, sym_cnt, buf);
+      write_c_symtab(sym, strtab, info->dlpi_addr, sym_cnt, header, buf);
       return 0;
     }
   }
@@ -345,8 +348,13 @@ static int dump_dyn_symtab(struct dl_phdr_info *info, struct lj_wbuf *buf)
 }
 
 struct symbol_resolver_conf {
-  struct lj_wbuf *buf;
-  lua_State *L;
+  struct lj_wbuf *buf; /* Output buffer. */
+  lua_State *L; /* Current Lua state. */
+  const uint8_t header; /* Header for symbol entries to write. */
+
+  uint32_t cur_lib; /* Index of the lib currently dumped. */
+  uint32_t to_dump_cnt; /* Amount of libs to dump. */
+  uint32_t *lib_adds; /* Memprof's counter of libs. */
 };
 
 static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
@@ -355,23 +363,48 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
   struct symbol_resolver_conf *conf = data;
   struct lj_wbuf *buf = conf->buf;
   lua_State *L = conf->L;
+  const uint8_t header = conf->header;
 
-  UNUSED(info_size);
+  uint32_t lib_cnt = 0;
+
+  /*
+  ** Check that dlpi_adds and dlpi_subs fields are available.
+  ** Assertion was taken from the GLIBC tests:
+  ** https://code.woboq.org/userspace/glibc/elf/tst-dlmodcount.c.html#37
+  */
+  lj_assertX(info_size > offsetof(struct dl_phdr_info, dlpi_subs)
+      + sizeof(info->dlpi_subs), "assertion failed");
+
+  lib_cnt = info->dlpi_adds - *conf->lib_adds;
 
   /* Skip vDSO library. */
   if (info->dlpi_addr == getauxval(AT_SYSINFO_EHDR))
     return 0;
 
+  if ((conf->to_dump_cnt = info->dlpi_adds - *conf->lib_adds) == 0)
+    /* No new libraries, stop resolver. */
+    return 1;
+
+  if (conf->cur_lib < lib_cnt - conf->to_dump_cnt) {
+    /* That lib is already dumped, skip it. */
+    ++conf->cur_lib;
+    return 0;
+  }
+
+  if (conf->cur_lib == lib_cnt - conf->to_dump_cnt - 1)
+    /* Last library, update memrpof's lib counter. */
+    *conf->lib_adds = info->dlpi_adds;
+
   /*
   ** Main way: try to open ELF and read SHT_SYMTAB, SHT_STRTAB and SHT_HASH
   ** sections from it.
   */
-  if (dump_sht_symtab(info->dlpi_name, buf, L, info->dlpi_addr) == 0) {
-    /* Empty body. */
+  if (dump_sht_symtab(info->dlpi_name, buf, L, header, info->dlpi_addr) == 0) {
+    ++conf->cur_lib;
   }
   /* First fallback: dump functions only from PT_DYNAMIC segment. */
-  else if(dump_dyn_symtab(info, buf) == 0) {
-    /* Empty body. */
+  else if(dump_dyn_symtab(info, header, buf) == 0) {
+    ++conf->cur_lib;
   }
   /*
   ** Last resort: dump ELF size and address to show .so name for its functions
@@ -381,6 +414,7 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
     lj_wbuf_addbyte(buf, SYMTAB_CFUNC);
     lj_wbuf_addu64(buf, info->dlpi_addr);
     lj_wbuf_addstring(buf, info->dlpi_name);
+    ++conf->cur_lib;
   }
 
   return 0;
@@ -388,7 +422,8 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
 
 #endif /* LJ_HASRESOLVER */
 
-static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
+static void dump_symtab(struct lj_wbuf *out, const struct global_State *g,
+			uint32_t *lib_adds)
 {
   const GCRef *iter = &g->gc.root;
   const GCobj *o;
@@ -398,7 +433,13 @@ static void dump_symtab(struct lj_wbuf *out, const struct global_State *g)
   struct symbol_resolver_conf conf = {
     .buf = out,
     .L = gco2th(gcref(g->cur_L)),
+    .header = SYMTAB_CFUNC,
+    .cur_lib = 0,
+    .to_dump_cnt = 0,
+    .lib_adds = lib_adds
   };
+#else
+  UNUSED(lib_adds);
 #endif
 
   /* Write prologue. */
@@ -456,6 +497,7 @@ struct memprof {
   struct alloc orig_alloc; /* Original allocator. */
   struct lj_memprof_options opt; /* Profiling options. */
   int saved_errno; /* Saved errno when profiler deinstrumented. */
+  uint32_t lib_adds; /* Number of libs loaded. Monotonic. */
 };
 
 static struct memprof memprof = {0};
@@ -496,15 +538,45 @@ static void memprof_write_lfunc(struct lj_wbuf *out, uint8_t aevent,
 }
 
 static void memprof_write_cfunc(struct lj_wbuf *out, uint8_t aevent,
-				const GCfunc *fn)
+				const GCfunc *fn, lua_State *L,
+				uint32_t *lib_adds)
 {
+#if LJ_HASRESOLVER
+  /* Check if there are any new libs. */
+  struct symbol_resolver_conf conf = {
+    .buf = out,
+    .L = L,
+    .header = AEVENT_SYMTAB | ASOURCE_CFUNC,
+    .cur_lib = 0,
+    .to_dump_cnt = 0,
+    .lib_adds = lib_adds
+  };
+
+  /*
+  ** XXX: Leaving the `vmstate` unchanged leads to an infinite
+  ** recursion, because allocations inside ELF parser are treated
+  ** as C-side allocations by memrpof. Setting the `vmstate` to
+  ** LJ_VMST_INTERP solves the issue.
+  */
+  global_State *g = G(L);
+  const uint32_t ostate = g->vmstate;
+  g->vmstate = ~LJ_VMST_INTERP;
+
+  dl_iterate_phdr(resolve_symbolnames, &conf);
+
+  /* Restore vmstate. */
+  g->vmstate = ostate;
+#else
+  UNUSED(lib_adds);
+#endif
+
   lj_wbuf_addbyte(out, aevent | ASOURCE_CFUNC);
   lj_wbuf_addu64(out, (uintptr_t)fn->c.f);
 }
 
 static void memprof_write_ffunc(struct lj_wbuf *out, uint8_t aevent,
 				GCfunc *fn, struct lua_State *L,
-				cTValue *frame)
+				cTValue *frame, uint32_t *lib_adds)
 {
   cTValue *pframe = frame_prev(frame);
   GCfunc *pfn = frame_func(pframe);
@@ -517,7 +589,7 @@ static void memprof_write_ffunc(struct lj_wbuf *out, uint8_t aevent,
   if (pfn != NULL && isluafunc(pfn))
     memprof_write_lfunc(out, aevent, pfn, L, frame);
   else
-    memprof_write_cfunc(out, aevent, fn);
+    memprof_write_cfunc(out, aevent, fn, L, lib_adds);
 }
 
 static void memprof_write_func(struct memprof *mp, uint8_t aevent)
@@ -530,9 +602,9 @@ static void memprof_write_func(struct memprof *mp, uint8_t aevent)
   if (isluafunc(fn))
     memprof_write_lfunc(out, aevent, fn, L, NULL);
   else if (isffunc(fn))
-    memprof_write_ffunc(out, aevent, fn, L, frame);
+    memprof_write_ffunc(out, aevent, fn, L, frame, &mp->lib_adds);
   else if (iscfunc(fn))
-    memprof_write_cfunc(out, aevent, fn);
+    memprof_write_cfunc(out, aevent, fn, L, &mp->lib_adds);
   else
     lj_assertX(0, "unreachable");
 }
@@ -665,7 +737,7 @@ int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
 
   /* Init output. */
   lj_wbuf_init(&mp->out, mp_opt->writer, mp_opt->ctx, mp_opt->buf, mp_opt->len);
-  dump_symtab(&mp->out, mp->g);
+  dump_symtab(&mp->out, mp->g, &mp->lib_adds);
 
   /* Write prologue. */
   lj_wbuf_addn(&mp->out, ljm_header, ljm_header_len);

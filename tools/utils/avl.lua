@@ -78,7 +78,7 @@ end
 function M.insert(node, key, value)
   assert(key, "Key can't be nil")
   if node == nil then
-    return create_node(key, value)
+    return create_node(key, { value })
   end
 
   if key < node.key then
@@ -86,7 +86,7 @@ function M.insert(node, key, value)
   elseif key > node.key then
     node.right = M.insert(node.right, key, value)
   else
-    node.value = value
+    table.insert(node.value, value)
   end
 
   update_height(node)

@@ -77,8 +77,9 @@
 ** event-free     := event-header loc? oaddr osize
 ** event-symtab   := event-header sym
 ** event-header   := <BYTE>
-** sym            := sym-lua | sym-trace
+** sym            := sym-lua | sym-cfunc | sym-trace
 ** sym-lua        := sym-addr sym-chunk sym-line
+** sym-cfunc      := sym-addr sym-name
 ** sym-trace      := trace-no loc-lua
 ** loc            := loc-lua | loc-c | loc-trace
 ** loc-lua        := sym-addr line-no
@@ -87,6 +88,7 @@
 ** sym-addr       := <ULEB128>
 ** sym-chunk      := string
 ** sym-line       := <ULEB128>
+** sym-name       := string
 ** line-no        := <ULEB128>
 ** trace-no       := <ULEB128>
 ** trace-addr     := <ULEB128>
