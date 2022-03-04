@@ -30,6 +30,7 @@ else()
     memprof/humanize.lua
     memprof/parse.lua
     memprof.lua
+    utils/avl.lua
     utils/bufread.lua
     utils/symtab.lua
   )
@@ -46,6 +47,7 @@ else()
     COMPONENT tools-parse-memprof
   )
   install(FILES
+      ${CMAKE_CURRENT_SOURCE_DIR}/utils/avl.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/bufread.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/symtab.lua
     DESTINATION ${LUAJIT_DATAROOTDIR}/utils

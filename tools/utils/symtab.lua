@@ -6,16 +6,19 @@
 
 local bit = require "bit"
 
+local avl = require "utils.avl"
+
 local band = bit.band
 local string_format = string.format
 
 local LJS_MAGIC = "ljs"
-local LJS_CURRENT_VERSION = 0x2
+local LJS_CURRENT_VERSION = 0x3
 local LJS_EPILOGUE_HEADER = 0x80
 local LJS_SYMTYPE_MASK = 0x03
 
 local SYMTAB_LFUNC = 0
-local SYMTAB_TRACE = 1
+local SYMTAB_CFUNC = 1
+local SYMTAB_TRACE = 2
 
 local M = {}
 
@@ -70,9 +73,20 @@ function M.parse_sym_trace(reader, symtab)
   })
 end
 
+-- Parse a single entry in a symtab: .so library
+local function parse_sym_cfunc(reader, symtab)
+  local addr = reader:read_uleb128()
+  local name = reader:read_string()
+
+  symtab.cfunc = avl.insert(symtab.cfunc, addr, {
+    name = name
+  })
+end
+
 local parsers = {
   [SYMTAB_LFUNC] = M.parse_sym_lfunc,
   [SYMTAB_TRACE] = M.parse_sym_trace,
+  [SYMTAB_CFUNC] = parse_sym_cfunc,
 }
 
 function M.parse(reader)
@@ -80,6 +94,7 @@ function M.parse(reader)
     lfunc = {},
     trace = {},
     alias = {},
+    cfunc = nil,
   }
   local magic = reader:read_octets(3)
   local version = reader:read_octets(1)
@@ -155,6 +170,12 @@ function M.demangle(symtab, loc)
   if symtab.lfunc[addr] and symtab.lfunc[addr][gen] then
     local source = symtab.lfunc[addr][gen].source
     return string_format("%s:%d", symtab.alias[source] or source, loc.line)
+  end
+
+  local key, value = avl.floor(symtab.cfunc, addr)
+
+  if key then
+    return string_format("%s:%#x", value.name, key)
   end
 
   return string_format("CFUNC %#x", addr)
