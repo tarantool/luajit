@@ -93,9 +93,6 @@ LJ_ASMF int lj_vm_errno(void);
 #endif
 #endif
 
-LJ_ASMF double lj_vm_powi(double, int32_t);
-LJ_ASMF double lj_vm_pow(double, double);
-
 /* Continuations for metamethods. */
 LJ_ASMF void lj_cont_cat(void);  /* Continue with concatenation. */
 LJ_ASMF void lj_cont_ra(void);  /* Store result in RA from instruction. */
