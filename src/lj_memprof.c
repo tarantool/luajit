@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #include "lj_arch.h"
+#include "lj_jit.h"
 #include "lj_memprof.h"
 
 #if LJ_HASMEMPROF
