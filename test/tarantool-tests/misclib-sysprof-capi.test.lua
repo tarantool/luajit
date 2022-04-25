@@ -13,11 +13,15 @@ local jit = require('jit')
 jit.off()
 
 local test = tap.test("clib-misc-sysprof")
-test:plan(4)
+test:plan(2)
 
 test:ok(testsysprof.base())
 test:ok(testsysprof.validation())
 
+-- FIXME: The following two tests are disabled because sometimes
+-- `backtrace` dynamically loads a platform-specific unwinder, which is
+-- not signal-safe.
+--[[
 local function lua_payload(n)
   if n <= 1 then
     return n
@@ -50,4 +54,5 @@ jit.on()
 jit.flush()
 
 test:ok(testsysprof.profile_func(payload))
+--]]
 os.exit(test:check() and 0 or 1)
