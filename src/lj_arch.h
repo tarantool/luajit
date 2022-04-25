@@ -738,7 +738,7 @@ extern void *LJ_WIN_LOADLIBA(const char *path);
 #endif
 
 /* Disable or enable the platform and Lua profiler. */
-#if defined(LUAJIT_DISABLE_SYSPROF) || defined(LJ_ARCH_NOSYSPROF) || !LJ_TARGET_LINUX
+#if defined(LUAJIT_DISABLE_SYSPROF) || defined(LJ_ARCH_NOSYSPROF) || !LJ_TARGET_LINUX || LJ_GC64
 #define LJ_HASSYSPROF		0
 #else
 #define LJ_HASSYSPROF		1
