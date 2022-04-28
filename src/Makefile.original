@@ -116,6 +116,8 @@ XCFLAGS=
 # Disable the memory profiler.
 #XCFLAGS+= -DLUAJIT_DISABLE_MEMPROF
 #
+# Disable the system profiler.
+#XCFLAGS+= -DLUAJIT_DISABLE_SYSPROF
 ##############################################################################
 
 ##############################################################################
