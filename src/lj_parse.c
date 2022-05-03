@@ -30,6 +30,9 @@
 #if LJ_HASMEMPROF
 #include "lj_memprof.h"
 #endif
+#if LJ_HASSYSPROF
+#include "lj_sysprof.h"
+#endif
 
 /* -- Parser structures and definitions ----------------------------------- */
 
@@ -1611,6 +1614,9 @@ static GCproto *fs_finish(LexState *ls, BCLine line)
   /* Add a new prototype to the profiler. */
 #if LJ_HASMEMPROF
   lj_memprof_add_proto(pt);
+#endif
+#if LJ_HASSYSPROF
+  lj_sysprof_add_proto(pt);
 #endif
 
   L->top--;  /* Pop table of constants. */

@@ -236,7 +236,7 @@ static void stream_guest(struct sysprof *sp, uint32_t vmstate)
 static void stream_host(struct sysprof *sp, uint32_t vmstate)
 {
   struct lua_State *L = gco2th(gcref(sp->g->cur_L));
-  lj_symtab_dump_newc(&sp->lib_adds, &sp->out, LJP_SYMTAB_EVENT, L);
+  lj_symtab_dump_newc(&sp->lib_adds, &sp->out, LJP_SYMTAB_CFUNC_EVENT, L);
   lj_wbuf_addbyte(&sp->out, (uint8_t)vmstate);
   stream_backtrace_host(sp);
 }
@@ -494,6 +494,40 @@ int lj_sysprof_report(struct luam_Sysprof_Counters *counters)
   return PROFILE_SUCCESS;
 }
 
+void lj_sysprof_add_proto(const struct GCproto *pt)
+{
+  struct sysprof *sp = &sysprof;
+
+  if (sp->state != SPS_PROFILE)
+    return;
+
+  /*
+  ** XXX: Avoid sampling during the symtab extension. That shouldn't have any
+  ** significant effect on profile precision, but if it does, it's better to
+  ** implement an async-safe queue for the symtab events.
+  */
+  sp->state = SPS_IDLE;
+  lj_wbuf_addbyte(&sp->out, LJP_SYMTAB_LFUNC_EVENT);
+  lj_symtab_dump_proto(&sp->out, pt);
+  sp->state = SPS_PROFILE;
+}
+
+#if LJ_HASJIT
+void lj_sysprof_add_trace(const struct GCtrace *tr)
+{
+  struct sysprof *sp = &sysprof;
+
+  if (sp->state != SPS_PROFILE)
+    return;
+
+  /* See the comment about the sysprof state above. */
+  sp->state = SPS_IDLE;
+  lj_wbuf_addbyte(&sp->out, LJP_SYMTAB_TRACE_EVENT);
+  lj_symtab_dump_trace(&sp->out, tr);
+  sp->state = SPS_PROFILE;
+}
+#endif /* LJ_HASJIT */
+
 #else /* LJ_HASSYSPROF */
 
 int lj_sysprof_configure(const struct luam_Sysprof_Config *config)
@@ -519,5 +553,17 @@ int lj_sysprof_report(struct luam_Sysprof_Counters *counters)
   UNUSED(counters);
   return PROFILE_ERRUSE;
 }
+
+void lj_sysprof_add_proto(const struct GCproto *pt)
+{
+  UNUSED(pt);
+}
+
+#if LJ_HASJIT
+void lj_sysprof_add_trace(const struct GCtrace *tr)
+{
+  UNUSED(tr);
+}
+#endif /* LJ_HASJIT */
 
 #endif /* LJ_HASSYSPROF */

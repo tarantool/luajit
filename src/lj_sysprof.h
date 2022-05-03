@@ -15,10 +15,13 @@
 #ifndef _LJ_SYSPROF_H
 #define _LJ_SYSPROF_H
 
+#if LJ_HASJIT
+#include "lj_jit.h"
+#endif
 #include "lj_obj.h"
 #include "lmisclib.h"
 
-#define LJP_FORMAT_VERSION 0x1
+#define LJP_FORMAT_VERSION 0x2
 
 /*
 ** Event stream format:
@@ -80,8 +83,12 @@
 #define LJP_FRAME_LUA_LAST  0x80
 #define LJP_FRAME_HOST_LAST NULL
 
-#define LJP_SYMTAB_EVENT ((uint8_t)10)
+#define LJP_SYMTAB_LFUNC_EVENT ((uint8_t)10)
+#define LJP_SYMTAB_CFUNC_EVENT ((uint8_t)11)
+#define LJP_SYMTAB_TRACE_EVENT ((uint8_t)12)
 #define LJP_EPILOGUE_BYTE 0x80
+
+LJ_STATIC_ASSERT(LJ_VMST__MAX <= LJP_SYMTAB_LFUNC_EVENT);
 
 int lj_sysprof_configure(const struct luam_Sysprof_Config *config);
 
@@ -90,5 +97,11 @@ int lj_sysprof_start(lua_State *L, const struct luam_Sysprof_Options *opt);
 int lj_sysprof_stop(lua_State *L);
 
 int lj_sysprof_report(struct luam_Sysprof_Counters *counters);
+
+void lj_sysprof_add_proto(const struct GCproto *pt);
+
+#if LJ_HASJIT
+void lj_sysprof_add_trace(const struct GCtrace *tr);
+#endif /* LJ_HASJIT */
 
 #endif

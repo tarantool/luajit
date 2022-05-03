@@ -6,7 +6,7 @@ local symtab = require "utils.symtab"
 local string_format = string.format
 
 local LJP_MAGIC = "ljp"
-local LJP_CURRENT_VERSION = 1
+local LJP_CURRENT_VERSION = 2
 
 local M = {}
 
@@ -33,7 +33,9 @@ M.FRAME = {
 }
 
 local STREAM_END = 0x80
-local SYMTAB_EVENT = 10
+local SYMTAB_LFUNC_EVENT = 10
+local SYMTAB_CFUNC_EVENT = 11
+local SYMTAB_TRACE_EVENT = 12
 
 local function new_event()
   return {
@@ -128,8 +130,16 @@ local function parse_trace(reader, event, symbols)
   -- parse_lua_callchain(reader, event)
 end
 
-local function parse_symtab(reader, symbols)
-  symtab.parse_sym_cfunc(reader, symbols)
+local function parse_symtab(reader, symbols, vmstate)
+  if vmstate == SYMTAB_LFUNC_EVENT then
+    symtab.parse_sym_lfunc(reader, symbols)
+  elseif vmstate == SYMTAB_CFUNC_EVENT then
+    symtab.parse_sym_cfunc(reader, symbols)
+  elseif vmstate == SYMTAB_TRACE_EVENT then
+    symtab.parse_sym_trace(reader, symbols)
+  else
+    error("Unknown symtab event")
+  end
 end
 
 local event_parsers = {
@@ -152,8 +162,8 @@ local function parse_event(reader, events, symbols)
   if vmstate == STREAM_END then
     -- TODO: samples & overruns
     return false
-  elseif vmstate == SYMTAB_EVENT then
-    parse_symtab(reader, symbols)
+  elseif SYMTAB_LFUNC_EVENT <= vmstate and vmstate <= SYMTAB_TRACE_EVENT then
+    parse_symtab(reader, symbols, vmstate)
     return true
   end
 

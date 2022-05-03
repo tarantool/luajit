@@ -34,6 +34,9 @@
 #if LJ_HASMEMPROF
 #include "lj_memprof.h"
 #endif
+#if LJ_HASSYSPROF
+#include "lj_sysprof.h"
+#endif
 
 /* -- Error handling ------------------------------------------------------ */
 
@@ -172,6 +175,10 @@ static void trace_save(jit_State *J, GCtrace *T)
   /* Add a new trace to the profiler. */
 #if LJ_HASMEMPROF
   lj_memprof_add_trace(T);
+#endif
+
+#if LJ_HASSYSPROF
+  lj_sysprof_add_trace(T);
 #endif
 }
 
