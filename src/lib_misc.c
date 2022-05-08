@@ -163,7 +163,7 @@ static int on_stop_cb_default(void *opt, uint8_t *buf)
 #define SYSPROF_DEFAULT_INTERVAL 10
 #define SYSPROF_DEFAULT_OUTPUT "sysprof.bin"
 
-int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
+static int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
   struct profile_ctx *ctx = opt->ctx;
   int fd = 0;
   lj_assertX(path != NULL, "path is not given");
@@ -175,7 +175,7 @@ int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
   return PROFILE_SUCCESS;
 }
 
-int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, int idx) {
+static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, int idx) {
   GCtab *options = lj_lib_checktab(L, idx);
 
   /* Get profiling mode. */
@@ -249,7 +249,7 @@ int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, int idx) 
   return PROFILE_SUCCESS;
 }
 
-int parse_options(lua_State *L, struct luam_Sysprof_Options *opt)
+static int parse_options(lua_State *L, struct luam_Sysprof_Options *opt)
 {
   if (lua_gettop(L) != 1)
     return PROFILE_ERRUSE;
@@ -260,7 +260,7 @@ int parse_options(lua_State *L, struct luam_Sysprof_Options *opt)
   return parse_sysprof_opts(L, opt, 1);
 }
 
-int sysprof_error(lua_State *L, int status)
+static int sysprof_error(lua_State *L, int status)
 {
   switch (status) {
     case PROFILE_ERRUSE:
