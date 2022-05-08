@@ -122,13 +122,8 @@ static int c_payload(lua_State *L)
 
 static int base(lua_State *L)
 {
-	struct luam_Sysprof_Config config = {};
 	struct luam_Sysprof_Options opt = {};
 	struct luam_Sysprof_Counters cnt = {};
-
-	(void)config.writer;
-	(void)config.on_stop;
-	(void)config.backtracer;
 
 	(void)opt.interval;
 	(void)opt.mode;
@@ -156,12 +151,8 @@ static int base(lua_State *L)
 
 static int validation(lua_State *L)
 {
-	struct luam_Sysprof_Config config = {};
 	struct luam_Sysprof_Options opt = {};
 	int status = PROFILE_SUCCESS;
-
-	status = luaM_sysprof_configure(&config);
-	assert(PROFILE_SUCCESS == status);
 
 	/* Unknown mode. */
 	opt.mode = 0x40;
@@ -204,7 +195,6 @@ static int validation(lua_State *L)
 
 static int profile_func(lua_State *L)
 {
-	struct luam_Sysprof_Config config = {};
 	struct luam_Sysprof_Options opt = {};
 	struct luam_Sysprof_Counters cnt = {};
 	int status = PROFILE_ERRUSE;
@@ -222,10 +212,9 @@ static int profile_func(lua_State *L)
 	opt.interval = SYSPROF_INTERVAL_DEFAULT;
 	stream_init(&opt);
 
-	config.on_stop = on_stop_cb_default;
-	config.writer = buffer_writer_default;
-	status = luaM_sysprof_configure(&config);
-	assert(PROFILE_SUCCESS == status);
+	assert(luaM_sysprof_set_writer(buffer_writer_default) == PROFILE_SUCCESS);
+	assert(luaM_sysprof_set_on_stop(on_stop_cb_default) == PROFILE_SUCCESS);
+	assert(luaM_sysprof_set_backtracer(NULL) == PROFILE_SUCCESS);
 
 	status = luaM_sysprof_start(L, &opt);
 	assert(PROFILE_SUCCESS == status);

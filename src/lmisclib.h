@@ -63,31 +63,29 @@ LUAMISC_API void luaM_metrics(lua_State *L, struct luam_Metrics *metrics);
 /* --- Sysprof - platform and lua profiler -------------------------------- */
 
 /* Profiler configurations. */
-struct luam_Sysprof_Config {
-  /*
-  ** Writer function for profile events. Must be async-safe, see also
-  ** `man 7 signal-safety`.
-  ** Should return amount of written bytes on success or zero in case of error.
-  ** Setting *data to NULL means end of profiling.
-  ** For details see <lj_wbuf.h>.
-  */
-  size_t (*writer)(const void **data, size_t len, void *ctx);
-  /*
-  ** Callback on profiler stopping. Required for correctly cleaning
-  ** at VM finalization when profiler is still running.
-  ** Returns zero on success.
-  */
-  int (*on_stop)(void *ctx, uint8_t *buf);
-  /*
-  ** Backtracing function for the host stack. Should call `frame_writer` on
-  ** each frame in the stack in the order from the stack top to the stack
-  ** bottom. The `frame_writer` function is implemented inside the sysprof
-  ** and will be passed to the `backtracer` function. If `frame_writer` returns
-  ** NULL, backtracing should be stopped. If `frame_writer` returns not NULL,
-  ** the backtracing should be continued if there are frames left.
-  */
-  void (*backtracer)(void *(*frame_writer)(int frame_no, void *addr));
-};
+/*
+** Writer function for profile events. Must be async-safe, see also
+** `man 7 signal-safety`.
+** Should return amount of written bytes on success or zero in case of error.
+** Setting *data to NULL means end of profiling.
+** For details see <lj_wbuf.h>.
+*/
+typedef size_t (*luam_Sysprof_writer)(const void **data, size_t len, void *ctx);
+/*
+** Callback on profiler stopping. Required for correctly cleaning
+** at VM finalization when profiler is still running.
+** Returns zero on success.
+*/
+typedef int (*luam_Sysprof_on_stop)(void *ctx, uint8_t *buf);
+/*
+** Backtracing function for the host stack. Should call `frame_writer` on
+** each frame in the stack in the order from the stack top to the stack
+** bottom. The `frame_writer` function is implemented inside the sysprof
+** and will be passed to the `backtracer` function. If `frame_writer` returns
+** NULL, backtracing should be stopped. If `frame_writer` returns not NULL,
+** the backtracing should be continued if there are frames left.
+*/
+typedef void (*luam_Sysprof_backtracer)(void *(*frame_writer)(int frame_no, void *addr));
 
 /*
 ** DEFAULT mode collects only data for luam_sysprof_counters, which is stored
@@ -144,7 +142,11 @@ struct luam_Sysprof_Options {
 #define PROFILE_ERRMEM  3
 #define PROFILE_ERRIO   4
 
-LUAMISC_API int luaM_sysprof_configure(const struct luam_Sysprof_Config *config);
+LUAMISC_API int luaM_sysprof_set_writer(luam_Sysprof_writer writer);
+
+LUAMISC_API int luaM_sysprof_set_on_stop(luam_Sysprof_on_stop on_stop);
+
+LUAMISC_API int luaM_sysprof_set_backtracer(luam_Sysprof_backtracer backtracer);
 
 LUAMISC_API int luaM_sysprof_start(lua_State *L,
                                    const struct luam_Sysprof_Options *opt);

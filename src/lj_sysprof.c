@@ -52,8 +52,6 @@
 #define vmstfit4(st) ((st & ~(uint32_t)((1 << 4) - 1)) == 0)
 
 enum sysprof_state {
-  /* Profiler needs to be configured. */
-  SPS_UNCONFIGURED,
   /* Profiler is not running. */
   SPS_IDLE,
   /* Profiler is running. */
@@ -72,7 +70,9 @@ struct sysprof {
   struct lj_wbuf out; /* Output accumulator. */
   struct luam_Sysprof_Counters counters; /* Profiling counters. */
   struct luam_Sysprof_Options opt; /* Profiling options. */
-  struct luam_Sysprof_Config config; /* Profiler configurations. */
+  luam_Sysprof_writer writer; /* Writer function for profile events. */
+  luam_Sysprof_on_stop on_stop; /* Callback on profiling stopping. */
+  luam_Sysprof_backtracer backtracer; /* Backtracing function for the host stack. */
   lj_profile_timer timer; /* Profiling timer. */
   int saved_errno; /* Saved errno when profiler failed. */
   uint32_t lib_adds; /* Number of libs loaded. Monotonic. */
@@ -91,6 +91,11 @@ static const uint8_t ljp_header[] = {'l', 'j', 'p', LJP_FORMAT_VERSION,
 static int stream_is_needed(struct sysprof *sp)
 {
   return sp->opt.mode != LUAM_SYSPROF_DEFAULT;
+}
+
+static int is_unconfigured(struct sysprof *sp)
+{
+  return sp->backtracer == NULL || sp->on_stop == NULL || sp->writer == NULL;
 }
 
 static void stream_prologue(struct sysprof *sp)
@@ -204,8 +209,8 @@ static void default_backtrace_host(void *(writer)(int frame_no, void *addr))
 
 static void stream_backtrace_host(struct sysprof *sp)
 {
-  lua_assert(sp->config.backtracer != NULL);
-  sp->config.backtracer(stream_frame_host);
+  lua_assert(sp->backtracer != NULL);
+  sp->backtracer(stream_frame_host);
   lj_wbuf_addu64(&sp->out, (uintptr_t)LJP_FRAME_HOST_LAST);
 }
 
@@ -323,15 +328,11 @@ static int sysprof_validate(struct sysprof *sp,
                             const struct luam_Sysprof_Options *opt)
 {
   switch (sp->state) {
-    case SPS_UNCONFIGURED:
-      return PROFILE_ERRUSE;
-
     case SPS_IDLE:
       if (opt->mode > LUAM_SYSPROF_CALLGRAPH) {
         return PROFILE_ERRUSE;
       } else if (opt->mode != LUAM_SYSPROF_DEFAULT &&
-                 (opt->buf == NULL || opt->len == 0 ||
-                  sp->config.writer == NULL || sp->config.on_stop == NULL)) {
+                 (opt->buf == NULL || opt->len == 0 || is_unconfigured(sp))) {
         return PROFILE_ERRUSE;
       } else if (opt->interval == 0) {
         return PROFILE_ERRUSE;
@@ -371,24 +372,46 @@ static int sysprof_init(struct sysprof *sp, lua_State *L,
   sp->saved_errno = 0;
 
   if (stream_is_needed(sp))
-    lj_wbuf_init(&sp->out, sp->config.writer, opt->ctx, opt->buf, opt->len);
+    lj_wbuf_init(&sp->out, sp->writer, opt->ctx, opt->buf, opt->len);
 
   return PROFILE_SUCCESS;
 }
 
 /* -- Public profiling API ------------------------------------------------ */
 
-int lj_sysprof_configure(const struct luam_Sysprof_Config *config)
-{
+int lj_sysprof_set_writer(luam_Sysprof_writer writer) {
   struct sysprof *sp = &sysprof;
-  lua_assert(config != NULL);
-  if (sp->state != SPS_UNCONFIGURED && sp->state != SPS_IDLE)
+
+  if (sp->state != SPS_IDLE || writer == NULL)
     return PROFILE_ERRUSE;
 
-  memcpy(&sp->config, config, sizeof(*config));
+  sp->writer = writer;
+  if (!is_unconfigured(sp)) {
+    sp->state = SPS_IDLE;
+  }
+  return PROFILE_SUCCESS;
+}
 
-  if (sp->config.backtracer == NULL) {
-    sp->config.backtracer = default_backtrace_host;
+int lj_sysprof_set_on_stop(luam_Sysprof_on_stop on_stop) {
+  struct sysprof *sp = &sysprof;
+
+  if (sp->state != SPS_IDLE || on_stop == NULL)
+    return PROFILE_ERRUSE;
+
+  sp->on_stop = on_stop;
+  if (!is_unconfigured(sp)) {
+    sp->state = SPS_IDLE;
+  }
+  return PROFILE_SUCCESS;
+}
+
+int lj_sysprof_set_backtracer(luam_Sysprof_backtracer backtracer) {
+  struct sysprof *sp = &sysprof;
+
+  if (sp->state != SPS_IDLE)
+    return PROFILE_ERRUSE;
+  if (backtracer == NULL) {
+    sp->backtracer = default_backtrace_host;
     /*
     ** XXX: `backtrace` is not signal-safe, according to man,
     ** because it is lazy loaded on the first call, which triggers
@@ -398,9 +421,12 @@ int lj_sysprof_configure(const struct luam_Sysprof_Config *config)
     void *dummy = NULL;
     backtrace(&dummy, 1);
   }
-
-  sp->state = SPS_IDLE;
-
+  else {
+    sp->backtracer = backtracer;
+  }
+  if (!is_unconfigured(sp)) {
+    sp->state = SPS_IDLE;
+  }
   return PROFILE_SUCCESS;
 }
 
@@ -410,12 +436,12 @@ int lj_sysprof_start(lua_State *L, const struct luam_Sysprof_Options *opt)
 
   int status = sysprof_init(sp, L, opt);
   if (PROFILE_SUCCESS != status) {
-    if (NULL != sp->config.on_stop) {
+    if (NULL != sp->on_stop) {
       /*
       ** Initialization may fail in case of unconfigured sysprof,
       ** so we cannot guarantee cleaning up resources in this case.
       */
-      sp->config.on_stop(opt->ctx, opt->buf);
+      sp->on_stop(opt->ctx, opt->buf);
     }
     return status;
   }
@@ -428,7 +454,7 @@ int lj_sysprof_start(lua_State *L, const struct luam_Sysprof_Options *opt)
       /* on_stop call may change errno value. */
       const int saved_errno = lj_wbuf_errno(&sp->out);
       /* Ignore possible errors. mp->out.buf may be NULL here. */
-      sp->config.on_stop(opt->ctx, sp->out.buf);
+      sp->on_stop(opt->ctx, sp->out.buf);
       lj_wbuf_terminate(&sp->out);
       sp->state = SPS_IDLE;
       errno = saved_errno;
@@ -471,7 +497,7 @@ int lj_sysprof_stop(lua_State *L)
     stream_epilogue(sp);
     lj_wbuf_flush(out);
 
-    cb_status = sp->config.on_stop(sp->opt.ctx, out->buf);
+    cb_status = sp->on_stop(sp->opt.ctx, out->buf);
     if (LJ_UNLIKELY(lj_wbuf_test_flag(out, STREAM_ERRIO | STREAM_STOP)) ||
         cb_status != 0) {
       errno = lj_wbuf_errno(out);
@@ -530,9 +556,18 @@ void lj_sysprof_add_trace(const struct GCtrace *tr)
 
 #else /* LJ_HASSYSPROF */
 
-int lj_sysprof_configure(const struct luam_Sysprof_Config *config)
-{
-  UNUSED(config);
+int lj_sysprof_set_writer(luam_Sysprof_writer writer) {
+  UNUSED(writer);
+  return PROFILE_ERRUSE;
+}
+
+int lj_sysprof_set_on_stop(luam_Sysprof_on_stop on_stop) {
+  UNUSED(on_stop);
+  return PROFILE_ERRUSE;
+}
+
+int lj_sysprof_set_backtracer(luam_Sysprof_backtracer backtracer) {
+  UNUSED(backtracer);
   return PROFILE_ERRUSE;
 }
 

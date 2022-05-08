@@ -67,10 +67,19 @@ LUAMISC_API void luaM_metrics(lua_State *L, struct luam_Metrics *metrics)
 }
 
 /* --- Platform and Lua profiler ------------------------------------------ */
-
-LUAMISC_API int luaM_sysprof_configure(const struct luam_Sysprof_Config *config)
+LUAMISC_API int luaM_sysprof_set_writer(luam_Sysprof_writer writer)
 {
-  return lj_sysprof_configure(config);
+  return lj_sysprof_set_writer(writer);
+}
+
+LUAMISC_API int luaM_sysprof_set_on_stop(luam_Sysprof_on_stop on_stop)
+{
+  return lj_sysprof_set_on_stop(on_stop);
+}
+
+LUAMISC_API int luaM_sysprof_set_backtracer(luam_Sysprof_backtracer backtracer)
+{
+  return lj_sysprof_set_backtracer(backtracer);
 }
 
 LUAMISC_API int luaM_sysprof_start(lua_State *L,

@@ -70,7 +70,7 @@ res, err = misc.sysprof.start{ mode = "D" }
 assert(res, err)
 
 res, err, errno = misc.sysprof.start{ mode = "D" }
-test:ok(res == nil and err:match("profiler misuse"))
+test:ok(res == nil and err:match("profiler is running already"))
 test:ok(type(errno) == "number")
 
 res, err = misc.sysprof.stop()

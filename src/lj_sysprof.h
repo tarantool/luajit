@@ -90,7 +90,11 @@
 
 LJ_STATIC_ASSERT(LJ_VMST__MAX <= LJP_SYMTAB_LFUNC_EVENT);
 
-int lj_sysprof_configure(const struct luam_Sysprof_Config *config);
+int lj_sysprof_set_writer(luam_Sysprof_writer writer);
+
+int lj_sysprof_set_on_stop(luam_Sysprof_on_stop on_stop);
+
+int lj_sysprof_set_backtracer(luam_Sysprof_backtracer backtracer);
 
 int lj_sysprof_start(lua_State *L, const struct luam_Sysprof_Options *opt);
 

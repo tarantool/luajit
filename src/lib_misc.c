@@ -289,23 +289,10 @@ LJLIB_CF(misc_sysprof_start)
   int status = PROFILE_SUCCESS;
 
   struct luam_Sysprof_Options opt = {};
-  struct luam_Sysprof_Config conf = {};
-
 
   status = parse_options(L, &opt);
-  if (LJ_UNLIKELY(status != PROFILE_SUCCESS)) {
+  if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
     return sysprof_error(L, status);
-  }
-
-  conf.writer = buffer_writer_default;
-  conf.on_stop = on_stop_cb_default;
-  conf.backtracer = NULL;
-
-  status = luaM_sysprof_configure(&conf);
-  if (LJ_UNLIKELY(status != PROFILE_SUCCESS)) {
-    on_stop_cb_default(opt.ctx, opt.buf);
-    return sysprof_error(L, status);
-  }
 
   status = luaM_sysprof_start(L, &opt);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
@@ -455,9 +442,16 @@ LJLIB_CF(misc_memprof_stop)
 
 LUALIB_API int luaopen_misc(struct lua_State *L)
 {
+  luaM_sysprof_set_writer(buffer_writer_default);
+  luaM_sysprof_set_on_stop(on_stop_cb_default);
+  /*
+  ** XXX: Passing NULL to the backtracer configuration handle sets the default
+  ** backtracing function.
+  */
+  luaM_sysprof_set_backtracer(NULL);
+
   LJ_LIB_REG(L, LUAM_MISCLIBNAME, misc);
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".memprof", misc_memprof);
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".sysprof", misc_sysprof);
-
   return 1;
 }
