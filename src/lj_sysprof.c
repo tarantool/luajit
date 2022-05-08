@@ -32,22 +32,20 @@
 ** Number of profiler frames we need to omit during stack
 ** unwinding.
 **   +------------------------+
-** 0 |    stream_frame_host   |
+** 0 | default_backtrace_host |
 **   +------------------------+
-** 1 | default_backtrace_host |
+** 1 | stream_backtrace_host  |
 **   +------------------------+
-** 2 | stream_backtrace_host  |
+** 2 |  stream_{guest/host}   |
 **   +------------------------+
-** 3 |  stream_{guest/host}   |
+** 3 |      stream_event      |
 **   +------------------------+
-** 4 |      stream_event      |
+** 4 | sysprof_record_sample  |
 **   +------------------------+
-** 5 | sysprof_record_sample  |
-**   +------------------------+
-** 6 | sysprof_signal_handler |
+** 5 | sysprof_signal_handler |
 **   +------------------------+
 */
-#define SYSPROF_HANDLER_STACK_DEPTH 7
+#define SYSPROF_HANDLER_STACK_DEPTH 6
 #define SYSPROF_BACKTRACE_FRAME_MAX 512
 
 /* Check that vmstate fits in 4 bits (see streaming format) */
