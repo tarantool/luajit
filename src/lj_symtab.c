@@ -7,7 +7,10 @@
 
 #define lj_symtab_c
 #define LUA_CORE
+
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include "lj_symtab.h"
 
