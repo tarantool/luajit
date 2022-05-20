@@ -25,11 +25,12 @@ set(DYNASM_DIR ${PROJECT_SOURCE_DIR}/dynasm)
 set(DYNASM_DASC "${LUAJIT_SOURCE_DIR}/vm_${DYNASM_ARCH}.dasc")
 set(DYNASM ${HOST_LUA} ${DYNASM_DIR}/dynasm.lua)
 
+file(GLOB DYNASM_LUA ${DYNASM_DIR}/*.lua)
 add_custom_command(
   COMMENT "Generating buildvm_arch.h"
   OUTPUT buildvm_arch.h
   COMMAND ${DYNASM} ${DYNASM_FLAGS} -o buildvm_arch.h ${DYNASM_DASC}
-  DEPENDS ${MINILUA} ${DYNASM_DASC} ${DYNASM_DIR}/*.lua
+  DEPENDS ${MINILUA} ${DYNASM_DASC} ${DYNASM_LUA}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
@@ -47,8 +48,9 @@ add_executable(buildvm EXCLUDE_FROM_ALL
   # *sources* list.
   buildvm_arch.h
 )
+file(GLOB DASM_HEADERS ${DYNASM_DIR}/dasm_*.h)
 set_source_files_properties(buildvm.c PROPERTIES
-  OBJECT_DEPENDS ${DYNASM_DIR}/dasm_*.h
+  OBJECT_DEPENDS "${DASM_HEADERS}"
 )
 set_target_properties(buildvm PROPERTIES
   COMPILE_FLAGS "${HOST_C_FLAGS} ${TARGET_C_FLAGS}"
