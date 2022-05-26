@@ -1,0 +1,49 @@
+name: "LuaJIT test workflow with Ninja (Linux/x86_64)"
+
+on:
+  push:
+    branches-ignore:
+      - '**-notest'
+      - 'upstream-**'
+    tags-ignore:
+      - '**'
+
+concurrency:
+  # An update of a developer branch cancels the previously
+  # scheduled workflow run for this branch. However, the default
+  # branch, and long-term branch (tarantool-1.10, tarantool-2.8,
+  # etc.) workflow runs are never canceled.
+  #
+  # We use a trick here: define the concurrency group as 'workflow
+  # run ID' + # 'workflow run attempt' because it is a unique
+  # combination for any run. So it effectively discards grouping.
+  #
+  # XXX: we cannot use `github.sha` as a unique identifier because
+  # pushing a tag may cancel a run that works on a branch push
+  # event.
+  group: ${{ (
+    github.ref == 'refs/heads/tarantool' ||
+    startsWith(github.ref, 'refs/heads/tarantool-')) &&
+    format('{0}-{1}', github.run_id, github.run_attempt) ||
+    format('{0}-{1}', github.workflow, github.ref) }}
+  cancel-in-progress: true
+
+jobs:
+  test-linux-ninja-x86_64:
+    runs-on: ubuntu-20.04-self-hosted
+    name: Linux/x86_64 Ninja
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: setup
+        run: |
+          sudo apt -y update
+          sudo apt -y install cmake gcc ninja-build perl
+      - name: configure
+        run: cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+      - name: build
+        run: cmake --build . --parallel $(($(nproc) + 1))
+      - name: test
+        run: cmake --build . --parallel $(($(nproc) + 1)) --target test
