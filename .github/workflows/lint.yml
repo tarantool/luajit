@@ -45,4 +45,4 @@ jobs:
       - name: configure
         run: cmake .
       - name: test
-        run: make -j LuaJIT-luacheck
+        run: cmake --build . --target LuaJIT-luacheck
