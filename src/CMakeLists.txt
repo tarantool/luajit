@@ -313,50 +313,38 @@ target_link_libraries(libluajit_shared ${TARGET_LIBS})
 
 # Compiling and linking CLIs.
 
-add_executable(luajit_static EXCLUDE_FROM_ALL ${CLI_SOURCES})
-set_target_properties(luajit_static PROPERTIES
-  OUTPUT_NAME "${LUAJIT_CLI_NAME}"
-  COMPILE_FLAGS "${TARGET_C_FLAGS}"
-  LINK_FLAGS "${TARGET_BIN_FLAGS}"
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-)
-target_include_directories(luajit_static PRIVATE
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
-target_link_libraries(luajit_static libluajit_static ${TARGET_LIBS})
-
-add_executable(luajit_shared EXCLUDE_FROM_ALL ${CLI_SOURCES})
-set_target_properties(luajit_shared PROPERTIES
-  OUTPUT_NAME "${LUAJIT_CLI_NAME}"
-  COMPILE_FLAGS "${TARGET_C_FLAGS}"
-  LINK_FLAGS "${TARGET_BIN_FLAGS}"
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-)
-target_include_directories(luajit_shared PRIVATE
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
-target_link_libraries(luajit_shared libluajit_shared ${TARGET_LIBS})
-
-if(NOT BUILDMODE STREQUAL "dynamic")
-  set(LIBLUAJIT_STATIC_DEPS libluajit_static)
-endif()
+# XXX: Order of the branches below matters, since when BUILDMODE
+# is set to "mixed", static binary should be built.
 if(NOT BUILDMODE STREQUAL "static")
   set(LIBLUAJIT_SHARED_DEPS libluajit_shared)
+  set(LUAJIT_BIN luajit_shared)
+  set(LUAJIT_LIB libluajit_shared)
+endif()
+if(NOT BUILDMODE STREQUAL "dynamic")
+  set(LIBLUAJIT_STATIC_DEPS libluajit_static)
+  set(LUAJIT_BIN luajit_static)
+  set(LUAJIT_LIB libluajit_static)
 endif()
 set(LIBLUAJIT_DEPS ${LIBLUAJIT_STATIC_DEPS} ${LIBLUAJIT_SHARED_DEPS})
 
-if(BUILDMODE STREQUAL "dynamic")
-  set(LUAJIT_DEPS luajit_shared)
-else()
-  set(LUAJIT_DEPS luajit_static)
-endif()
+add_executable(${LUAJIT_BIN} EXCLUDE_FROM_ALL ${CLI_SOURCES})
+set_target_properties(${LUAJIT_BIN} PROPERTIES
+  OUTPUT_NAME "${LUAJIT_CLI_NAME}"
+  COMPILE_FLAGS "${TARGET_C_FLAGS}"
+  LINK_FLAGS "${TARGET_BIN_FLAGS}"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+)
+target_include_directories(${LUAJIT_BIN} PRIVATE
+  ${CMAKE_CURRENT_BINARY_DIR}
+)
+target_link_libraries(${LUAJIT_BIN} ${LUAJIT_LIB} ${TARGET_LIBS})
 
 # XXX: The variable is used in testing, so PARENT_SCOPE option
 # is obligatory.
-set(LUAJIT_BINARY $<TARGET_FILE:${LUAJIT_DEPS}> PARENT_SCOPE)
+set(LUAJIT_BINARY $<TARGET_FILE:${LUAJIT_BIN}> PARENT_SCOPE)
 
 add_custom_target(libluajit DEPENDS ${LIBLUAJIT_DEPS})
-add_custom_target(luajit ALL DEPENDS libluajit ${LUAJIT_DEPS})
+add_custom_target(luajit-main ALL DEPENDS libluajit ${LUAJIT_BIN})
 
 # Unfortunately, CMake provides no guarantees for install commands
 # used for the targets excluded from <all> and obliges user to
@@ -364,11 +352,11 @@ add_custom_target(luajit ALL DEPENDS libluajit ${LUAJIT_DEPS})
 # targets used below are presented for the chosen build mode.
 # See more info in CMake docs below:
 # https://cmake.org/cmake/help/v3.1/prop_tgt/EXCLUDE_FROM_ALL.html
-if(TARGET ${LUAJIT_DEPS})
-  install(TARGETS ${LUAJIT_DEPS}
+if(TARGET ${LUAJIT_BIN})
+  install(TARGETS ${LUAJIT_BIN}
     RUNTIME
     DESTINATION bin
-    COMPONENT luajit
+    COMPONENT luajit-main
   )
 endif()
 
@@ -376,7 +364,7 @@ if(TARGET ${LIBLUAJIT_STATIC_DEPS})
   install(TARGETS ${LIBLUAJIT_STATIC_DEPS}
     ARCHIVE
     DESTINATION lib
-    COMPONENT luajit
+    COMPONENT luajit-main
   )
 endif()
 
@@ -384,7 +372,7 @@ if(TARGET ${LIBLUAJIT_SHARED_DEPS})
   install(TARGETS ${LIBLUAJIT_SHARED_DEPS}
     LIBRARY
     DESTINATION lib
-    COMPONENT luajit
+    COMPONENT luajit-main
   )
 endif()
 
@@ -401,7 +389,7 @@ install(FILES
     OWNER_READ OWNER_WRITE
     GROUP_READ
     WORLD_READ
-  COMPONENT luajit
+  COMPONENT luajit-main
 )
 
 install(FILES
@@ -427,5 +415,5 @@ install(FILES
     OWNER_READ OWNER_WRITE
     GROUP_READ
     WORLD_READ
-  COMPONENT luajit
+  COMPONENT luajit-main
 )
