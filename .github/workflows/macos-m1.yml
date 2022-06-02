@@ -1,4 +1,4 @@
-name: "LuaJIT test workflow (macOS/m1)"
+name: "macOS/m1 test workflow"
 
 on:
   push:
@@ -34,7 +34,7 @@ env:
   ARCH: arch -arm64
 
 jobs:
-  test-macos-m1:
+  test-luajit:
     runs-on: macos-11-m1
     strategy:
       fail-fast: false
@@ -45,7 +45,7 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    name: macOS/m1 ${{ matrix.BUILDTYPE }} GC64:ON
+    name: LuaJIT ${{ matrix.BUILDTYPE }} GC64:ON
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -70,3 +70,28 @@ jobs:
         run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1))
       - name: test
         run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1)) --target test
+
+  test-tarantool-debug-w-GC64:
+    name: Tarantool Debug GC64:ON
+    needs: test-luajit
+    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
+    with:
+      GC64: ON
+      buildtype: Debug
+      host: macos-11-m1
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: '2.10'
+      revision: ${{ github.sha }}
+  test-tarantool-release-w-GC64:
+    name: Tarantool Release GC64:ON
+    needs: test-luajit
+    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
+    with:
+      GC64: ON
+      buildtype: RelWithDebInfo
+      host: macos-11-m1
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: '2.10'
+      revision: ${{ github.sha }}
