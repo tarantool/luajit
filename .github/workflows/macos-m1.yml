@@ -40,13 +40,12 @@ jobs:
       fail-fast: false
       matrix:
         BUILDTYPE: [Debug, Release]
-        GC64: [ON, OFF]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    name: macOS/m1 ${{ matrix.BUILDTYPE }} GC64:${{ matrix.GC64 }}
+    name: macOS/m1 ${{ matrix.BUILDTYPE }} GC64:ON
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -66,7 +65,7 @@ jobs:
           ${ARCH} brew install --force cmake gcc make perl ||
             ${ARCH} brew upgrade cmake gcc make perl
       - name: configure
-        run: ${ARCH} cmake . ${{ matrix.CMAKEFLAGS }} -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
+        run: ${ARCH} cmake . ${{ matrix.CMAKEFLAGS }}
       - name: build
         run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1))
       - name: test

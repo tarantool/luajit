@@ -35,13 +35,12 @@ jobs:
       fail-fast: false
       matrix:
         BUILDTYPE: [Debug, Release]
-        GC64: [ON, OFF]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    name: Linux/aarch64 ${{ matrix.BUILDTYPE }} GC64:${{ matrix.GC64 }}
+    name: Linux/aarch64 ${{ matrix.BUILDTYPE }} GC64:ON
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -52,7 +51,7 @@ jobs:
           sudo apt -y update
           sudo apt -y install cmake gcc make perl
       - name: configure
-        run: cmake . ${{ matrix.CMAKEFLAGS }} -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
+        run: cmake . ${{ matrix.CMAKEFLAGS }}
       - name: build
         run: cmake --build . --parallel $(($(nproc) + 1))
       - name: test
