@@ -524,7 +524,7 @@ void lj_sysprof_add_proto(const struct GCproto *pt)
 {
   struct sysprof *sp = &sysprof;
 
-  if (sp->state != SPS_PROFILE)
+  if (sp->state != SPS_PROFILE || sp->opt.mode == LUAM_SYSPROF_DEFAULT)
     return;
 
   /*
@@ -543,7 +543,7 @@ void lj_sysprof_add_trace(const struct GCtrace *tr)
 {
   struct sysprof *sp = &sysprof;
 
-  if (sp->state != SPS_PROFILE)
+  if (sp->state != SPS_PROFILE || sp->opt.mode == LUAM_SYSPROF_DEFAULT)
     return;
 
   /* See the comment about the sysprof state above. */
