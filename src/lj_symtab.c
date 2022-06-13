@@ -16,10 +16,12 @@
 
 #if LJ_HASRESOLVER
 
+#include <linux/limits.h>
 #include <elf.h>
 #include <link.h>
 #include <stdio.h>
 #include <sys/auxv.h>
+#include <unistd.h>
 #include "lj_gc.h"
 #endif
 
@@ -352,6 +354,7 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
   struct lj_wbuf *buf = conf->buf;
   lua_State *L = conf->L;
   const uint8_t header = conf->header;
+  char executable_path[PATH_MAX] = {0};
 
   uint32_t lib_cnt = 0;
 
@@ -382,6 +385,33 @@ static int resolve_symbolnames(struct dl_phdr_info *info, size_t info_size,
   if (conf->cur_lib == lib_cnt - conf->to_dump_cnt - 1)
     /* Last library, update memrpof's lib counter. */
     *conf->lib_adds = info->dlpi_adds;
+
+  /*
+  ** The `dl_iterate_phdr` returns an empty string as a name for
+  ** the executable from which it was called. It is still possible
+  ** to access its dynamic symbol table, but it is vital for
+  ** sysprof to obtain the main symbol table for the LuaJIT
+  ** executable. To do so, we need a valid path to the executable.
+  ** Since there is no way to obtain the path to a running
+  ** executable using the C standard library, the only more or
+  ** less reliable way to do this is by reading the symbolic link
+  ** from `/proc/self/exe`. Most of the UNIX-based systems have
+  ** procfs, so it is not a problem.
+  ** Such path tweaks relate only for the main way (see below).
+  */
+  if (*info->dlpi_name == '\0') {
+    if (readlink("/proc/self/exe", executable_path, PATH_MAX) != -1)
+      info->dlpi_name = executable_path;
+    else
+      /*
+      ** It is impossible for sysprof to work properly without the
+      ** LuaJIT's .symtab section present. The assertion below is
+      ** unlikely to be triggered on any system supported by
+      ** sysprof, unless someone have deleted the LuaJIT binary
+      ** right after the start.
+      */
+      lua_assert(0);
+  }
 
   /*
   ** Main way: try to open ELF and read SHT_SYMTAB, SHT_STRTAB and SHT_HASH
