@@ -119,6 +119,8 @@ AppendFlags(TARGET_C_FLAGS
   -D_FILE_OFFSET_BITS=64
   -D_LARGEFILE_SOURCE
   -U_FORTIFY_SOURCE
+  # XXX: Temporary stub.
+  -DLUAJIT_UNWIND_EXTERNAL
 )
 
 # Permanently disable the FFI extension to reduce the size of the
