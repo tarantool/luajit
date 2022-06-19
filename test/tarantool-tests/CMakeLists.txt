@@ -136,6 +136,7 @@ add_custom_command(TARGET tarantool-tests
     ${PROVE} ${CMAKE_CURRENT_SOURCE_DIR}
       --exec 'env ${LUA_TEST_ENV_MORE} ${LUAJIT_TEST_COMMAND}'
       --ext ${LUA_TEST_SUFFIX}
+      --jobs ${CMAKE_BUILD_PARALLEL_LEVEL}
       ${LUA_TEST_FLAGS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )

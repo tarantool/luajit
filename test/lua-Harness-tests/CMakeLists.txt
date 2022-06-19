@@ -28,6 +28,7 @@ add_custom_command(TARGET lua-Harness-tests
     LUA_PATH="${LUA_PATH}\;"
     ${PROVE} ${CMAKE_CURRENT_SOURCE_DIR}
       --exec '${LUAJIT_TEST_COMMAND} -l profile_luajit21'
+      --jobs ${CMAKE_BUILD_PARALLEL_LEVEL}
       ${LUA_TEST_FLAGS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )

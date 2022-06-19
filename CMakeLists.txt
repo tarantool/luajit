@@ -30,6 +30,7 @@ endif()
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(LuaJITUtils)
+include(SetBuildParallelLevel)
 include(SetVersion)
 
 # --- Variables to be exported to child scopes ---------------------------------
@@ -42,6 +43,7 @@ SetVersion(
   LUAJIT_VERSION_TWEAK
   LUAJIT_PRERELEASE
 )
+SetBuildParallelLevel(CMAKE_BUILD_PARALLEL_LEVEL)
 
 set(LUAJIT_SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 set(LUAJIT_BINARY_DIR "${PROJECT_BINARY_DIR}/src")
