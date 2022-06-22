@@ -63,6 +63,6 @@ jobs:
       - name: configure
         run: cmake . ${{ matrix.CMAKEFLAGS }} -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
       - name: build
-        run: cmake --build . --parallel $(($(nproc) + 1))
+        run: cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1))
       - name: test
-        run: cmake --build . --parallel $(($(nproc) + 1)) --target test
+        run: cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1)) --target test
