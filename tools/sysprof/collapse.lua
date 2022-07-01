@@ -39,9 +39,11 @@ local function insert(name, node, is_leaf)
 end
 
 local function insert_lua_callchain(chain, lua, symbols)
+  local ins_cnt = 0
   for _,fr in pairs(lua.callchain) do
     local name_lua
 
+    ins_cnt = ins_cnt + 1
     if fr.type == parse.FRAME.FFUNC then
       name_lua = vmdef.ffnames[fr.ffid]
     else
@@ -58,38 +60,42 @@ local function insert_lua_callchain(chain, lua, symbols)
           gen = fr.gen
         })
       end
+
+      if fr.type == parse.FRAME.CFUNC then
+        -- C function encountered, the next chunk
+        -- of frames is located on the C stack.
+        break
+      end
     end
 
     table.insert(chain, 1, { name = name_lua })
   end
+  table.remove(lua.callchain, ins_cnt)
 end
 
 -- merge lua and host callchains into one callchain representing
 -- transfer of control
 local function merge(event, symbols, sep_vmst)
   local cc = {}
-  local lua_inserted = false
 
   for _,h_fr in pairs(event.host.callchain) do
     local name_host = symtab.demangle(symbols, {
       addr = h_fr.addr,
       gen = h_fr.gen
     })
+    table.insert(cc, 1, { name = name_host })
 
-    -- We assume that usually the transfer of control
-    -- looks like:
-    --    HOST -> LUA -> HOST
-    -- so for now, lua callchain starts from lua_pcall() call
-    if name_host == 'lua_pcall' then
-      insert_lua_callchain(cc, event.lua, symbols)
-      lua_inserted = true
+    if string.match(name_host, '^lua_cpcall') ~= nil then
+      -- Any C function is present on both the C and the Lua
+      -- stacks. It is more convenient to get its info from the
+      -- host stack, since it has information about child frames.
+      table.remove(event.lua.callchain, 1)
     end
 
-    table.insert(cc, 1, { name = name_host })
-  end
+    if string.match(name_host, '^lua_p?call') ~= nil then
+      insert_lua_callchain(cc, event.lua, symbols)
+    end
 
-  if lua_inserted == false then
-    insert_lua_callchain(cc, event.lua, symbols)
   end
 
   if sep_vmst == true then
