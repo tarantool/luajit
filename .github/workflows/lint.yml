@@ -37,6 +37,8 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: environment
+        uses: ./.github/actions/environment
       - name: setup
         run: |
           sudo apt -y update

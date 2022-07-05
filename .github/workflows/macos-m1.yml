@@ -51,6 +51,8 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: environment
+        uses: ./.github/actions/environment
       - name: setup
         run: |
           # Install brew using the command from Homebrew repository
@@ -64,12 +66,13 @@ jobs:
           # if the package already exists with the previous version.
           ${ARCH} brew install --force cmake gcc make perl ||
             ${ARCH} brew upgrade cmake gcc make perl
+          ${ARCH} echo "CMAKE_BUILD_PARALLEL_LEVEL=$(($(sysctl -n hw.logicalcpu) + 1))" >> $GITHUB_ENV
       - name: configure
         run: ${ARCH} cmake . ${{ matrix.CMAKEFLAGS }}
       - name: build
-        run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.logicalcpu) + 1))
+        run: ${ARCH} cmake --build . --parallel
       - name: test
-        run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.logicalcpu) + 1)) --target test
+        run: ${ARCH} cmake --build . --parallel --target test
 
   test-tarantool-debug-w-GC64:
     name: Tarantool Debug GC64:ON

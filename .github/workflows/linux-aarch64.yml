@@ -46,6 +46,8 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: environment
+        uses: ./.github/actions/environment
       - name: setup
         run: |
           sudo apt -y update
@@ -53,9 +55,9 @@ jobs:
       - name: configure
         run: cmake . ${{ matrix.CMAKEFLAGS }}
       - name: build
-        run: cmake --build . --parallel $(($(nproc) + 1))
+        run: cmake --build . --parallel
       - name: test
-        run: cmake --build . --parallel $(($(nproc) + 1)) --target test
+        run: cmake --build . --parallel --target test
 
   test-tarantool-debug-w-GC64:
     name: Tarantool Debug GC64:ON
