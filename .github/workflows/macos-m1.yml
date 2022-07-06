@@ -67,9 +67,9 @@ jobs:
       - name: configure
         run: ${ARCH} cmake . ${{ matrix.CMAKEFLAGS }}
       - name: build
-        run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1))
+        run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.logicalcpu) + 1))
       - name: test
-        run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.ncpu) + 1)) --target test
+        run: ${ARCH} cmake --build . --parallel $(($(sysctl -n hw.logicalcpu) + 1)) --target test
 
   test-tarantool-debug-w-GC64:
     name: Tarantool Debug GC64:ON
