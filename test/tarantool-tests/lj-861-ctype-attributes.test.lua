@@ -7,7 +7,7 @@ local tap = require('tap')
 local test = tap.test('lj-861-ctype-attributes')
 local ffi = require('ffi')
 
-test:plan(2)
+test:plan(4)
 
 local EXPECTED_ALIGN = 4
 
@@ -15,6 +15,15 @@ ffi.cdef([[
 struct __attribute__((aligned($))) s_aligned {
   uint8_t a;
 };
+
+struct test_parsing_sizeof {
+  char a[sizeof(struct s_aligned &)];
+};
+
+struct test_parsing_alignof {
+  char a[__alignof__(struct s_aligned &)];
+};
+
 ]], EXPECTED_ALIGN)
 
 local ref_align = ffi.alignof(ffi.typeof('struct s_aligned &'))
@@ -22,5 +31,10 @@ local ref_align = ffi.alignof(ffi.typeof('struct s_aligned &'))
 test:is(ref_align, EXPECTED_ALIGN, 'the reference alignment is correct')
 test:is(ref_align, ffi.alignof(ffi.typeof('struct s_aligned')),
         'the alignment of a reference is the same as for the referenced type')
+
+test:is(ffi.sizeof('struct test_parsing_sizeof'), EXPECTED_ALIGN,
+        'correct sizeof during C parsing')
+test:is(ffi.sizeof('struct test_parsing_alignof'), EXPECTED_ALIGN,
+        'correct alignof during C parsing')
 
 test:done(true)
