@@ -7,14 +7,14 @@ local tap = require('tap')
 local test = tap.test('lj-861-ctype-attributes')
 local ffi = require('ffi')
 
-test:plan(4)
+test:plan(5)
 
 local EXPECTED_ALIGN = 4
 
 ffi.cdef([[
-struct __attribute__((aligned($))) s_aligned {
+typedef struct __attribute__((aligned($))) s_aligned {
   uint8_t a;
-};
+} s_aligned;
 
 struct test_parsing_sizeof {
   char a[sizeof(struct s_aligned &)];
@@ -36,5 +36,9 @@ test:is(ffi.sizeof('struct test_parsing_sizeof'), EXPECTED_ALIGN,
         'correct sizeof during C parsing')
 test:is(ffi.sizeof('struct test_parsing_alignof'), EXPECTED_ALIGN,
         'correct alignof during C parsing')
+
+local ok, _ = pcall(ffi.metatype, 's_aligned', {})
+
+test:ok(ok, 'ffi.metatype is called at the structure with attributes')
 
 test:done(true)
