@@ -3,7 +3,7 @@ local test = tap.test('lj-865-cross-generation-mach-o-file')
 local utils = require('utils')
 local ffi = require('ffi')
 
-test:plan(1)
+test:plan(2)
 
 -- The test creates an object file in Mach-O format with LuaJIT
 -- bytecode and checks the validity of the object file fields.
@@ -113,6 +113,11 @@ typedef struct
   uint32_t magic, cputype, cpusubtype, filetype, ncmds, sizeofcmds, flags;
 } mach_header;
 
+typedef struct
+{
+  mach_header; uint32_t reserved;
+} mach_header_64;
+
 typedef struct {
   uint32_t cmd, cmdsize;
   char segname[16];
@@ -121,11 +126,25 @@ typedef struct {
 } mach_segment_command;
 
 typedef struct {
+  uint32_t cmd, cmdsize;
+  char segname[16];
+  uint64_t vmaddr, vmsize, fileoff, filesize;
+  uint32_t maxprot, initprot, nsects, flags;
+} mach_segment_command_64;
+
+typedef struct {
   char sectname[16], segname[16];
   uint32_t addr, size;
   uint32_t offset, align, reloff, nreloc, flags;
   uint32_t reserved1, reserved2;
 } mach_section;
+
+typedef struct {
+  char sectname[16], segname[16];
+  uint64_t addr, size;
+  uint32_t offset, align, reloff, nreloc, flags;
+  uint32_t reserved1, reserved2, reserved3;
+} mach_section_64;
 
 typedef struct {
   uint32_t cmd, cmdsize, symoff, nsyms, stroff, strsize;
@@ -137,6 +156,13 @@ typedef struct {
   int16_t desc;
   uint32_t value;
 } mach_nlist;
+
+typedef struct {
+  int32_t strx;
+  uint8_t type, sect;
+  uint16_t desc;
+  uint64_t value;
+} mach_nlist_64;
 
 typedef struct
 {
@@ -160,6 +186,19 @@ typedef struct {
   mach_nlist sym_entry;
   uint8_t space[4096];
 } mach_fat_obj;
+
+typedef struct {
+  mach_fat_header fat;
+  mach_fat_arch fat_arch[2];
+  struct {
+    mach_header_64 hdr;
+    mach_segment_command_64 seg;
+    mach_section_64 sec;
+    mach_symtab_command sym;
+  } arch[2];
+  mach_nlist_64 sym_entry;
+  uint8_t space[4096];
+} mach_fat_obj_64;
 ]]
 
 local function create_obj_file(name, arch)
@@ -175,7 +214,7 @@ end
 
 -- Parses a buffer in the Mach-O format and returns the FAT magic
 -- number and `nfat_arch`.
-local function read_mach_o(buf)
+local function read_mach_o(buf, hw_arch)
   local res = {
     header = {
       magic = 0,
@@ -184,8 +223,12 @@ local function read_mach_o(buf)
     fat_arch = {},
   }
 
+  local is64 = hw_arch == 'arm64'
+
   -- Mach-O FAT object.
-  local mach_fat_obj_type = ffi.typeof('mach_fat_obj *')
+  local mach_fat_obj_type = ffi.typeof(is64 and
+                                       'mach_fat_obj_64 *' or
+                                       'mach_fat_obj *')
   local obj = ffi.cast(mach_fat_obj_type, buf)
 
   -- Mach-O FAT object header.
@@ -221,10 +264,14 @@ end
 local SUM_CPUTYPE = {
   -- x86 + arm.
   arm = 7 + 12,
+  -- x64 + arm64.
+  arm64 = 0x01000007 + 0x0100000c,
 }
 local SUM_CPUSUBTYPE = {
   -- x86 + arm.
   arm = 3 + 9,
+  -- x64 + arm64.
+  arm64 = 3 + 0,
 }
 
 -- The function builds Mach-O FAT object file and retrieves
@@ -250,7 +297,7 @@ local SUM_CPUSUBTYPE = {
 -- x86_64 arm64
 local function build_and_check_mach_o(subtest)
   local hw_arch = subtest.name
-  assert(hw_arch == 'arm')
+  assert(hw_arch == 'arm' or hw_arch == 'arm64')
 
   subtest:plan(4)
   -- FAT_MAGIC is an integer containing the value 0xCAFEBABE in
@@ -274,7 +321,7 @@ local function build_and_check_mach_o(subtest)
   local mach_o_buf = utils.tools.read_file(mach_o_obj_path)
   assert(mach_o_buf ~= nil and #mach_o_buf ~= 0, 'cannot read an object file')
 
-  local mach_o = read_mach_o(mach_o_buf)
+  local mach_o = read_mach_o(mach_o_buf, hw_arch)
 
   -- Teardown.
   assert(os.remove(mach_o_obj_path), 'remove an object file')
@@ -298,5 +345,6 @@ local function build_and_check_mach_o(subtest)
 end
 
 test:test('arm', build_and_check_mach_o)
+test:test('arm64', build_and_check_mach_o)
 
 test:done(true)
