@@ -202,6 +202,11 @@ if(LUAJIT_DISABLE_UNWIND_JIT)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_DISABLE_UNWIND_JIT)
 endif()
 
+option(LUAJIT_NO_UNWIND "Disable external unwinding.")
+if(LUAJIT_NO_UNWIND)
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_NO_UNWIND)
+endif()
+
 # Disable memory profiler.
 option(LUAJIT_DISABLE_MEMPROF "LuaJIT memory profiler support" OFF)
 if(LUAJIT_DISABLE_MEMPROF)
