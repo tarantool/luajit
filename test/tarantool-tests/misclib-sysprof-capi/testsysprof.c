@@ -16,7 +16,7 @@
 
 /* --- utils -------------------------------------------------------------- */
 
-#define SYSPROF_INTERVAL_DEFAULT 11
+#define SYSPROF_INTERVAL_DEFAULT 100
 
 /*
  ** Yep, 8Mb. Tuned in order not to bother the platform with too often flushes.

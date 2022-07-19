@@ -93,8 +93,8 @@ test:ok(type(errno) == "number")
 
 -- DEFAULT MODE
 
-if not pcall(generate_output, { mode = "D", interval = 11 }) then
-  test:fail('`default` mode with interval 11')
+if not pcall(generate_output, { mode = "D", interval = 100 }) then
+  test:fail('`default` mode with interval 100')
 end
 
 local report = misc.sysprof.report()
@@ -112,10 +112,10 @@ report = misc.sysprof.report()
 test:ok(report.samples == 0)
 
 -- LEAF MODE
-check_mode("L", 11)
+check_mode("L", 100)
 
 -- CALL MODE
-check_mode("C", 11)
+check_mode("C", 100)
 
 os.remove(TMP_BINFILE)
 
