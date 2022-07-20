@@ -10,7 +10,7 @@ require("utils").skipcond(
 local tap = require("tap")
 
 local test = tap.test("misc-sysprof-lapi")
-test:plan(14)
+test:plan(19)
 
 jit.off()
 jit.flush()
@@ -99,9 +99,21 @@ end
 
 local report = misc.sysprof.report()
 
+-- Check the profile is not empty
 test:ok(report.samples > 0)
-test:ok(report.vmstate.LFUNC > 0)
-test:ok(report.vmstate.TRACE == 0)
+-- There is a Lua function with FNEW bytecode in it. Hence there
+-- are only three possible sample types:
+-- * LFUNC -- Lua payload is sampled.
+-- * GC -- Lua GC machinery triggered in scope of FNEW bytecode
+--   is sampled.
+-- * INTERP -- VM is in a specific state when the sample is taken.
+test:ok(report.vmstate.LFUNC + report.vmstate.GC + report.vmstate.INTERP > 0)
+-- There is no fast functions and C function in default payload.
+test:ok(report.vmstate.FFUNC + report.vmstate.CFUNC == 0)
+-- Check all JIT-related VM states are not sampled.
+for _, vmstate in pairs({ 'TRACE', 'RECORD', 'OPT', 'ASM', 'EXIT' }) do
+  test:ok(report.vmstate[vmstate] == 0)
+end
 
 -- With very big interval.
 if not pcall(generate_output, { mode = "D", interval = 1000 }) then
