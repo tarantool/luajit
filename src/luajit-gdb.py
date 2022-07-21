@@ -432,15 +432,17 @@ def dump_stack(L, base=None, top=None):
     maxstack = mref('TValue *', L['maxstack'])
     red = 5 + 2 * LJ_FR2
 
-    dump = '\n'.join([
+    dump = [
         '{padding} Red zone: {nredslots: >2} slots {padding}'.format(
             padding = '-' * len(PADDING),
             nredslots = red,
         ),
-        *(
-            dump_stack_slot(L, maxstack + offset, base, top, '')
-                for offset in range(red, 0, -1)
-        ),
+    ]
+    dump.extend([
+        dump_stack_slot(L, maxstack + offset, base, top, '')
+            for offset in range(red, 0, -1)
+    ])
+    dump.extend([
         '{padding} Stack: {nstackslots: >5} slots {padding}'.format(
             padding = '-' * len(PADDING),
             nstackslots = int((tou64(maxstack) - tou64(stack)) >> 3),
@@ -451,7 +453,8 @@ def dump_stack(L, base=None, top=None):
             end = strx64(maxstack - 1),
             nfreeslots = int((tou64(maxstack) - tou64(top) - 8) >> 3),
         ),
-    ]) + '\n'
+    ])
+    dump = '\n'.join(dump) + '\n'
 
     slot = top
     framelink = base - (1 + LJ_FR2)
