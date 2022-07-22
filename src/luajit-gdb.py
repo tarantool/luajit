@@ -150,6 +150,9 @@ def frame_prev(framelink):
     return frame_prevl(framelink) if frame_islua(framelink) \
         else frame_prevd(framelink)
 
+def frame_sentinel(L):
+    return mref('TValue *', L['stack']) + LJ_FR2
+
 # }}}
 
 # Const {{{
@@ -299,6 +302,19 @@ gclen = {
     'mmudata': gcringlen,
 }
 
+# The generator that implements frame iterator.
+# Every frame is represented as a tuple of framelink and frametop.
+def frames(L):
+    frametop = L['top']
+    framelink = L['base'] - 1
+    framelink_sentinel = frame_sentinel(L)
+    while True:
+        yield framelink, frametop
+        frametop = framelink - (1 + LJ_FR2)
+        if framelink <= framelink_sentinel:
+            break
+        framelink = frame_prev(framelink)
+
 # Dumpers {{{
 
 def dump_lj_tnil(tv):
@@ -397,32 +413,36 @@ dumpers = {
 def dump_tvalue(tvalue):
     return dumpers.get(typenames(itypemap(tvalue)), dump_lj_invalid)(tvalue)
 
-def dump_framelink(L, fr):
-    fr2 = fr + LJ_FR2
+def dump_framelink_slot_address(fr):
+    return '{}:{}'.format(fr - 1, fr) if LJ_FR2 \
+        else '{}'.format(fr) + PADDING
 
-    return '{fr}{padding} [    ] FRAME: [{pp}] delta={d}, {f}\n'.format(
-        fr = fr,
-        padding = ':{fr2}'.format(fr2 = fr2) if LJ_FR2 else PADDING,
-        pp = 'PP' if frame_ispcall(fr2) else '{frname}{p}'.format(
-            frname = frametypes(int(frame_type(fr2))),
-            p = 'P' if frame_typep(fr2) & FRAME_P else ''
+def dump_framelink(L, fr):
+    if fr == frame_sentinel(L):
+        return '{addr} [S   ] FRAME: dummy L'.format(
+            addr = dump_framelink_slot_address(fr),
+        )
+    return '{addr} [    ] FRAME: [{pp}] delta={d}, {f}'.format(
+        addr = dump_framelink_slot_address(fr),
+        pp = 'PP' if frame_ispcall(fr) else '{frname}{p}'.format(
+            frname = frametypes(int(frame_type(fr))),
+            p = 'P' if frame_typep(fr) & FRAME_P else ''
         ),
-        d = cast('TValue *', fr2) - cast('TValue *', frame_prev(fr2)),
-        f = dump_lj_tfunc(fr),
+        d = cast('TValue *', fr) - cast('TValue *', frame_prev(fr)),
+        f = dump_lj_tfunc(fr - LJ_FR2),
     )
 
-def dump_stack_slot(L, slot, base=None, top=None, eol='\n'):
+def dump_stack_slot(L, slot, base=None, top=None):
     base = base or L['base']
     top = top or L['top']
 
-    return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}{eol}'.format(
+    return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}'.format(
         addr = strx64(slot),
         padding = PADDING,
         B = 'B' if slot == base else ' ',
         T = 'T' if slot == top else ' ',
         M = 'M' if slot == mref('TValue *', L['maxstack']) else ' ',
         value = dump_tvalue(slot),
-        eol = eol,
     )
 
 def dump_stack(L, base=None, top=None):
@@ -439,7 +459,7 @@ def dump_stack(L, base=None, top=None):
         ),
     ]
     dump.extend([
-        dump_stack_slot(L, maxstack + offset, base, top, '')
+        dump_stack_slot(L, maxstack + offset, base, top)
             for offset in range(red, 0, -1)
     ])
     dump.extend([
@@ -447,50 +467,24 @@ def dump_stack(L, base=None, top=None):
             padding = '-' * len(PADDING),
             nstackslots = int((tou64(maxstack) - tou64(stack)) >> 3),
         ),
-        dump_stack_slot(L, maxstack, base, top, ''),
+        dump_stack_slot(L, maxstack, base, top),
         '{start}:{end} [    ] {nfreeslots} slots: Free stack slots'.format(
             start = strx64(top + 1),
             end = strx64(maxstack - 1),
             nfreeslots = int((tou64(maxstack) - tou64(top) - 8) >> 3),
         ),
     ])
-    dump = '\n'.join(dump) + '\n'
 
-    slot = top
-    framelink = base - (1 + LJ_FR2)
+    for framelink, frametop in frames(L):
+        # Dump all data slots in the (framelink, top) interval.
+        dump.extend([
+            dump_stack_slot(L, framelink + offset, base, top)
+                for offset in range(frametop - framelink, 0, -1)
+        ])
+        # Dump frame slot (2 slots in case of GC64).
+        dump.append(dump_framelink(L, framelink))
 
-    # XXX: Lua stack unwinding algorithm consists of the following steps:
-    # 1. dump all data slots in the (framelink, top) interval
-    # 2. check whether there are remaining frames
-    # 3. if there are no slots further, stop the unwinding loop
-    # 4. otherwise, resolve the next framelink and top and go to (1)
-    #
-    # Postcondition (i.e. do-while) loops is the most fitting idiom for such
-    # case, but Python doesn't provide such lexical construction. Hence step (1)
-    # is unrolled for the topmost stack frame.
-    while slot > framelink + LJ_FR2:
-        dump += dump_stack_slot(L, slot, base, top)
-        slot -= 1
-
-    while framelink > stack:
-        assert slot == framelink + LJ_FR2, "Invalid slot during frame unwind"
-        dump += dump_framelink(L, framelink)
-        framelink = frame_prev(framelink + LJ_FR2) - LJ_FR2
-        slot -= 1 + LJ_FR2
-        while slot > framelink + LJ_FR2:
-            dump += dump_stack_slot(L, slot, base, top)
-            slot -= 1
-
-    assert slot == framelink + LJ_FR2, "Invalid slot after frame unwind"
-    # Skip a nil slot for the last frame for 2-slot frames.
-    slot -= LJ_FR2
-
-    dump += '{fr}{padding} [S   ] FRAME: dummy L'.format(
-        fr = slot,
-        padding = ':{nilslot}'.format(nilslot = slot + 1) if LJ_FR2 else PADDING
-    )
-
-    return dump
+    return '\n'.join(dump)
 
 def dump_gc(g):
     gc = g['gc']
