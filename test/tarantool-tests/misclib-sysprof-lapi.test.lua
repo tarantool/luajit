@@ -1,6 +1,8 @@
 -- Sysprof is implemented for x86 and x64 architectures only.
 local ffi = require("ffi")
-require("utils").skipcond(
+local utils = require("utils")
+
+utils.skipcond(
   jit.arch ~= "x86" and jit.arch ~= "x64" or jit.os ~= "Linux"
     or ffi.abi("gc64"),
   jit.arch.." architecture or "..jit.os..
@@ -19,8 +21,8 @@ local bufread = require("utils.bufread")
 local symtab = require("utils.symtab")
 local sysprof = require("sysprof.parse")
 
-local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.sysprofdata.tmp.bin")
-local BAD_PATH = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%1/sysprofdata.tmp.bin")
+local TMP_BINFILE = utils.profilename("sysprofdata.tmp.bin")
+local BAD_PATH = utils.profilename("sysprofdata/tmp.bin")
 
 local function payload()
   local function fib(n)

@@ -1,5 +1,7 @@
 -- Memprof is implemented for x86 and x64 architectures only.
-require("utils").skipcond(
+local utils = require("utils")
+
+utils.skipcond(
   jit.arch ~= "x86" and jit.arch ~= "x64",
   jit.arch.." architecture is NIY for memprof"
 )
@@ -26,8 +28,8 @@ local memprof = require "memprof.parse"
 local process = require "memprof.process"
 local symtab = require "utils.symtab"
 
-local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.memprofdata.tmp.bin")
-local BAD_PATH = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%1/memprofdata.tmp.bin")
+local TMP_BINFILE = utils.profilename("memprofdata.tmp.bin")
+local BAD_PATH = utils.profilename("memprofdata/tmp.bin")
 local SRC_PATH = "@"..arg[0]
 
 local function default_payload()
@@ -189,9 +191,9 @@ test:test("output", function(subtest)
   -- one is the number of allocations. 1 event - alocation of
   -- table by itself + 1 allocation of array part as far it is
   -- bigger than LJ_MAX_COLOSIZE (16).
-  subtest:ok(check_alloc_report(alloc, { line = 35, linedefined = 33 }, 2))
+  subtest:ok(check_alloc_report(alloc, { line = 37, linedefined = 35 }, 2))
   -- 20 strings allocations.
-  subtest:ok(check_alloc_report(alloc, { line = 40, linedefined = 33 }, 20))
+  subtest:ok(check_alloc_report(alloc, { line = 42, linedefined = 35 }, 20))
 
   -- Collect all previous allocated objects.
   subtest:ok(free.INTERNAL.num == 22)
@@ -199,8 +201,8 @@ test:test("output", function(subtest)
   -- Tests for leak-only option.
   -- See also https://github.com/tarantool/tarantool/issues/5812.
   local heap_delta = process.form_heap_delta(events, symbols)
-  local tab_alloc_stats = heap_delta[form_source_line(35)]
-  local str_alloc_stats = heap_delta[form_source_line(40)]
+  local tab_alloc_stats = heap_delta[form_source_line(37)]
+  local str_alloc_stats = heap_delta[form_source_line(42)]
   subtest:ok(tab_alloc_stats.nalloc == tab_alloc_stats.nfree)
   subtest:ok(tab_alloc_stats.dbytes == 0)
   subtest:ok(str_alloc_stats.nalloc == str_alloc_stats.nfree)
@@ -291,10 +293,10 @@ test:test("jit-output", function(subtest)
   -- 10 allocations in interpreter mode, 1 allocation for a trace
   -- recording and assembling and next 9 allocations will happen
   -- while running the trace.
-  subtest:ok(check_alloc_report(alloc, { line = 40, linedefined = 33 }, 11))
-  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 38 }, 9))
+  subtest:ok(check_alloc_report(alloc, { line = 42, linedefined = 35 }, 11))
+  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 40 }, 9))
   -- See same checks with jit.off().
-  subtest:ok(check_alloc_report(alloc, { line = 35, linedefined = 33 }, 2))
+  subtest:ok(check_alloc_report(alloc, { line = 37, linedefined = 35 }, 2))
 
   -- Restore default JIT settings.
   jit.opt.start(unpack(jit_opt_default))

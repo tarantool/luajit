@@ -1,5 +1,7 @@
 -- Memprof is implemented for x86 and x64 architectures only.
-require("utils").skipcond(
+local utils = require("utils")
+
+utils.skipcond(
   jit.arch ~= "x86" and jit.arch ~= "x64" or jit.os ~= "Linux",
   jit.arch.." architecture or "..jit.os..
   " OS is NIY for memprof c symbols resolving"
@@ -18,7 +20,7 @@ local testboth = require "resboth"
 local testhash = require "reshash"
 local testgnuhash = require "resgnuhash"
 
-local TMP_BINFILE = arg[0]:gsub(".+/([^/]+)%.test%.lua$", "%.%1.memprofdata.tmp.bin")
+local TMP_BINFILE = utils.profilename("memprofdata.tmp.bin")
 
 local function tree_contains(node, name)
   if node == nil then
