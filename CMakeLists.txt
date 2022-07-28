@@ -281,6 +281,13 @@ if(LUAJIT_USE_ASAN)
   )
 endif()
 
+# Enable code coverage support.
+option(LUAJIT_ENABLE_COVERAGE "Enable code coverage support (gcovr)" OFF)
+if(LUAJIT_ENABLE_COVERAGE)
+  AppendFlags(CMAKE_C_FLAGS --coverage)
+  include(CodeCoverage)
+endif()
+
 # --- Main source tree ---------------------------------------------------------
 
 add_subdirectory(src)
