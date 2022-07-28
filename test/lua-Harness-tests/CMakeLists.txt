@@ -10,10 +10,16 @@ if(NOT PROVE)
   return()
 endif()
 
-# Tests create temporary files (see 303-package.t and 411-luajit.t for
-# example) to require. Also, they require some files from original test 
-# source directory.
-set(LUA_PATH "./?.lua\;${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${LUAJIT_SOURCE_DIR}/?.lua\;${LUAJIT_BINARY_DIR}/?.lua")
+# Tests create temporary files (see 303-package.t and 411-luajit.t
+# for example) to be required. Also, they require some files from
+# the original test source directory.
+make_lua_path(LUA_PATH
+  PATHS
+    ./?.lua
+    ${CMAKE_CURRENT_SOURCE_DIR}/?.lua
+    ${LUAJIT_SOURCE_DIR}/?.lua
+    ${LUAJIT_BINARY_DIR}/?.lua
+)
 set(LUA_TEST_FLAGS --failures --shuffle)
 
 if(CMAKE_VERBOSE_MAKEFILE)
@@ -25,7 +31,7 @@ add_custom_command(TARGET lua-Harness-tests
   COMMENT "Running lua-Harness tests"
   COMMAND
   env
-    LUA_PATH="${LUA_PATH}\;"
+    LUA_PATH="${LUA_PATH}"
     ${PROVE} ${CMAKE_CURRENT_SOURCE_DIR}
       --exec '${LUAJIT_TEST_COMMAND} -l profile_luajit21'
       --jobs ${CMAKE_BUILD_PARALLEL_LEVEL}

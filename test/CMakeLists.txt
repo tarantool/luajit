@@ -3,6 +3,8 @@
 # See the rationale in the root CMakeLists.txt.
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
+include(MakeLuaPath)
+
 find_program(LUACHECK luacheck)
 if(LUACHECK)
   # XXX: The tweak below relates to luacheck problem with paths.
