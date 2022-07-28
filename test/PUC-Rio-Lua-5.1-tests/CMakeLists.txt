@@ -14,7 +14,11 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 # https://github.com/tarantool/tarantool/issues/5744
 # Hence, there is no way other than set LUA_PATH environment
 # variable as proposed in the first case.
-set(LUA_PATH "?\;${CMAKE_CURRENT_SOURCE_DIR}/?.lua")
+make_lua_path(LUA_PATH
+  PATHS
+    "?"
+    ${CMAKE_CURRENT_SOURCE_DIR}/?.lua
+)
 
 # Establish PUC-Rio-Lua-5.1-tests-prepare target that contains
 # rules for <libs/*> libraries compilation and creates <libs/P1>
@@ -38,7 +42,7 @@ add_custom_command(TARGET PUC-Rio-Lua-5.1-tests
   COMMENT "Running PUC-Rio Lua 5.1 tests"
   COMMAND
   env
-    LUA_PATH="${LUA_PATH}\;\;"
+    LUA_PATH="${LUA_PATH}"
     ${LUAJIT_TEST_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/all.lua
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )

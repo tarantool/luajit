@@ -43,14 +43,11 @@ macro(BuildTestCLib lib sources)
   # semicolon. If one finds the normal way to make it work, feel
   # free to reach me.
   set(TESTLIBS "${lib};${TESTLIBS}" PARENT_SCOPE)
-  # Add the directory where the lib is built to the LUA_CPATH
-  # environment variable, so LuaJIT can find and load it.
-  # XXX: Here we see the other side of the coin. If one joins two
-  # strings with semicolon, the value automatically becomes a
-  # list. I found a single working solution to make LUA_CPATH be
-  # a string via "escaping" the semicolon right in string
-  # interpolation.
-  set(LUA_CPATH "${CMAKE_CURRENT_BINARY_DIR}/?${CMAKE_SHARED_LIBRARY_SUFFIX}\;${LUA_CPATH}" PARENT_SCOPE)
+  # Add the directory where the lib is built to the list with
+  # entries for LUA_CPATH environment variable, so LuaJIT can find
+  # and load it. See the comment about extending the list in the
+  # parent scope few lines above.
+  set(LUA_CPATHS "${CMAKE_CURRENT_BINARY_DIR}/?${CMAKE_SHARED_LIBRARY_SUFFIX};${LUA_CPATHS}" PARENT_SCOPE)
   # Also add this directory to LD_LIBRARY_PATH environment
   # variable, so FFI machinery can find and load it.
   set(LD_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}:${LD_LIBRARY_PATH}" PARENT_SCOPE)
@@ -76,14 +73,21 @@ add_subdirectory(misclib-sysprof-capi)
 # in src/ directory and auxiliary tests-related modules are
 # located in the current directory (but tests are run in the
 # binary directory), so LUA_PATH need to be updated.
-set(LUA_PATH
-  "${CMAKE_CURRENT_SOURCE_DIR}/?.lua\;${PROJECT_SOURCE_DIR}/tools/?.lua\;${PROJECT_SOURCE_DIR}/src/?.lua"
+make_lua_path(LUA_PATH
+  PATHS
+    ${CMAKE_CURRENT_SOURCE_DIR}/?.lua
+    ${PROJECT_SOURCE_DIR}/tools/?.lua
+    ${LUAJIT_SOURCE_DIR}/?.lua
 )
+# Update LUA_CPATH with the library paths collected within
+# <BuildTestLib> macro.
+make_lua_path(LUA_CPATH PATHS ${LUA_CPATHS})
+
 set(LUA_TEST_SUFFIX .test.lua)
 set(LUA_TEST_FLAGS --failures --shuffle)
 set(LUA_TEST_ENV
-  "LUA_PATH=\"${LUA_PATH}\;\;\""
-  "LUA_CPATH=\"${LUA_CPATH}\;\;\""
+  "LUA_PATH=\"${LUA_PATH}\""
+  "LUA_CPATH=\"${LUA_CPATH}\""
 )
 
 if(CMAKE_VERBOSE_MAKEFILE)
