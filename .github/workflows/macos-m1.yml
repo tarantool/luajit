@@ -66,7 +66,6 @@ jobs:
           # if the package already exists with the previous version.
           ${ARCH} brew install --force cmake gcc make perl ||
             ${ARCH} brew upgrade cmake gcc make perl
-          ${ARCH} echo "CMAKE_BUILD_PARALLEL_LEVEL=$(($(sysctl -n hw.logicalcpu) + 1))" >> $GITHUB_ENV
       - name: configure
         run: >
           ${ARCH} cmake -S . -B ${{ env.BUILDDIR }}
