@@ -28,11 +28,6 @@ concurrency:
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
-env:
-  # XXX: Github Actions agent uses x86_64 simulation, so we have
-  # to explicitly make it use native environment for job steps.
-  ARCH: arch -arm64
-
 jobs:
   test-luajit:
     runs-on: macos-11-m1
@@ -60,21 +55,21 @@ jobs:
           # XXX: 'echo' command below is required since brew installation
           # script obliges the one to enter a newline for confirming the
           # installation via Ruby script.
-          ${ARCH} brew update ||
-            echo | ${ARCH} /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+          brew update ||
+            echo | /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
           # Try to install the packages either upgrade it to avoid of fails
           # if the package already exists with the previous version.
-          ${ARCH} brew install --force cmake gcc make perl ||
-            ${ARCH} brew upgrade cmake gcc make perl
+          brew install --force cmake gcc make perl ||
+            brew upgrade cmake gcc make perl
       - name: configure
         run: >
-          ${ARCH} cmake -S . -B ${{ env.BUILDDIR }}
+          cmake -S . -B ${{ env.BUILDDIR }}
           ${{ matrix.CMAKEFLAGS }}
       - name: build
-        run: ${ARCH} cmake --build . --parallel
+        run: cmake --build . --parallel
         working-directory: ${{ env.BUILDDIR }}
       - name: test
-        run: ${ARCH} cmake --build . --parallel --target test
+        run: cmake --build . --parallel --target test
         working-directory: ${{ env.BUILDDIR }}
 
   test-tarantool-debug-w-GC64:
