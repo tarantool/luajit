@@ -44,8 +44,12 @@ jobs:
           sudo apt -y update
           sudo apt -y install cmake gcc ninja-build perl
       - name: configure
-        run: cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+        run: >
+          cmake -S . -B ${{ env.BUILDDIR }}
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
       - name: build
         run: cmake --build . --parallel
+        working-directory: ${{ env.BUILDDIR }}
       - name: test
         run: cmake --build . --parallel --target test
+        working-directory: ${{ env.BUILDDIR }}
