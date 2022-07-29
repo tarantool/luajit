@@ -6,7 +6,8 @@ It is used as a common environment setup for the different testing workflows.
 
 ## How to use Github Action from Github workflow
 
-Add the following code to the running steps after checkout is finished:
+Add the following code to the running steps or OS-specific GitHub Actions after
+checkout step is finished:
 ```
-- uses: ./.github/actions/environment
+- uses: ./.github/actions/setup
 ```

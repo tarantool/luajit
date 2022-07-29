@@ -1,4 +1,4 @@
-name: "macOS/x86_64 test workflow"
+name: Testing
 
 on:
   push:
@@ -30,38 +30,40 @@ concurrency:
 
 jobs:
   test-luajit:
-    runs-on: macos-11
     strategy:
       fail-fast: false
       matrix:
         BUILDTYPE: [Debug, Release]
         GC64: [ON, OFF]
+        OS: [Linux, macOS]
         include:
+          - OS: Linux
+            NAME: Linux/x86_64
+            RUNNER: ubuntu-20.04-self-hosted
+          - OS: macOS
+            NAME: macOS/x86_64
+            RUNNER: macos-11
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    name: LuaJIT ${{ matrix.BUILDTYPE }} GC64:${{ matrix.GC64 }}
+    runs-on: ${{ matrix.RUNNER }}
+    name: >
+      LuaJIT
+      (${{ matrix.NAME }})
+      ${{ matrix.BUILDTYPE }}
+      GC64:${{ matrix.GC64 }}
     steps:
       - uses: actions/checkout@v2.3.4
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: environment
-        uses: ./.github/actions/environment
-      - name: setup
-        run: |
-          # Install brew using the command from Homebrew repository
-          # instructions: https://github.com/Homebrew/install.
-          # XXX: 'echo' command below is required since brew installation
-          # script obliges the one to enter a newline for confirming the
-          # installation via Ruby script.
-          brew update ||
-            echo | /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-          # Try to install the packages either upgrade it to avoid of fails
-          # if the package already exists with the previous version.
-          brew install --force cmake gcc make perl ||
-            brew upgrade cmake gcc make perl
+      - name: setup Linux
+        uses: ./.github/actions/setup-linux
+        if: ${{ matrix.OS == 'Linux' }}
+      - name: setup macOS
+        uses: ./.github/actions/setup-macos
+        if: ${{ matrix.OS == 'macOS' }}
       - name: configure
         run: >
           cmake -S . -B ${{ env.BUILDDIR }}
@@ -74,8 +76,56 @@ jobs:
         run: cmake --build . --parallel --target test
         working-directory: ${{ env.BUILDDIR }}
 
-  test-tarantool-debug-wo-GC64:
-    name: Tarantool Debug GC64:OFF
+  test-tarantool-linux-x86_64-debug-wo-GC64:
+    name: Tarantool (Linux/x86_64) Debug GC64:OFF
+    needs: test-luajit
+    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
+    with:
+      GC64: OFF
+      buildtype: Debug
+      host: ubuntu-20.04-self-hosted
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: '1.10'
+      revision: ${{ github.sha }}
+  test-tarantool-linux-x86_64-debug-w-GC64:
+    name: Tarantool (Linux/x86_64) Debug GC64:ON
+    needs: test-luajit
+    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
+    with:
+      GC64: ON
+      buildtype: Debug
+      host: ubuntu-20.04-self-hosted
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: '1.10'
+      revision: ${{ github.sha }}
+  test-tarantool-linux-x86_64-release-wo-GC64:
+    name: Tarantool (Linux/x86_64) Release GC64:OFF
+    needs: test-luajit
+    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
+    with:
+      GC64: OFF
+      buildtype: RelWithDebInfo
+      host: ubuntu-20.04-self-hosted
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: '1.10'
+      revision: ${{ github.sha }}
+  test-tarantool-linux-x86_64-release-w-GC64:
+    name: Tarantool (Linux/x86_64) Release GC64:ON
+    needs: test-luajit
+    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
+    with:
+      GC64: ON
+      buildtype: RelWithDebInfo
+      host: ubuntu-20.04-self-hosted
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: '1.10'
+      revision: ${{ github.sha }}
+  test-tarantool-macos-x86_64-debug-wo-GC64:
+    name: Tarantool (macOS/x86_64) Debug GC64:OFF
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
@@ -86,8 +136,8 @@ jobs:
       # stripped and the branch is mischosen as a result.
       release: '1.10'
       revision: ${{ github.sha }}
-  test-tarantool-debug-w-GC64:
-    name: Tarantool Debug GC64:ON
+  test-tarantool-macos-x86_64-debug-w-GC64:
+    name: Tarantool (macOS/x86_64) Debug GC64:ON
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
@@ -98,8 +148,8 @@ jobs:
       # stripped and the branch is mischosen as a result.
       release: '1.10'
       revision: ${{ github.sha }}
-  test-tarantool-release-wo-GC64:
-    name: Tarantool Release GC64:OFF
+  test-tarantool-macos-x86_64-release-wo-GC64:
+    name: Tarantool (macOS/x86_64) Release GC64:OFF
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
@@ -110,8 +160,8 @@ jobs:
       # stripped and the branch is mischosen as a result.
       release: '1.10'
       revision: ${{ github.sha }}
-  test-tarantool-release-w-GC64:
-    name: Tarantool Release GC64:ON
+  test-tarantool-macos-x86_64-release-w-GC64:
+    name: Tarantool (macOS/x86_64) Release GC64:ON
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
