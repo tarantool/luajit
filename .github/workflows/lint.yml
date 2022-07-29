@@ -45,6 +45,7 @@ jobs:
           sudo apt -y install cmake make lua5.1 luarocks
           sudo luarocks install luacheck
       - name: configure
-        run: cmake .
+        run: cmake -S . -B ${{ env.BUILDDIR }}
       - name: test
         run: cmake --build . --target LuaJIT-luacheck
+        working-directory: ${{ env.BUILDDIR }}

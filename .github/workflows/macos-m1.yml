@@ -68,11 +68,15 @@ jobs:
             ${ARCH} brew upgrade cmake gcc make perl
           ${ARCH} echo "CMAKE_BUILD_PARALLEL_LEVEL=$(($(sysctl -n hw.logicalcpu) + 1))" >> $GITHUB_ENV
       - name: configure
-        run: ${ARCH} cmake . ${{ matrix.CMAKEFLAGS }}
+        run: >
+          ${ARCH} cmake -S . -B ${{ env.BUILDDIR }}
+          ${{ matrix.CMAKEFLAGS }}
       - name: build
         run: ${ARCH} cmake --build . --parallel
+        working-directory: ${{ env.BUILDDIR }}
       - name: test
         run: ${ARCH} cmake --build . --parallel --target test
+        working-directory: ${{ env.BUILDDIR }}
 
   test-tarantool-debug-w-GC64:
     name: Tarantool Debug GC64:ON

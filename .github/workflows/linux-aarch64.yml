@@ -53,11 +53,15 @@ jobs:
           sudo apt -y update
           sudo apt -y install cmake gcc make perl
       - name: configure
-        run: cmake . ${{ matrix.CMAKEFLAGS }}
+        run: >
+          cmake -S . -B ${{ env.BUILDDIR }}
+          ${{ matrix.CMAKEFLAGS }}
       - name: build
         run: cmake --build . --parallel
+        working-directory: ${{ env.BUILDDIR }}
       - name: test
         run: cmake --build . --parallel --target test
+        working-directory: ${{ env.BUILDDIR }}
 
   test-tarantool-debug-w-GC64:
     name: Tarantool Debug GC64:ON

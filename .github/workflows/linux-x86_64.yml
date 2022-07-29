@@ -54,11 +54,16 @@ jobs:
           sudo apt -y update
           sudo apt -y install cmake gcc make perl
       - name: configure
-        run: cmake . ${{ matrix.CMAKEFLAGS }} -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
+        run: >
+          cmake -S . -B ${{ env.BUILDDIR }}
+          ${{ matrix.CMAKEFLAGS }}
+          -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
       - name: build
         run: cmake --build . --parallel
+        working-directory: ${{ env.BUILDDIR }}
       - name: test
         run: cmake --build . --parallel --target test
+        working-directory: ${{ env.BUILDDIR }}
 
   test-tarantool-debug-wo-GC64:
     name: Tarantool Debug GC64:OFF

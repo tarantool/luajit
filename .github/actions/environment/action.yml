@@ -11,3 +11,8 @@ runs:
         NPROC=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc)
         echo CMAKE_BUILD_PARALLEL_LEVEL=$(($NPROC + 1)) | tee -a $GITHUB_ENV
       shell: bash
+    - run: |
+        # Set BUILDDIR environment variable to specify LuaJIT
+        # build directory.
+        echo "BUILDDIR=${{ runner.temp }}/build-${{ github.run_id }}" | tee -a $GITHUB_ENV
+      shell: bash
