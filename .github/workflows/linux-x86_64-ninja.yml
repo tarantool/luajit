@@ -38,11 +38,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: environment
-        uses: ./.github/actions/environment
+        uses: ./.github/actions/setup
       - name: setup
         run: |
+          # TODO: Move this step to a separate action.
           sudo apt -y update
           sudo apt -y install cmake gcc ninja-build perl
+          # Set CMAKE_BUILD_PARALLEL_LEVEL environment variable to
+          # limit the number of parallel jobs for build/test step.
+          echo CMAKE_BUILD_PARALLEL_LEVEL=$(($(nproc) + 1)) | tee -a $GITHUB_ENV
       - name: configure
         run: >
           cmake -S . -B ${{ env.BUILDDIR }}
