@@ -801,7 +801,7 @@ LUA_API void lua_concat(lua_State *L, int n)
 	L->top -= n;
 	break;
       }
-      n -= (int)(L->top - top);
+      n -= (int)(L->top - (top - 2*LJ_FR2));
       L->top = top+2;
       jit_secure_call(L, top, 1+1);
       L->top -= 1+LJ_FR2;
