@@ -180,6 +180,11 @@ if(LUAJIT_ENABLE_GC64)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_GC64)
 endif()
 
+option(LUAJIT_ENABLE_CHECKHOOK "Check instruction/line hooks for compiled code" OFF)
+if(LUAJIT_ENABLE_CHECKHOOK)
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_CHECKHOOK)
+endif()
+
 # Switch to harder (and slower) hash function when a collision
 # chain in the string hash table exceeds a certain length.
 option(LUAJIT_SMART_STRINGS "Harder string hashing function" ON)
