@@ -180,6 +180,11 @@ if(LUAJIT_ENABLE_GC64)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_GC64)
 endif()
 
+option(LUAJIT_ENABLE_CHECKHOOK "Check instruction/line hooks for compiled code" OFF)
+if(LUAJIT_ENABLE_CHECKHOOK)
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_CHECKHOOK)
+endif()
+
 # Disable memory profiler.
 option(LUAJIT_DISABLE_MEMPROF "LuaJIT memory profiler support" OFF)
 if(LUAJIT_DISABLE_MEMPROF)
