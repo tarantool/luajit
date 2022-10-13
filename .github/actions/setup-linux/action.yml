@@ -15,5 +15,5 @@ runs:
     - name: Install build and test dependencies
       run: |
         apt -y update
-        apt -y install cmake gcc ninja-build perl
+        apt -y install cmake gcc make ninja-build perl
       shell: bash
