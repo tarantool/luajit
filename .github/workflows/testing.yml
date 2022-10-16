@@ -81,6 +81,7 @@ jobs:
       - name: configure
         run: >
           cmake -S . -B ${{ env.BUILDDIR }}
+          -G Ninja
           ${{ matrix.CMAKEFLAGS }}
           -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
       - name: build
@@ -96,6 +97,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=Debug
         -DLUAJIT_ENABLE_GC64=OFF
       # FIXME: This parameter is obsolete, drop it when
@@ -115,6 +117,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=Debug
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -134,6 +137,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
         -DLUAJIT_ENABLE_GC64=OFF
       # FIXME: This parameter is obsolete, drop it when
@@ -153,6 +157,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -172,6 +177,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=Debug
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -191,6 +197,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -210,6 +217,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=Debug
         -DLUAJIT_ENABLE_GC64=OFF
       # FIXME: This parameter is obsolete, drop it when
@@ -229,6 +237,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=Debug
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -248,6 +257,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
         -DLUAJIT_ENABLE_GC64=OFF
       # FIXME: This parameter is obsolete, drop it when
@@ -267,6 +277,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -286,6 +297,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=Debug
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when
@@ -305,6 +317,7 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
+        -G Ninja
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
         -DLUAJIT_ENABLE_GC64=ON
       # FIXME: This parameter is obsolete, drop it when

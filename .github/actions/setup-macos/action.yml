@@ -24,6 +24,6 @@ runs:
         # Try to install the packages either upgrade it to avoid
         # of fails if the package already exists with the previous
         # version.
-        brew install --force cmake gcc make perl ||
-          brew upgrade cmake gcc make perl
+        brew install --force cmake gcc ninja perl ||
+          brew upgrade cmake gcc ninja perl
       shell: bash
