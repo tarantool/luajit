@@ -95,7 +95,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=Debug
+        -DLUAJIT_ENABLE_GC64=OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
       host: ubuntu-20.04-self-hosted
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -107,7 +114,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=Debug
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
       host: ubuntu-20.04-self-hosted
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -119,7 +133,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DLUAJIT_ENABLE_GC64=OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: RelWithDebInfo
       host: ubuntu-20.04-self-hosted
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -131,7 +152,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: RelWithDebInfo
       host: ubuntu-20.04-self-hosted
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -143,7 +171,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=Debug
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
       host: graviton
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -155,7 +190,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: RelWithDebInfo
       host: graviton
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -167,7 +209,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=Debug
+        -DLUAJIT_ENABLE_GC64=OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
       host: macos-11
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -179,7 +228,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=Debug
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
       host: macos-11
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -191,7 +247,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DLUAJIT_ENABLE_GC64=OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: OFF
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: RelWithDebInfo
       host: macos-11
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -203,7 +266,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: RelWithDebInfo
       host: macos-11
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -215,7 +285,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=Debug
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
       host: macos-11-m1
       # XXX: Quotes are mandatory, otherwise the trailing zero is
@@ -227,7 +304,14 @@ jobs:
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
+      CMAKE_EXTRA_PARAMS: >
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DLUAJIT_ENABLE_GC64=ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       GC64: ON
+      # FIXME: This parameter is obsolete, drop it when
+      # CMAKE_EXTRA_PARAMS is activated.
       buildtype: RelWithDebInfo
       host: macos-11-m1
       # XXX: Quotes are mandatory, otherwise the trailing zero is
