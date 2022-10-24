@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-makefile-original:
+  build-gnu-make:
     strategy:
       fail-fast: false
       matrix:
@@ -55,11 +55,14 @@ jobs:
             NAME: macOS/x86_64
             RUNNER: macos-11
           - BUILDTYPE: Debug
+            CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
             MAKEBUILDFLAGS: -DLUA_USE_ASSERT -DLUA_USE_APICHECK
             # Use `CFLAGS`, because it's the last entry in
             # `CCOPTIONS`, so we can sure that these flags are not
             # overwritten.
             CFLAGS: -g -O0
+          - BUILDTYPE: Release
+            CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
           - GC64: ON
             MAKEGC64FLAGS: -DLUAJIT_ENABLE_GC64
         exclude:
@@ -67,7 +70,7 @@ jobs:
             GC64: OFF
     runs-on: [self-hosted, '${{ matrix.RUNNER }}']
     name: >
-      LuaJIT Makefile.original
+      LuaJIT
       (${{ matrix.NAME }})
       ${{ matrix.BUILDTYPE }}
       GC64:${{ matrix.GC64 }}
@@ -82,10 +85,26 @@ jobs:
       - name: setup macOS
         uses: ./.github/actions/setup-macos
         if: ${{ matrix.OS == 'macOS' }}
-      - name: build
+      - name: configure (CMake GNU Make)
+        run: >
+          cmake -S . -B ${{ env.BUILDDIR }}
+          ${{ matrix.CMAKEFLAGS }}
+          -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
+      - name: build (CMake GNU Make)
+        run: cmake --build . --parallel
+        working-directory: ${{ env.BUILDDIR }}
+      - name: smoke-test (CMake GNU Make)
+        run: ./src/luajit -e 'print("CMake with GNU Make generator build succeeded")'
+        working-directory: ${{ env.BUILDDIR }}
+
+        # XXX: working directory is omitted for the next steps,
+        # since Makefile.original provides only in-source build.
+        # hence clean up is not needed for the next steps.
+
+      - name: build (Makefile.original)
         run: >
           make -f Makefile.original -j
           CFLAGS='${{ matrix.CFLAGS }}'
           XCFLAGS='${{ matrix.MAKEBUILDFLAGS }} ${{ matrix.MAKEGC64FLAGS }}'
-      - name: smoke-test
+      - name: smoke-test (Makefile.original)
         run: ./src/luajit -e 'print("Makefile.original build succeeded")'
