@@ -15,7 +15,9 @@
 .ninja_log
 CMakeCache.txt
 CMakeFiles
+CTestTestfile.cmake
 Makefile
+Testing
 build.ninja
 cmake_install.cmake
 cmake_uninstall.cmake

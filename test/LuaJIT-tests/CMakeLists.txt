@@ -3,17 +3,13 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
 add_subdirectory(src)
 
-add_custom_target(LuaJIT-tests
-  DEPENDS ${LUAJIT_TEST_BINARY} LuaJIT-tests-libs
-)
-
 make_lua_path(LUA_CPATH
   PATHS
   ${CMAKE_CURRENT_BINARY_DIR}/src/?${CMAKE_SHARED_LIBRARY_SUFFIX}
 )
 
 set(LUAJIT_TESTS_ENV
-  "LUA_CPATH=\"${LUA_CPATH}\""
+  "LUA_CPATH=${LUA_CPATH}"
 )
 
 set(LD_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/src/:")
@@ -56,12 +52,26 @@ if(LUAJIT_NO_UNWIND)
   set(LUAJIT_TEST_TAGS_EXTRA +internal_unwinder)
 endif()
 
-add_custom_command(TARGET LuaJIT-tests
-  COMMENT "Running LuaJIT-tests"
-  COMMAND
-    env
-      ${LUAJIT_TESTS_ENV}
-      ${LUAJIT_TEST_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/test.lua
-      +slow +ffi +bit +jit ${LUAJIT_TEST_TAGS_EXTRA}
+set(TEST_SUITE_NAME "LuaJIT-tests")
+
+# XXX: The call produces both test and target <LuaJIT-tests-deps>
+# as a side effect.
+add_test_suite_target(LuaJIT-tests
+  LABELS ${TEST_SUITE_NAME}
+  DEPENDS ${LUAJIT_TEST_DEPS} LuaJIT-tests-libs
+)
+
+# The test suite has its own test runner
+# (test/LuaJIT-tests/test.lua), it is not possible to run these
+# tests one-by-one by CTest.
+set(test_title "test/${TEST_SUITE_NAME}")
+add_test(NAME "${test_title}"
+  COMMAND ${LUAJIT_TEST_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/test.lua
+                                 +slow +ffi +bit +jit ${LUAJIT_TEST_TAGS_EXTRA}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties("${test_title}" PROPERTIES
+  LABELS ${TEST_SUITE_NAME}
+  ENVIRONMENT "${LUAJIT_TESTS_ENV}"
+  DEPENDS LuaJIT-tests-deps
 )

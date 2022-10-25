@@ -34,17 +34,27 @@ add_subdirectory(libs)
 # But, unfortunately, <ltests.c> depends on specific PUC-Rio
 # Lua 5.1 internal headers and should be adapted for LuaJIT.
 
-add_custom_target(PUC-Rio-Lua-5.1-tests
-  DEPENDS ${LUAJIT_TEST_BINARY} PUC-Rio-Lua-5.1-tests-prepare
+set(TEST_SUITE_NAME "PUC-Rio-Lua-5.1-tests")
+
+# XXX: The call produces both test and target
+# <PUC-Rio-Lua-5.1-tests-deps> as a side effect.
+add_test_suite_target(PUC-Rio-Lua-5.1-tests
+  LABELS ${TEST_SUITE_NAME}
+  DEPENDS ${LUAJIT_TEST_DEPS} PUC-Rio-Lua-5.1-tests-prepare
 )
 
-add_custom_command(TARGET PUC-Rio-Lua-5.1-tests
-  COMMENT "Running PUC-Rio Lua 5.1 tests"
-  COMMAND
-  env
-    LUA_PATH="${LUA_PATH}"
-    ${LUAJIT_TEST_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/all.lua
+# The test suite has its own test runner
+# (test/PUC-Rio-Lua-5.1-tests/all.lua), it is not possible
+# to run these tests one-by-one by CTest.
+set(test_title "test/${TEST_SUITE_NAME}")
+add_test(NAME "${test_title}"
+  COMMAND ${LUAJIT_TEST_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/all.lua
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+set_tests_properties("${test_title}" PROPERTIES
+  ENVIRONMENT "LUA_PATH=${LUA_PATH}"
+  LABELS ${TEST_SUITE_NAME}
+  DEPENDS PUC-Rio-Lua-5.1-tests-deps
 )
 
 # vim: expandtab tabstop=2 shiftwidth=2
