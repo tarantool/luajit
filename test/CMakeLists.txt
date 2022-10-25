@@ -78,35 +78,94 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(AddTestLib)
 include(LibRealPath)
 
+# CTEST_FLAGS is used by CMake targets in test suites.
+# XXX: CMake 3.17 introduces CMAKE_CTEST_ARGUMENTS that contains
+# CTest options and is used by `test` target.
+set(CTEST_FLAGS
+  --output-on-failure
+  --schedule-random
+  # Timeout in seconds. Most LuaJIT tests are fast. However,
+  # some tests can hang or execute infinite loop.
+  # See <tarantool-c-tests/gh-8594-sysprof-ffunc-crash.test.c>,
+  # commit caa99865c206 ("test: rewrite sysprof test using managed execution").
+  # Moreover, tests for instrumented LuaJIT require more time.
+  # 30 minutes is a sane timeout.
+  --timeout 1800
+  --parallel ${CMAKE_BUILD_PARALLEL_LEVEL}
+)
+if(CMAKE_VERBOSE_MAKEFILE)
+  list(APPEND CTEST_FLAGS --verbose)
+endif()
+
+# It is not possible to add dependencies to `add_test()`
+# in CMake, see [1]. CMake 3.7 introduces FIXTURES_REQUIRED [2]
+# and FIXTURES_SETUP [3], but these test properties cannot be
+# used - this feature is unsupported in the current CMake version.
+# To workaround this, the function `add_test_suite_target` is
+# introduced. It adds a CMake target that builds testsuite's
+# prerequisites and CMake test that executes that target.
+#
+# 1. https://gitlab.kitware.com/cmake/cmake/-/issues/8774
+# 2. https://cmake.org/cmake/help/latest/prop_test/FIXTURES_REQUIRED.html
+# 3. https://cmake.org/cmake/help/latest/prop_test/FIXTURES_SETUP.html
+function(add_test_suite_target target)
+  set(prefix ARG)
+  set(noValues)
+  set(singleValues LABELS)
+  set(multiValues DEPENDS)
+
+  # FIXME: if we update to CMake >= 3.5, can remove this line.
+  include(CMakeParseArguments)
+  cmake_parse_arguments(${prefix}
+                        "${noValues}"
+                        "${singleValues}"
+                        "${multiValues}"
+                        ${ARGN})
+
+  set(_DEPS_TARGET ${target}-deps)
+
+  add_custom_target(${_DEPS_TARGET} DEPENDS ${ARG_DEPENDS})
+
+  add_test(NAME ${_DEPS_TARGET}
+    COMMAND ${CMAKE_COMMAND}
+            --build ${CMAKE_BINARY_DIR}
+            --target ${_DEPS_TARGET}
+  )
+  set_tests_properties(${_DEPS_TARGET} PROPERTIES
+    LABELS ${ARG_LABELS}
+  )
+
+  message(STATUS "Add test suite ${ARG_LABELS}")
+
+  add_custom_target(${target}
+    COMMAND ${CMAKE_CTEST_COMMAND} -L ${ARG_LABELS} ${CTEST_FLAGS}
+    DEPENDS ${_DEPS_TARGET}
+  )
+endfunction()
+
 add_subdirectory(LuaJIT-tests)
 add_subdirectory(PUC-Rio-Lua-5.1-tests)
 add_subdirectory(lua-Harness-tests)
 add_subdirectory(tarantool-c-tests)
 add_subdirectory(tarantool-tests)
 
-add_custom_target(${PROJECT_NAME}-test DEPENDS
-  LuaJIT-tests
-  PUC-Rio-Lua-5.1-tests
-  lua-Harness-tests
-  tarantool-c-tests
-  tarantool-tests
+# Each testsuite has its own CMake target, but combining these
+# target into a single one is not desired, because each target
+# runs it's own `ctest` command, which each time enumerates tests
+# from zero and prints the test summary at the end of the test run.
+# For a common target this output looks inconvenient.
+# Therefore, target below executes a single instance of `ctest`
+# command that runs all generated CMake tests.
+add_custom_target(${PROJECT_NAME}-test
+  COMMAND ${CMAKE_CTEST_COMMAND} ${CTEST_FLAGS}
+  DEPENDS tarantool-c-tests-deps
+          tarantool-tests-deps
+          lua-Harness-tests-deps
+          PUC-Rio-Lua-5.1-tests-deps
+          LuaJIT-tests-deps
 )
 
-if(LUAJIT_USE_TEST)
-  if(POLICY CMP0037)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      # CMake below 3.11 reserves the name 'test'. Use old policy.
-      # https://cmake.org/cmake/help/v3.11/release/3.11.html#other-changes
-      cmake_policy(SET CMP0037 OLD)
-    else()
-      # Starting from CMake 3.11 the name 'test' is reserved in
-      # special cases and can be used as a target name.
-      cmake_policy(SET CMP0037 NEW)
-    endif()
-  endif(POLICY CMP0037)
-
-  add_custom_target(test DEPENDS
-    ${PROJECT_NAME}-test
-    ${PROJECT_NAME}-lint
-  )
-endif()
+add_custom_target(${PROJECT_NAME}-check-all
+  DEPENDS ${PROJECT_NAME}-test
+          ${PROJECT_NAME}-lint
+)

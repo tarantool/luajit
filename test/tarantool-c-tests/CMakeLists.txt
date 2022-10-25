@@ -1,15 +1,4 @@
-find_program(PROVE prove)
-if(NOT PROVE)
-  message(WARNING "`prove' is not found, so tarantool-c-tests target is not generated")
-  return()
-endif()
-
 set(C_TEST_SUFFIX .c_test)
-set(C_TEST_FLAGS --failures --shuffle)
-
-if(CMAKE_VERBOSE_MAKEFILE)
-  list(APPEND C_TEST_FLAGS --verbose)
-endif()
 
 # Build libtest.
 
@@ -30,6 +19,23 @@ AppendFlags(TESTS_C_FLAGS ${TARGET_C_FLAGS})
 # test binary can be run from any directory.
 AppendFlags(TESTS_C_FLAGS "-D__LJ_TEST_DIR__='\"${CMAKE_CURRENT_SOURCE_DIR}\"'")
 
+set(TEST_SUITE_NAME "tarantool-c-tests")
+
+# The proxy CMake target with all targets that build C tests.
+# This is needed because targets for each C test are generated
+# at the same time as CMake tests, and all prerequisites must
+# already exist at this moment.
+add_custom_target(tarantool-c-tests-build)
+
+# XXX: The call produces both test and target
+# <tarantool-c-tests-deps> as a side effect.
+add_test_suite_target(tarantool-c-tests
+  LABELS ${TEST_SUITE_NAME}
+  # XXX: LUAJIT_TEST_DEPS is not needed, we know dependencies
+  # in advance.
+  DEPENDS libluajit libtest tarantool-c-tests-build
+)
+
 set(CTEST_SRC_SUFFIX ".test.c")
 file(GLOB tests "${CMAKE_CURRENT_SOURCE_DIR}/*${CTEST_SRC_SUFFIX}")
 foreach(test_source ${tests})
@@ -46,23 +52,16 @@ foreach(test_source ${tests})
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
   )
   target_link_libraries(${exe} libtest ${LUAJIT_LIBRARY})
-  LIST(APPEND TESTS_COMPILED ${exe})
+  add_dependencies(tarantool-c-tests-build ${exe})
+
+  # Generate CMake tests.
+  set(test_title "test/${TEST_SUITE_NAME}/${exe}${C_TEST_SUFFIX}")
+  add_test(NAME ${test_title}
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${exe}${C_TEST_SUFFIX}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+  set_tests_properties(${test_title} PROPERTIES
+    LABELS ${TEST_SUITE_NAME}
+    DEPENDS tarantool-c-tests-deps
+  )
 endforeach()
-
-add_custom_target(tarantool-c-tests
-  DEPENDS libluajit libtest ${TESTS_COMPILED}
-)
-
-add_custom_command(TARGET tarantool-c-tests
-  COMMENT "Running Tarantool C tests"
-  COMMAND
-  ${PROVE}
-    ${CMAKE_CURRENT_BINARY_DIR}
-    --ext ${C_TEST_SUFFIX}
-    --jobs ${CMAKE_BUILD_PARALLEL_LEVEL}
-    # Report any TAP parse errors, if any, since test module is
-    # maintained by us.
-    --parse
-    ${C_TEST_FLAGS}
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)

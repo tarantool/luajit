@@ -345,6 +345,13 @@ set(LUAJIT_TEST_BINARY ${LUAJIT_BINARY} CACHE STRING
   "Lua implementation to be used for tests. Default is 'luajit'."
 )
 
+# If LuaJIT is used in a parent project, provide an option
+# to choose what dependencies are used for running and building
+# LuaJIT tests.
+set(LUAJIT_TEST_DEPS "luajit-main" CACHE STRING
+  "A list of target dependencies to be used for tests."
+)
+
 # FIXME: If LuaJIT is used in parent project, provide an option
 # to pass Lua code to be run before tests are started.
 # XXX: Attentive reader might point to LUA_INIT environment
@@ -362,6 +369,13 @@ set(LUAJIT_TEST_INIT "${PROJECT_SOURCE_DIR}/test/luajit-test-init.lua" CACHE STR
   "Lua code need to be run before tests are started."
 )
 
+# XXX: Enable testing via CTest. This automatically generates
+# the `test` target. Since CTest expects to find a test file in
+# the build directory root, this command should be in the source
+# directory root (hence, in this CMakeLists.txt).
+if(LUAJIT_USE_TEST)
+  enable_testing()
+endif()
 add_subdirectory(test)
 
 # --- Misc rules ---------------------------------------------------------------
