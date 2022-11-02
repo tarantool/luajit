@@ -27,15 +27,17 @@ function(make_lua_path path)
                         "${multiValues}"
                         ${ARGN})
 
+  set(_MAKE_LUA_PATH_RESULT "")
+
   foreach(inc ${ARG_PATHS})
     # XXX: If one joins two strings with the semicolon, the value
     # automatically becomes a list. I found a single working
     # solution to make result variable be a string via "escaping"
     # the semicolon right in string interpolation.
-    set(result "${result}${inc}\;")
+    set(_MAKE_LUA_PATH_RESULT "${_MAKE_LUA_PATH_RESULT}${inc}\;")
   endforeach()
 
-  if("${result}" STREQUAL "")
+  if("${_MAKE_LUA_PATH_RESULT}" STREQUAL "")
     message(FATAL_ERROR "No paths are given to <make_lua_path> helper.")
   endif()
 
@@ -43,5 +45,9 @@ function(make_lua_path path)
   # for LUA_PATH and LUA_CPATH variables. For more info, see the
   # link below:
   # https://www.lua.org/manual/5.1/manual.html#pdf-LUA_PATH
-  set(${path} "${result}\;" PARENT_SCOPE)
+  set(${path} "${_MAKE_LUA_PATH_RESULT}\;" PARENT_SCOPE)
+  # XXX: Unset the internal variable to not spoil CMake cache.
+  # Study the case in CheckIPOSupported.cmake, that affected this
+  # module: https://gitlab.kitware.com/cmake/cmake/-/commit/4b82977
+  unset(_MAKE_LUA_PATH_RESULT)
 endfunction()
