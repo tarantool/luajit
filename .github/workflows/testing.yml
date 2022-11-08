@@ -61,7 +61,7 @@ jobs:
         exclude:
           - ARCH: ARM64
             GC64: OFF
-    runs-on: ${{ matrix.RUNNER }}
+    runs-on: [self-hosted, '${{ matrix.RUNNER }}']
     name: >
       LuaJIT
       (${{ matrix.NAME }})
