@@ -47,7 +47,7 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    runs-on: ${{ matrix.RUNNER }}
+    runs-on: [self-hosted, '${{ matrix.RUNNER }}']
     name: >
       LuaJIT
       (${{ matrix.NAME }})
