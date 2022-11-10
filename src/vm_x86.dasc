@@ -452,8 +452,10 @@
 |// user code. So we need to sync the BASE on each vmstate change to
 |// keep it consistent.
 |.macro set_vmstate_sync_base, st
+|.if LJ_HASSYSPROF
 |  set_vmstate INTERP  // Guard for non-atomic VM context restoration
 |  mov dword [DISPATCH+DISPATCH_GL(top_frame)], BASE
+|.endif
 |  set_vmstate st
 |.endmacro
 |
@@ -475,19 +477,25 @@
 |// Uses spilled ecx on x86 or XCHGd (r11d) on x64.
 |.macro restore_vmstate
 |.if not WIN
+|.if LJ_HASSYSPROF
 |  set_vmstate INTERP
+|.endif
 |.if not X64
 |  mov SPILLECX, ecx
+|.if LJ_HASSYSPROF
 |  mov ecx, SAVE_L
 |  mov ecx, L:ecx->base
 |  mov dword [DISPATCH+DISPATCH_GL(top_frame)], ecx
+|.endif
 |  mov ecx, SAVE_VMSTATE
 |  mov dword [DISPATCH+DISPATCH_GL(vmstate)], ecx
 |  mov ecx, SPILLECX
 |.else // X64
+|.if LJ_HASSYSPROF
 |  mov XCHGd, SAVE_L
 |  mov XCHGd, L:XCHGd->base
 |  mov dword [DISPATCH+DISPATCH_GL(top_frame)], XCHGd
+|.endif
 |  mov XCHGd, SAVE_VMSTATE
 |  mov dword [DISPATCH+DISPATCH_GL(vmstate)], XCHGd
 |.endif // X64

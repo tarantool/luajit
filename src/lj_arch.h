@@ -595,7 +595,7 @@
 #endif
 
 /* Disable or enable the platform and Lua profiler. */
-#if defined(LUAJIT_DISABLE_SYSPROF) || defined(LJ_ARCH_NOSYSPROF) || !LJ_TARGET_LINUX || LJ_GC64
+#if defined(LUAJIT_DISABLE_SYSPROF) || defined(LJ_ARCH_NOSYSPROF) || !LJ_TARGET_LINUX
 #define LJ_HASSYSPROF		0
 #else
 #define LJ_HASSYSPROF		1
