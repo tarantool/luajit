@@ -211,26 +211,6 @@ jobs:
       # stripped and the branch is mischosen as a result.
       release: '2.10'
       revision: ${{ github.sha }}
-  test-tarantool-macos-x86_64-debug-wo-GC64:
-    name: Tarantool (macOS/x86_64) Debug GC64:OFF
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=Debug
-        -DLUAJIT_ENABLE_GC64=OFF
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: OFF
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: Debug
-      host: macos-11
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
   test-tarantool-macos-x86_64-debug-w-GC64:
     name: Tarantool (macOS/x86_64) Debug GC64:ON
     needs: test-luajit
@@ -246,26 +226,6 @@ jobs:
       # FIXME: This parameter is obsolete, drop it when
       # CMAKE_EXTRA_PARAMS is activated.
       buildtype: Debug
-      host: macos-11
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-macos-x86_64-release-wo-GC64:
-    name: Tarantool (macOS/x86_64) Release GC64:OFF
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
-        -DLUAJIT_ENABLE_GC64=OFF
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: OFF
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: RelWithDebInfo
       host: macos-11
       # XXX: Quotes are mandatory, otherwise the trailing zero is
       # stripped and the branch is mischosen as a result.
