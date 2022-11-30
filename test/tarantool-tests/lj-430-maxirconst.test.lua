@@ -1,8 +1,3 @@
--- XXX: avoid any other traces compilation due to hotcount
--- collisions for predictable results.
-jit.off()
-jit.flush()
-
 -- Disabled on *BSD due to #4819.
 require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
@@ -11,10 +6,6 @@ local traceinfo = require('jit.util').traceinfo
 
 local test = tap.test('lj-430-maxirconst')
 test:plan(2)
-
--- XXX: trace always has at least 3 IR constants: for nil, false
--- and true.
-jit.opt.start('hotloop=1', 'maxirconst=3')
 
 -- This function has only 3 IR constant.
 local function irconst3()
@@ -25,6 +16,12 @@ local function irconst4()
   local _ = 42
 end
 
+-- XXX: Avoid any other traces compilation due to hotcount
+-- collisions for predictable results.
+jit.off()
+jit.flush()
+jit.opt.start('hotloop=1')
+
 assert(not traceinfo(1), 'no traces compiled after flush')
 jit.on()
 irconst3()
@@ -32,6 +29,14 @@ irconst3()
 jit.off()
 test:ok(traceinfo(1), 'new trace created')
 
+-- XXX: Trace 1 always has at least 3 IR constants: for nil, false
+-- and true. If LUAJIT_ENABLE_CHECKHOOK is set to ON, three more
+-- constants are emitted to the trace.
+-- Tighten up <maxirconst> and try to record the next trace with
+-- one more constant to be emitted.
+jit.opt.start(('maxirconst=%d'):format(traceinfo(1).nk))
+
+assert(not traceinfo(2), 'only one trace is created to this moment')
 jit.on()
 irconst4()
 irconst4()
