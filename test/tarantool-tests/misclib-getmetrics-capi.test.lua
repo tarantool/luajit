@@ -1,5 +1,7 @@
+local utils = require('utils')
+
 -- Disabled on *BSD due to #4819.
-require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
+utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
 local path = arg[0]:gsub('%.test%.lua', '')
 local suffix = package.cpath:match('?.(%a+);')
@@ -94,7 +96,8 @@ end))
 
 -- Compiled loop with a side exit which does not get compiled.
 test:ok(testgetmetrics.snap_restores(function()
-    jit.opt.start(0, "hotloop=1", "hotexit=2", "minstitch=15")
+    jit.opt.start(0, "hotloop=1", "hotexit=2",
+                  ("minstitch=%d"):format(utils.const.maxnins))
 
     local function foo(i)
         -- math.fmod is not yet compiled!

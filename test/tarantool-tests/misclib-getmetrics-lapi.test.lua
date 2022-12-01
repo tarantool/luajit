@@ -2,8 +2,10 @@
 -- Major portions taken verbatim or adapted from the LuaVela testing suite.
 -- Copyright (C) 2015-2019 IPONWEB Ltd.
 
+local utils = require('utils')
+
 -- Disabled on *BSD due to #4819.
-require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
+utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
 local tap = require('tap')
 
@@ -279,7 +281,8 @@ test:test("snap-restores-loop-side-exit-non-compiled", function(subtest)
     -- Compiled loop with a side exit which does not get compiled.
     subtest:plan(1)
 
-    jit.opt.start(0, "hotloop=1", "hotexit=2", "minstitch=15")
+    jit.opt.start(0, "hotloop=1", "hotexit=2",
+                  ("minstitch=%d"):format(utils.const.maxnins))
 
     local function foo(i)
         -- math.fmod is not yet compiled!
