@@ -363,7 +363,9 @@ test:test("snap-restores-scalar", function(subtest)
     -- No exits triggering snap restore so far: snapshot
     -- restoration was inlined into the machine code.
     subtest:is(new_metrics.jit_snap_restore - old_metrics.jit_snap_restore, 0)
-    old_metrics = new_metrics
+    -- XXX: obtain actual metrics to avoid side effects that are
+    -- caused by Lua code and JIT engine fine tuning above.
+    old_metrics = misc.getmetrics()
 
     -- Simply 2 side exits from the trace:
     foo(20)
