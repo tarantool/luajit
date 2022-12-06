@@ -292,6 +292,18 @@ ifneq (,$(findstring LJ_TARGET_PS3 1,$(TARGET_TESTARCH)))
   TARGET_XLIBS+= -lpthread
 endif
 
+ifneq (,$(findstring LJ_HASSYSPROF 1,$(TARGET_TESTARCH)))
+  # Try to link against libunwind to determine whether it
+  # is present in the system.
+  HAS_LIBUNWIND=$(shell $(TARGET_LD) -lunwind -lunwind-x86_64 -c 2>/dev/null; echo $$?)
+ifneq (0,$(HAS_LIBUNWIND))
+  $(error libunwind is required for sysprof)
+else
+  TARGET_XLIBS+= -lunwind -lunwind-x86_64
+  TARGET_XCFLAGS+= -fno-omit-frame-pointer -fasynchronous-unwind-tables
+endif
+endif
+
 TARGET_XCFLAGS+= $(CCOPT_$(TARGET_LJARCH))
 TARGET_ARCH+= $(patsubst %,-DLUAJIT_TARGET=LUAJIT_ARCH_%,$(TARGET_LJARCH))
 

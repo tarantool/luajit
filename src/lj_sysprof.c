@@ -26,7 +26,17 @@
 
 #include <pthread.h>
 #include <errno.h>
-#include <execinfo.h>
+
+#ifndef LUAJIT_EXTERNAL_SYSPROF_BACKTRACER
+/*
+** We only need local unwinding, then a special implementation
+** can be selected which may run much faster than the generic
+** implementation which supports both kinds of unwinding, local
+** and remote.
+*/
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#endif
 
 /*
 ** Number of profiler frames we need to omit during stack
@@ -84,6 +94,56 @@ struct sysprof {
 static struct sysprof sysprof = {0};
 
 /* --- Stream ------------------------------------------------------------- */
+
+#ifndef LUAJIT_EXTERNAL_SYSPROF_BACKTRACER
+
+static ssize_t collect_stack(void **buffer, int size)
+{
+  int frame_no = 0;
+  unw_context_t unw_ctx;
+  unw_cursor_t unw_cur;
+
+  int rc = unw_getcontext(&unw_ctx);
+  if (rc != 0)
+    return -1;
+
+  rc = unw_init_local(&unw_cur, &unw_ctx);
+  if (rc != 0)
+    return -1;
+
+  for (; frame_no < size; ++frame_no) {
+    unw_word_t ip;
+    rc = unw_get_reg(&unw_cur, UNW_REG_IP, &ip);
+    if (rc != 0)
+      return -1;
+
+    buffer[frame_no] = (void *)ip;
+    rc = unw_step(&unw_cur);
+    if (rc <= 0)
+      break;
+  }
+  return frame_no;
+}
+
+static void default_backtrace_host(void *(writer)(int frame_no, void *addr))
+{
+  static void *backtrace_buf[SYSPROF_BACKTRACE_FRAME_MAX] = {};
+
+  struct sysprof *sp = &sysprof;
+  int max_depth = sp->opt.mode == LUAM_SYSPROF_LEAF
+                  ? SYSPROF_HANDLER_STACK_DEPTH + 1
+                  : SYSPROF_BACKTRACE_FRAME_MAX;
+  const int depth = collect_stack(backtrace_buf, max_depth);
+  int level;
+
+  lj_assertX(depth <= max_depth, "backtrace is too deep");
+  lj_assertX(depth != -1, "failed to collect backtrace");
+  for (level = SYSPROF_HANDLER_STACK_DEPTH; level < depth; ++level) {
+    if (!writer(level - SYSPROF_HANDLER_STACK_DEPTH + 1, backtrace_buf[level]))
+      return;
+  }
+}
+#endif
 
 static const uint8_t ljp_header[] = {'l', 'j', 'p', LJP_FORMAT_VERSION,
                                       0x0, 0x0, 0x0};
@@ -203,24 +263,6 @@ static void *stream_frame_host(int frame_no, void *addr)
 
   lj_wbuf_addu64(&sp->out, (uintptr_t)addr);
   return addr;
-}
-
-static void default_backtrace_host(void *(writer)(int frame_no, void *addr))
-{
-  static void *backtrace_buf[SYSPROF_BACKTRACE_FRAME_MAX] = {};
-
-  struct sysprof *sp = &sysprof;
-  int max_depth = sp->opt.mode == LUAM_SYSPROF_LEAF
-                  ? SYSPROF_HANDLER_STACK_DEPTH + 1
-                  : SYSPROF_BACKTRACE_FRAME_MAX;
-  const int depth = backtrace(backtrace_buf, max_depth);
-  int level;
-
-  lj_assertX(depth <= max_depth, "depth of C stack is too big");
-  for (level = SYSPROF_HANDLER_STACK_DEPTH; level < depth; ++level) {
-    if (!writer(level - SYSPROF_HANDLER_STACK_DEPTH + 1, backtrace_buf[level]))
-      return;
-  }
 }
 
 static void stream_backtrace_host(struct sysprof *sp)
@@ -427,20 +469,16 @@ int lj_sysprof_set_backtracer(luam_Sysprof_backtracer backtracer) {
 
   if (sp->state != SPS_IDLE)
     return PROFILE_ERRUSE;
-  if (backtracer == NULL) {
+
+  if (backtracer == NULL)
+#ifndef LUAJIT_EXTERNAL_SYSPROF_BACKTRACER
     sp->backtracer = default_backtrace_host;
-    /*
-    ** XXX: `backtrace` is not signal-safe, according to man,
-    ** because it is lazy loaded on the first call, which triggers
-    ** allocations. We need to call `backtrace` before starting profiling
-    ** to avoid lazy loading.
-    */
-    void *dummy = NULL;
-    backtrace(&dummy, 1);
-  }
-  else {
+#else
+    return PROFILE_ERRUSE;
+#endif
+  else
     sp->backtracer = backtracer;
-  }
+
   if (!is_unconfigured(sp)) {
     sp->state = SPS_IDLE;
   }

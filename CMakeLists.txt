@@ -97,6 +97,8 @@ endif()
 # tracebacks and unwinding are not affected -- the assembler part
 # has frame unwind information and GCC emits it where needed (x64)
 # or with -g.
+# The '-fno-omit-frame-pointer` is set later, depending on sysprof
+# and libunwind support.
 AppendFlags(CMAKE_C_FLAGS -fomit-frame-pointer -fno-stack-protector)
 
 # Redefined to benefit from expanding macros in gdb.
@@ -212,6 +214,21 @@ endif()
 option(LUAJIT_DISABLE_SYSPROF "LuaJIT platform and Lua profiler support" OFF)
 if(LUAJIT_DISABLE_SYSPROF)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_DISABLE_SYSPROF)
+else()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+    (
+      CMAKE_SYSTEM_PROCESSOR STREQUAL "i386" OR
+      CMAKE_SYSTEM_PROCESSOR STREQUAL "i686" OR
+      CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64"
+    )
+  )
+    AppendFlags(CMAKE_C_FLAGS -fno-omit-frame-pointer -fasynchronous-unwind-tables)
+    if(ENABLE_BUNDLED_LUAJIT)
+        AppendFlags(TARGET_C_FLAGS -DLUAJIT_EXTERNAL_SYSPROF_BACKTRACER)
+    else()
+        find_package(LibUnwind MODULE REQUIRED)
+    endif()
+  endif()
 endif()
 
 # Switch to harder (and slower) hash function when a collision

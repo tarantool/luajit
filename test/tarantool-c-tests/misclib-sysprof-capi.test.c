@@ -122,13 +122,6 @@ static int validation(void *test_state)
 }
 
 /*
- * FIXME: The following two tests are disabled because sometimes
- * `backtrace` dynamically loads a platform-specific unwinder,
- * which is not signal-safe.
- */
-
-#if 0
-/*
  * Structure given as ctx to sysprof writer and on_stop callback.
  */
 struct sysprof_ctx {
@@ -239,7 +232,6 @@ static int check_profile_func(lua_State *L)
 		    == PROFILE_SUCCESS);
 	assert_true(luaM_sysprof_set_on_stop(on_stop_cb_default)
 		    == PROFILE_SUCCESS);
-	assert_true(luaM_sysprof_set_backtracer(NULL) == PROFILE_SUCCESS);
 
 	status = luaM_sysprof_start(L, &opt);
 	assert_true(status == PROFILE_SUCCESS);
@@ -270,13 +262,9 @@ static int check_profile_func(lua_State *L)
 
 	return TEST_EXIT_SUCCESS;
 }
-#endif
 
 static int profile_func_jitoff(void *test_state)
 {
-	UNUSED(test_state);
-	return todo("Need to replace backtrace with libunwind first");
-#if 0
 	lua_State *L = test_state;
 	utils_get_aux_lfunc(L);
 	(void)luaJIT_setmode(L, 0, LUAJIT_MODE_ENGINE | LUAJIT_MODE_OFF);
@@ -284,19 +272,14 @@ static int profile_func_jitoff(void *test_state)
 	check_profile_func(L);
 	(void)luaJIT_setmode(L, 0, LUAJIT_MODE_ENGINE | LUAJIT_MODE_ON);
 	return TEST_EXIT_SUCCESS;
-#endif
 }
 
 static int profile_func_jiton(void *test_state)
 {
-	UNUSED(test_state);
-	return todo("Need to replace backtrace with libunwind first");
-#if 0
 	lua_State *L = test_state;
 	utils_get_aux_lfunc(L);
 	check_profile_func(L);
 	return TEST_EXIT_SUCCESS;
-#endif
 }
 
 int main(void)

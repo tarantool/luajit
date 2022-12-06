@@ -284,6 +284,10 @@ add_dependencies(core_shared buildvm_output)
 
 list(APPEND TARGET_LIBS m)
 
+if(NOT LUAJIT_DISABLE_SYSPROF)
+  list(APPEND TARGET_LIBS ${LIBUNWIND_LIBRARIES})
+endif()
+
 set(LIB_OBJECTS_STATIC
   $<TARGET_OBJECTS:vm_static>
   $<TARGET_OBJECTS:core_static>
