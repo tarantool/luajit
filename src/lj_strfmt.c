@@ -93,15 +93,10 @@ retlit:
   { uint32_t d = (x*(((1<<sh)+sc-1)/sc))>>sh; x -= d*sc; *p++ = (char)('0'+d); }
 
 /* Write integer to buffer. */
-#if LUAJIT_USE_UBSAN
-/* See https://github.com/LuaJIT/LuaJIT/issues/928. */
-char * LJ_FASTCALL lj_strfmt_wint(char *p, int32_t k)
-  __attribute__((no_sanitize("signed-integer-overflow")));
-#endif
 char * LJ_FASTCALL lj_strfmt_wint(char *p, int32_t k)
 {
   uint32_t u = (uint32_t)k;
-  if (k < 0) { u = (uint32_t)-k; *p++ = '-'; }
+  if (k < 0) { u = ~u+1u; *p++ = '-'; }
   if (u < 10000) {
     if (u < 10) goto dig1;
     if (u < 100) goto dig2;
@@ -269,7 +264,7 @@ SBuf *lj_strfmt_putfxint(SBuf *sb, SFormat sf, uint64_t k)
   /* Figure out signed prefixes. */
   if (STRFMT_TYPE(sf) == STRFMT_INT) {
     if ((int64_t)k < 0) {
-      k = (uint64_t)-(int64_t)k;
+      k = ~k+1u;
       prefix = 256 + '-';
     } else if ((sf & STRFMT_F_PLUS)) {
       prefix = 256 + '+';
