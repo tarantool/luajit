@@ -33,16 +33,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        ARCH: [x86_64]
         BUILDTYPE: [Debug, Release]
         GC64: [ON, OFF]
         OS: [Linux, macOS]
         include:
-          - OS: Linux
-            NAME: Linux/x86_64
-            RUNNER: ubuntu-20.04-self-hosted
-          - OS: macOS
-            NAME: macOS/x86_64
-            RUNNER: macos-11
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
             MAKEBUILDFLAGS: -DLUA_USE_ASSERT -DLUA_USE_APICHECK
@@ -54,10 +49,10 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
           - GC64: ON
             MAKEGC64FLAGS: -DLUAJIT_ENABLE_GC64
-    runs-on: [self-hosted, '${{ matrix.RUNNER }}']
+    runs-on: [self-hosted, regular, '${{ matrix.OS }}', '${{ matrix.ARCH }}']
     name: >
       LuaJIT
-      (${{ matrix.NAME }})
+      (${{ matrix.OS }}/${{ matrix.ARCH }})
       ${{ matrix.BUILDTYPE }}
       GC64:${{ matrix.GC64 }}
     steps:
