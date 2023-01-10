@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   test-luacheck:
-    runs-on: ubuntu-20.04-self-hosted
+    runs-on: [self-hosted, lightweight, Linux, x86_64]
     name: luacheck
     steps:
       - uses: actions/checkout@v2.3.4

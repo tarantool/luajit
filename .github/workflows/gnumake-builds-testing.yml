@@ -38,22 +38,6 @@ jobs:
         GC64: [ON, OFF]
         OS: [Linux, macOS]
         include:
-          - ARCH: ARM64
-            OS: Linux
-            NAME: Linux/aarch64
-            RUNNER: graviton
-          - ARCH: x86_64
-            OS: Linux
-            NAME: Linux/x86_64
-            RUNNER: ubuntu-20.04-self-hosted
-          - ARCH: ARM64
-            OS: macOS
-            NAME: macOS/M1
-            RUNNER: macos-11-m1
-          - ARCH: x86_64
-            OS: macOS
-            NAME: macOS/x86_64
-            RUNNER: macos-11
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
             MAKEBUILDFLAGS: -DLUA_USE_ASSERT -DLUA_USE_APICHECK
@@ -70,10 +54,10 @@ jobs:
             GC64: OFF
           - OS: macOS
             GC64: OFF
-    runs-on: [self-hosted, '${{ matrix.RUNNER }}']
+    runs-on: [self-hosted, regular, '${{ matrix.OS }}', '${{ matrix.ARCH }}']
     name: >
       LuaJIT
-      (${{ matrix.NAME }})
+      (${{ matrix.OS }}/${{ matrix.ARCH }})
       ${{ matrix.BUILDTYPE }}
       GC64:${{ matrix.GC64 }}
     steps:
