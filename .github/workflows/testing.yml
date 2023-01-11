@@ -77,202 +77,45 @@ jobs:
         run: cmake --build . --parallel --target test
         working-directory: ${{ env.BUILDDIR }}
 
-  test-tarantool-linux-x86_64-debug-wo-GC64:
-    name: Tarantool (Linux/x86_64) Debug GC64:OFF
+
+  test-tarantool:
+    strategy:
+      fail-fast: false
+      matrix:
+        ARCH: [ARM64, x86_64]
+        BUILDTYPE: [Debug, Release]
+        GC64: [ON, OFF]
+        OS: [Linux, macOS]
+        include:
+          - BUILDTYPE: Debug
+            CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug
+          - BUILDTYPE: Release
+            CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        exclude:
+          - ARCH: ARM64
+            GC64: OFF
+          - OS: macOS
+            GC64: OFF
+    name: >
+      Tarantool
+      (${{ matrix.OS }}/${{ matrix.ARCH }})
+      ${{ matrix.BUILDTYPE }}
+      GC64:${{ matrix.GC64 }}
     needs: test-luajit
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
         -G Ninja
-        -DCMAKE_BUILD_TYPE=Debug
-        -DLUAJIT_ENABLE_GC64=OFF
+        ${{ matrix.CMAKEFLAGS }}
+        -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
       # FIXME: This parameter is obsolete, drop it when
       # CMAKE_EXTRA_PARAMS is activated.
-      GC64: OFF
+      GC64: ${{ matrix.GC64 }}
+      arch: ${{ matrix.ARCH }}
       # FIXME: This parameter is obsolete, drop it when
       # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: Debug
-      host: ubuntu-20.04-self-hosted
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-linux-x86_64-debug-w-GC64:
-    name: Tarantool (Linux/x86_64) Debug GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=Debug
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: Debug
-      host: ubuntu-20.04-self-hosted
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-linux-x86_64-release-wo-GC64:
-    name: Tarantool (Linux/x86_64) Release GC64:OFF
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
-        -DLUAJIT_ENABLE_GC64=OFF
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: OFF
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: RelWithDebInfo
-      host: ubuntu-20.04-self-hosted
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-linux-x86_64-release-w-GC64:
-    name: Tarantool (Linux/x86_64) Release GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: RelWithDebInfo
-      host: ubuntu-20.04-self-hosted
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-linux-aarch64-debug-w-GC64:
-    name: Tarantool (Linux/aarch64) Debug GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=Debug
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: Debug
-      host: graviton
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-linux-aarch64-release-w-GC64:
-    name: Tarantool (Linux/aarch64) Release GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: RelWithDebInfo
-      host: graviton
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-macos-x86_64-debug-w-GC64:
-    name: Tarantool (macOS/x86_64) Debug GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=Debug
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: Debug
-      host: macos-11
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-macos-x86_64-release-w-GC64:
-    name: Tarantool (macOS/x86_64) Release GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: RelWithDebInfo
-      host: macos-11
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-macos-m1-debug-w-GC64:
-    name: Tarantool (macOS/M1) Debug GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=Debug
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: Debug
-      host: macos-11-m1
-      # XXX: Quotes are mandatory, otherwise the trailing zero is
-      # stripped and the branch is mischosen as a result.
-      release: '2.10'
-      revision: ${{ github.sha }}
-  test-tarantool-macos-m1-release-w-GC64:
-    name: Tarantool (macOS/M1) Release GC64:ON
-    needs: test-luajit
-    uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
-    with:
-      CMAKE_EXTRA_PARAMS: >
-        -G Ninja
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
-        -DLUAJIT_ENABLE_GC64=ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      GC64: ON
-      # FIXME: This parameter is obsolete, drop it when
-      # CMAKE_EXTRA_PARAMS is activated.
-      buildtype: RelWithDebInfo
-      host: macos-11-m1
+      buildtype: ${{ matrix.BUILDTYPE }}
+      os: ${{ matrix.OS }}
       # XXX: Quotes are mandatory, otherwise the trailing zero is
       # stripped and the branch is mischosen as a result.
       release: '2.10'
