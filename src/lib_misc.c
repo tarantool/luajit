@@ -209,7 +209,7 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, in
   {
     cTValue *interval = lj_tab_getstr(options, lj_str_newlit(L, "interval"));
     opt->interval = SYSPROF_DEFAULT_INTERVAL;
-    if (interval && tvisnum(interval)) {
+    if (interval && tvisnumber(interval)) {
       int32_t signed_interval = numberVint(interval);
       if (signed_interval < 1)
         return PROFILE_ERRUSE;
