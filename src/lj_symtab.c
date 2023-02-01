@@ -53,16 +53,7 @@ void lj_symtab_dump_trace(struct lj_wbuf *out, const GCtrace *trace)
   lj_wbuf_addu64(out, (uint64_t)lineno);
 }
 
-#else
-
-static void lj_symtab_dump_trace(struct lj_wbuf *out, const GCtrace *trace)
-{
-  UNUSED(out);
-  UNUSED(trace);
-  lua_assert(0);
-}
-
-#endif
+#endif /* LJ_HASJIT */
 
 void lj_symtab_dump_proto(struct lj_wbuf *out, const GCproto *pt)
 {
@@ -491,11 +482,13 @@ void lj_symtab_dump(struct lj_wbuf *out, const struct global_State *g,
       lj_symtab_dump_proto(out, pt);
       break;
     }
+#if LJ_HASJIT
     case (~LJ_TTRACE): {
       lj_wbuf_addbyte(out, SYMTAB_TRACE);
       lj_symtab_dump_trace(out, gco2trace(o));
       break;
     }
+#endif /* LJ_HASJIT */
     default:
       break;
     }

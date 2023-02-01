@@ -369,6 +369,8 @@ void lj_memprof_add_proto(const struct GCproto *pt)
   lj_symtab_dump_proto(&mp->out, pt);
 }
 
+#if LJ_HASJIT
+
 void lj_memprof_add_trace(const struct GCtrace *tr)
 {
   struct memprof *mp = &memprof;
@@ -379,6 +381,8 @@ void lj_memprof_add_trace(const struct GCtrace *tr)
   lj_wbuf_addbyte(&mp->out, AEVENT_SYMTAB | ASOURCE_TRACE);
   lj_symtab_dump_trace(&mp->out, tr);
 }
+
+#endif /* LJ_HASJIT */
 
 #else /* LJ_HASMEMPROF */
 
@@ -399,11 +403,6 @@ int lj_memprof_stop(struct lua_State *L)
 void lj_memprof_add_proto(const struct GCproto *pt)
 {
   UNUSED(pt);
-}
-
-void lj_memprof_add_trace(const struct GCtrace *tr)
-{
-  UNUSED(tr);
 }
 
 #endif /* LJ_HASMEMPROF */
