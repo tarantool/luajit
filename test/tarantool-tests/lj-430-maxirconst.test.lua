@@ -1,5 +1,6 @@
 local tap = require('tap')
 local test = tap.test('lj-430-maxirconst'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
 })
 

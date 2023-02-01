@@ -9,8 +9,6 @@ test:plan(2)
 
 local testsysprof = require("testsysprof")
 
-local jit = require('jit')
-
 jit.off()
 
 test:ok(testsysprof.base())

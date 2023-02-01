@@ -1,6 +1,8 @@
 local tap = require('tap')
+local test = tap.test('lj-375-ir-bufput-signed-char'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('lj-375-ir-bufput-signed-char')
 -- XXX: Number of loop iterations.
 -- 1 -- instruction becomes hot
 -- 2, 3 -- trace is recorded (considering loop recording

@@ -1,6 +1,8 @@
 local tap = require('tap')
+local test = tap.test('lj-556-fix-loop-realignment'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('lj-556-fix-loop-realignment')
 test:plan(1)
 
 -- Test file to demonstrate JIT misbehaviour for loop realignment

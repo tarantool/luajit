@@ -8,7 +8,9 @@ local test = tap.test("misc-sysprof-lapi"):skipcond({
 test:plan(19)
 
 jit.off()
-jit.flush()
+-- XXX: Run JIT tuning functions in a safe frame to avoid errors
+-- thrown when LuaJIT is compiled with JIT engine disabled.
+pcall(jit.flush)
 
 local bufread = require("utils.bufread")
 local symtab = require("utils.symtab")
@@ -127,5 +129,4 @@ check_mode("C", 100)
 
 os.remove(TMP_BINFILE)
 
-jit.on()
 os.exit(test:check() and 0 or 1)

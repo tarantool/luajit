@@ -1,9 +1,11 @@
 local tap = require('tap')
-
 -- Test file to demonstrate incorrect stitching behaviour
 -- in vmevent handler.
 -- See also https://github.com/tarantool/tarantool/issues/6782.
-local test = tap.test('gh-6782-stitching-in-vmevent-handler')
+local test = tap.test('gh-6782-stitching-in-vmevent-handler'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
+
 test:plan(1)
 
 -- Just dump bytecodes is enough.

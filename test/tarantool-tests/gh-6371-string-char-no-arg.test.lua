@@ -1,10 +1,11 @@
 local tap = require('tap')
-
 -- Test file to demonstrate assertion after `string.char()`
 -- recording.
 -- See also, https://github.com/tarantool/tarantool/issues/6371.
+local test = tap.test('gh-6371-string-char-no-arg'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('gh-6371-string-char-no-arg')
 -- XXX: Number of loop iterations.
 -- * 1 -- instruction becomes hot.
 -- * 2 -- recording of the loop body.

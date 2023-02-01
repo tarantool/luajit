@@ -1,9 +1,11 @@
 local tap = require('tap')
-
 -- Test file to demonstrate the incorrect JIT behaviour for HREFK
 -- IR compilation on arm64.
 -- See also https://github.com/LuaJIT/LuaJIT/issues/357.
-local test = tap.test('lj-357-arm64-hrefk')
+local test = tap.test('lj-357-arm64-hrefk'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
+
 test:plan(2)
 
 jit.opt.start('hotloop=1', 'hotexit=1')

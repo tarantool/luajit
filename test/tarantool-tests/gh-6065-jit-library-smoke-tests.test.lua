@@ -1,6 +1,8 @@
 local tap = require('tap')
+local test = tap.test('gh-6065-jit-library-smoke-tests'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('gh-6065-jit-library-smoke-tests')
 test:plan(1)
 
 -- Just check whether LuaJIT is built with JIT support. Otherwise,

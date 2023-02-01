@@ -1,6 +1,8 @@
 local tap = require('tap')
+local test = tap.test('lj-584-bad-renames-for-sunk-values'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('lj-584-bad-renames-for-sunk-values')
 test:plan(1)
 
 -- Test file to demonstrate LuaJIT assembler misbehaviour.

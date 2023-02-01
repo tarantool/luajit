@@ -1,12 +1,13 @@
 local tap = require('tap')
-local ffi = require('ffi')
-
-local test = tap.test('fix-fold-simplify-conv-sext')
+local test = tap.test('fix-fold-simplify-conv-sext'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
 local NSAMPLES = 4
 local NTEST = NSAMPLES * 2 - 1
 test:plan(NTEST)
 
+local ffi = require('ffi')
 local samples = ffi.new('int [?]', NSAMPLES)
 
 -- Prepare data.

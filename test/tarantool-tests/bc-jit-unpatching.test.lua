@@ -1,9 +1,11 @@
 local tap = require('tap')
-local utils = require('utils')
+local test = tap.test('bc-jit-unpatching'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('bc-jit-unpatching')
 test:plan(1)
 
+local utils = require('utils')
 -- Function with up-recursion.
 local function f(n)
   return n < 2 and n or f(n - 1) + f(n - 2)

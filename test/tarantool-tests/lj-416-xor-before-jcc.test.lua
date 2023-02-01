@@ -1,7 +1,8 @@
-local ffi = require('ffi')
 local tap = require('tap')
+local test = tap.test('lj-416-xor-before-jcc'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('lj-416-xor-before-jcc')
 test:plan(1)
 
 -- To reproduce this issue, we need:
@@ -30,6 +31,7 @@ test:plan(1)
 -- ucomisd and the jnb, thereby causing the jnb to do the wrong
 -- thing.
 
+local ffi = require('ffi')
 ffi.cdef[[
   int test_xor_func(int a, int b, int c, int d, int e, int f, void * g, int h);
 ]]

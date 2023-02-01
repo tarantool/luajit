@@ -1,8 +1,11 @@
-local libcur_L = require('libcur_L')
 local tap = require('tap')
+local test = tap.test('gh-6189-cur_L'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('gh-6189-cur_L')
 test:plan(1)
+
+local libcur_L = require('libcur_L')
 
 local function cbool(cond)
   if cond then

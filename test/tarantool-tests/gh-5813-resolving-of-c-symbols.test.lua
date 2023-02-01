@@ -8,7 +8,9 @@ local test = tap.test("gh-5813-resolving-of-c-symbols"):skipcond({
 test:plan(5)
 
 jit.off()
-jit.flush()
+-- XXX: Run JIT tuning functions in a safe frame to avoid errors
+-- thrown when LuaJIT is compiled with JIT engine disabled.
+pcall(jit.flush)
 
 local bufread = require "utils.bufread"
 local symtab = require "utils.symtab"
