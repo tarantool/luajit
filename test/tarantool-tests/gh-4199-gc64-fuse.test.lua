@@ -1,5 +1,6 @@
 local tap = require('tap')
 local test = tap.test('gh-4199-gc64-fuse'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
   ['Test requires GC64 mode enabled'] = not require('ffi').abi('gc64'),
 })
 

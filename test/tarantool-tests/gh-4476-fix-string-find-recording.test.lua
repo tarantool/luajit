@@ -1,6 +1,8 @@
 local tap = require('tap')
+local test = tap.test('gh-4476-fix-string-find-recording'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test("gh-4476-fix-string-find-recording")
 test:plan(1)
 
 local err = [[module 'kit.1.10.3-136' not found:

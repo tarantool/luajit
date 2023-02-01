@@ -40,6 +40,7 @@ recursive_f()
 test:ok(true)
 
 test:skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
   -- XXX: The different amount of stack slots is in-use for
   -- Tarantool at start, so just skip test for it.

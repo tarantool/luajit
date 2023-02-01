@@ -1,12 +1,14 @@
 local tap = require('tap')
-local traceinfo = require('jit.util').traceinfo
-
 -- Test file to demonstrate the incorrect GC64 JIT asembling
 -- `IR_SLOAD`.
 -- See also https://github.com/LuaJIT/LuaJIT/pull/350.
-local test = tap.test('lj-350-sload-typecheck')
+local test = tap.test('lj-350-sload-typecheck'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
 test:plan(1)
+
+local traceinfo = require('jit.util').traceinfo
 
 -- Contains only IR_SLOAD after recording.
 local function sload(arg)

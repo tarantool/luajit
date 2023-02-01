@@ -1,7 +1,9 @@
 -- luacheck: globals a0 a1
 local tap = require('tap')
+local test = tap.test('fix-slot-check-for-mm-record'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test('fix-slot-check-for-mm-record')
 test:plan(1)
 
 -- Before the patch, JIT compiler doesn't check slots overflow

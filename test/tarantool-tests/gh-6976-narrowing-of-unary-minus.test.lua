@@ -1,5 +1,8 @@
 local tap = require('tap')
-local test = tap.test('gh-6976-narrowing-of-unary-minus')
+local test = tap.test('gh-6976-narrowing-of-unary-minus'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
+
 test:plan(2)
 
 jit.opt.start('hotloop=1')

@@ -1,17 +1,18 @@
-local ffi = require('ffi')
 local tap = require('tap')
-
 -- Test file to demonstrate the incorrect JIT recording for
 -- `tonumber()` function with cdata argument for failed
 -- conversions.
 -- See also https://github.com/LuaJIT/LuaJIT/issues/408,
 -- https://github.com/LuaJIT/LuaJIT/pull/412,
 -- https://github.com/tarantool/tarantool/issues/7655.
-local test = tap.test('lj-408-tonumber-cdata-record')
-
-local NULL = ffi.cast('void *', 0)
+local test = tap.test('lj-408-tonumber-cdata-record'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
 test:plan(4)
+
+local ffi = require('ffi')
+local NULL = ffi.cast('void *', 0)
 
 local function check(x)
   -- Don't use a tail call to avoid "leaving loop in root trace"

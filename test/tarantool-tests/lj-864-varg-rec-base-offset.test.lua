@@ -1,10 +1,12 @@
 local tap = require('tap')
-
 -- Test file to demonstrate LuaJIT misbehaviour during recording
 -- BC_VARG with nvarargs >= nresults in GC64 mode.
 -- See also https://github.com/LuaJIT/LuaJIT/issues/864,
 -- https://github.com/tarantool/tarantool/issues/7172.
-local test = tap.test('lj-864-varg-rec-base-offset')
+local test = tap.test('lj-864-varg-rec-base-offset'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
+
 test:plan(1)
 
 jit.opt.start('hotloop=1')

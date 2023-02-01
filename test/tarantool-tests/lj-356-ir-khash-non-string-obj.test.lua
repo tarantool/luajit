@@ -1,16 +1,19 @@
 local tap = require('tap')
-local traceinfo = require('jit.util').traceinfo
-local table_new = require('table.new')
-
 -- Test file to demonstrate the incorrect GC64 JIT behaviour
 -- of an `IR_HREF` for the on-trace-constant key lookup.
 -- See also https://github.com/LuaJIT/LuaJIT/pull/356.
-local test = tap.test('lj-356-ir-khash-non-string-obj')
+local test = tap.test('lj-356-ir-khash-non-string-obj'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
+
 local N_ITERATIONS = 4
 
 -- Amount of iteration for trace compilation and execution and
 -- additional check, that there is no new trace compiled.
 test:plan(N_ITERATIONS + 1)
+
+local traceinfo = require('jit.util').traceinfo
+local table_new = require('table.new')
 
 -- To reproduce the issue we need to compile a trace with
 -- `IR_HREF`, with a lookup of constant hash key GC value. To

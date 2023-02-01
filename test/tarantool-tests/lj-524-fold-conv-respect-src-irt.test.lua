@@ -1,9 +1,11 @@
 local tap = require('tap')
-local ffi = require('ffi')
+local test = tap.test('or-524-fold-icorrect-behavior'):skipcond({
+  ['Test requires JIT enabled'] = not jit.status(),
+})
 
-local test = tap.test("or-524-fold-icorrect-behavior")
 test:plan(1)
 
+local ffi = require('ffi')
 -- Test file to demonstrate LuaJIT folding machinery incorrect behaviour,
 -- details:
 --     https://github.com/LuaJIT/LuaJIT/issues/524
