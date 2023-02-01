@@ -60,10 +60,12 @@
 #define SYMTAB_TRACE ((uint8_t)2)
 #define SYMTAB_FINAL ((uint8_t)0x80)
 
+#if LJ_HASJIT
 /*
 ** Dumps traceinfo into the symbol table.
 */
 void lj_symtab_dump_trace(struct lj_wbuf *out, const GCtrace *trace);
+#endif /* LJ_HASJIT */
 
 /*
 ** Dumps function prototype.
