@@ -81,14 +81,6 @@ function M.makecmd(arg, opts)
   })
 end
 
-function M.skipcond(condition, message)
-  if not condition then return end
-  local test = tap.test(arg[0]:match('/?(.+)%.test%.lua'))
-  test:plan(1)
-  test:skip(message)
-  os.exit(test:check() and 0 or 1)
-end
-
 function M.hasbc(f, bytecode)
   assert(type(f) == 'function', 'argument #1 should be a function')
   assert(type(bytecode) == 'string', 'argument #2 should be a string')

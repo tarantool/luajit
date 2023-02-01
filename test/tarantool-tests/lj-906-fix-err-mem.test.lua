@@ -1,12 +1,12 @@
 local tap = require('tap')
+local test = tap.test('lj-906-fix-err-mem'):skipcond({
+  ['Test requires GC64 mode disabled'] = require('ffi').abi('gc64'),
+})
+
+test:plan(1)
+
 local ffi = require('ffi')
 local table_new = require('table.new')
-
--- Avoid test to be killed.
-require('utils').skipcond(ffi.abi('gc64'), 'test is not GC64 only')
-
-local test = tap.test('lj-906-fix-err-mem')
-test:plan(1)
 
 local KB = 1024
 local MB = 1024 * KB

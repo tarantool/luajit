@@ -327,6 +327,16 @@ local function check(test)
   return test.planned == test.total and test.failed == 0
 end
 
+local function skipcond(test, conditions)
+  for reason, condition in pairs(conditions) do
+    if condition then
+      local skipfunc = test.planned and skiprest or skipall
+      skipfunc(test, reason)
+    end
+  end
+  return test
+end
+
 test_mt = {
   __index = {
     test       = new,
@@ -338,6 +348,7 @@ test_mt = {
     skip       = skip,
     skipall    = skipall,
     skiprest   = skiprest,
+    skipcond   = skipcond,
     is         = is,
     isnt       = isnt,
     isnil      = isnil,

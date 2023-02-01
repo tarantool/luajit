@@ -1,10 +1,11 @@
--- The test is GC64 only.
-local ffi = require('ffi')
-require('utils').skipcond(not ffi.abi('gc64'), 'test is GC64 only')
-
 local tap = require('tap')
-local test = tap.test('gh-4199-gc64-fuse')
+local test = tap.test('gh-4199-gc64-fuse'):skipcond({
+  ['Test requires GC64 mode enabled'] = not require('ffi').abi('gc64'),
+})
+
 test:plan(1)
+
+local ffi = require('ffi')
 
 collectgarbage()
 -- Chomp memory in currently allocated GC space.

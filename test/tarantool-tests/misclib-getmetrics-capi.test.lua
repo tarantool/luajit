@@ -1,23 +1,21 @@
-local utils = require('utils')
+local tap = require('tap')
+local test = tap.test("clib-misc-getmetrics"):skipcond({
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
+})
 
--- Disabled on *BSD due to #4819.
-utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
+test:plan(11)
 
 local path = arg[0]:gsub('%.test%.lua', '')
 local suffix = package.cpath:match('?.(%a+);')
 package.cpath = ('%s/?.%s;'):format(path, suffix)..package.cpath
 
+local MAXNINS = require('utils').const.maxnins
 local jit_opt_default = {
     3, -- level
     "hotloop=56",
     "hotexit=10",
     "minstitch=0",
 }
-
-local tap = require('tap')
-
-local test = tap.test("clib-misc-getmetrics")
-test:plan(11)
 
 local testgetmetrics = require("testgetmetrics")
 
@@ -96,8 +94,7 @@ end))
 
 -- Compiled loop with a side exit which does not get compiled.
 test:ok(testgetmetrics.snap_restores(function()
-    jit.opt.start(0, "hotloop=1", "hotexit=2",
-                  ("minstitch=%d"):format(utils.const.maxnins))
+    jit.opt.start(0, "hotloop=1", "hotexit=2", ("minstitch=%d"):format(MAXNINS))
 
     local function foo(i)
         -- math.fmod is not yet compiled!

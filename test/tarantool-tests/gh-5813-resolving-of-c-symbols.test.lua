@@ -1,14 +1,10 @@
--- Memprof is implemented for x86 and x64 architectures only.
-local utils = require("utils")
-
-utils.skipcond(
-  jit.arch ~= "x86" and jit.arch ~= "x64" or jit.os ~= "Linux",
-  jit.arch.." architecture or "..jit.os..
-  " OS is NIY for memprof c symbols resolving"
-)
-
 local tap = require("tap")
-local test = tap.test("gh-5813-resolving-of-c-symbols")
+local test = tap.test("gh-5813-resolving-of-c-symbols"):skipcond({
+  ["Memprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
+                                               jit.arch ~= "x64",
+  ["Memprof is implemented for Linux only"] = jit.os ~= "Linux",
+})
+
 test:plan(5)
 
 jit.off()
@@ -19,8 +15,9 @@ local symtab = require "utils.symtab"
 local testboth = require "resboth"
 local testhash = require "reshash"
 local testgnuhash = require "resgnuhash"
+local profilename = require("utils").profilename
 
-local TMP_BINFILE = utils.profilename("memprofdata.tmp.bin")
+local TMP_BINFILE = profilename("memprofdata.tmp.bin")
 
 local function tree_contains(node, name)
   if node == nil then

@@ -1,12 +1,12 @@
--- Disabled on *BSD due to #4819.
-require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
+local tap = require('tap')
+local test = tap.test('lj-672-cdata-allocation-recording'):skipcond({
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
+})
+
+test:plan(1)
 
 local ffi = require('ffi')
 local traceinfo = require('jit.util').traceinfo
-
-local tap = require('tap')
-local test = tap.test('lj-672-cdata-allocation-recording')
-test:plan(1)
 
 -- Structure with array.
 ffi.cdef('struct my_struct {int a; char d[8];}')

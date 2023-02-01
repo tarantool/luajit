@@ -1,20 +1,17 @@
--- Sysprof is implemented for x86 and x64 architectures only.
-local utils = require("utils")
-utils.skipcond(
-  jit.arch ~= "x86" and jit.arch ~= "x64" or jit.os ~= "Linux",
-  jit.arch.." architecture or "..jit.os..
-  " OS is NIY for sysprof"
-)
+local tap = require("tap")
+local test = tap.test("clib-misc-sysprof"):skipcond({
+  ["Sysprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
+                                               jit.arch ~= "x64",
+  ["Sysprof is implemented for Linux only"] = jit.os ~= "Linux",
+})
+
+test:plan(2)
 
 local testsysprof = require("testsysprof")
 
-local tap = require("tap")
 local jit = require('jit')
 
 jit.off()
-
-local test = tap.test("clib-misc-sysprof")
-test:plan(2)
 
 test:ok(testsysprof.base())
 test:ok(testsysprof.validation())
