@@ -1,11 +1,11 @@
--- Disabled on *BSD due to #4819.
-require('utils').skipcond(jit.os == 'BSD', 'Disabled due to #4819')
-
 local tap = require('tap')
-local traceinfo = require('jit.util').traceinfo
+local test = tap.test('lj-430-maxirconst'):skipcond({
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
+})
 
-local test = tap.test('lj-430-maxirconst')
 test:plan(2)
+
+local traceinfo = require('jit.util').traceinfo
 
 -- This function has only 3 IR constant.
 local function irconst3()

@@ -1,14 +1,13 @@
--- Memprof is implemented for x86 and x64 architectures only.
-local utils = require("utils")
-
-utils.skipcond(
-  jit.arch ~= "x86" and jit.arch ~= "x64",
-  jit.arch.." architecture is NIY for memprof"
-)
-
+-- XXX: This comment is a reminder to reimplement memprof tests
+-- assertions to make them more indepentent to the changes made.
+-- Now I just leave this 3 lines comment to preserve line numbers.
 local tap = require("tap")
+local test = tap.test("misc-memprof-lapi"):skipcond({
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
+  ["Memprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
+                                               jit.arch ~= "x64",
+})
 
-local test = tap.test("misc-memprof-lapi")
 test:plan(5)
 
 local jit_opt_default = {
@@ -27,9 +26,10 @@ local bufread = require "utils.bufread"
 local memprof = require "memprof.parse"
 local process = require "memprof.process"
 local symtab = require "utils.symtab"
+local profilename = require("utils").profilename
 
-local TMP_BINFILE = utils.profilename("memprofdata.tmp.bin")
-local BAD_PATH = utils.profilename("memprofdata/tmp.bin")
+local TMP_BINFILE = profilename("memprofdata.tmp.bin")
+local BAD_PATH = profilename("memprofdata/tmp.bin")
 local SRC_PATH = "@"..arg[0]
 
 local function default_payload()
@@ -267,12 +267,6 @@ end)
 jit.on()
 
 test:test("jit-output", function(subtest)
-  -- Disabled on *BSD due to #4819.
-  if jit.os == 'BSD' then
-    subtest:plan(1)
-    subtest:skip('Disabled due to #4819')
-    return
-  end
 
   subtest:plan(4)
 

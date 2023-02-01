@@ -1,14 +1,10 @@
--- Sysprof is implemented for x86 and x64 architectures only.
-local utils = require("utils")
-utils.skipcond(
-  jit.arch ~= "x86" and jit.arch ~= "x64" or jit.os ~= "Linux",
-  jit.arch.." architecture or "..jit.os..
-  " OS is NIY for sysprof"
-)
-
 local tap = require("tap")
+local test = tap.test("misc-sysprof-lapi"):skipcond({
+  ["Sysprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
+                                               jit.arch ~= "x64",
+  ["Sysprof is implemented for Linux only"] = jit.os ~= "Linux",
+})
 
-local test = tap.test("misc-sysprof-lapi")
 test:plan(19)
 
 jit.off()
@@ -17,9 +13,10 @@ jit.flush()
 local bufread = require("utils.bufread")
 local symtab = require("utils.symtab")
 local sysprof = require("sysprof.parse")
+local profilename = require("utils").profilename
 
-local TMP_BINFILE = utils.profilename("sysprofdata.tmp.bin")
-local BAD_PATH = utils.profilename("sysprofdata/tmp.bin")
+local TMP_BINFILE = profilename("sysprofdata.tmp.bin")
+local BAD_PATH = profilename("sysprofdata/tmp.bin")
 
 local function payload()
   local function fib(n)

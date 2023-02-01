@@ -1,16 +1,13 @@
-local utils = require('utils')
-
--- Disabled on *BSD due to #4819.
-utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
-
 local tap = require('tap')
+local test = tap.test('lj-flush-on-trace'):skipcond({
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
+})
 
-local test = tap.test('lj-flush-on-trace')
 test:plan(2)
 
 -- <makecmd> runs %testname%/script.lua by <LUAJIT_TEST_BINARY>
 -- with the given environment, launch options and CLI arguments.
-local script = utils.makecmd(arg, {
+local script = require('utils').makecmd(arg, {
   -- XXX: Apple tries their best to "protect their users from
   -- malware". As a result SIP (see the link[1] below) has been
   -- designed and released. Now, Apple developers are so

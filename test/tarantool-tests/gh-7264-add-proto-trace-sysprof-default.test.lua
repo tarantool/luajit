@@ -1,13 +1,10 @@
--- Sysprof is implemented for x86 and x64 architectures only.
-require('utils').skipcond(
-  jit.arch ~= 'x86' and jit.arch ~= 'x64' or jit.os ~= 'Linux'
-    or require('ffi').abi('gc64'),
-  jit.arch..' architecture or '..jit.os..
-  ' OS is NIY for sysprof'
-)
-
 local tap = require('tap')
-local test = tap.test('gh-7264-add-proto-trace-sysprof-default.test.lua')
+local test = tap.test('gh-7264-add-proto-trace-sysprof-default'):skipcond({
+  ['Sysprof is implemented for x86_64 only'] = jit.arch ~= 'x86' and
+                                               jit.arch ~= 'x64',
+  ['Sysprof is implemented for Linux only'] = jit.os ~= 'Linux',
+})
+
 test:plan(2)
 
 local chunk = [[

@@ -1,9 +1,9 @@
 local tap = require('tap')
-
 -- Test to demonstrate the incorrect JIT behaviour when an error
 -- is raised on restoration from the snapshot.
 -- See also https://github.com/LuaJIT/LuaJIT/issues/603.
-local test = tap.test('lj-603-err-snap-restore.test.lua')
+local test = tap.test('lj-603-err-snap-restore')
+
 test:plan(2)
 
 -- XXX: This is fragile. We need a specific amount of Lua stack
@@ -38,11 +38,16 @@ end
 recursive_f()
 
 test:ok(true)
--- Disabled on *BSD due to #4819.
--- XXX: The different amount of stack slots is in-use for
--- Tarantool at start, so just skip test for it.
--- luacheck: no global
-test:ok(jit.os == 'BSD' or _TARANTOOL or not handler_is_called)
+
+test:skipcond({
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
+  -- XXX: The different amount of stack slots is in-use for
+  -- Tarantool at start, so just skip test for it.
+  -- luacheck: no global
+  ['Disable test for Tarantool'] = _TARANTOOL,
+})
+
+test:ok(not handler_is_called)
 
 -- XXX: Don't use `os.exit()` here by intention. When error on
 -- snap restoration is raised, `err_unwind()` doesn't stop on
