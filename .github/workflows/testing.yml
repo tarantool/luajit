@@ -105,7 +105,6 @@ jobs:
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
-        -G Ninja
         ${{ matrix.CMAKEFLAGS }}
         -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
       # FIXME: This parameter is obsolete, drop it when
