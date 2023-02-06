@@ -29,11 +29,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-x86_64-exotic:
+  test-exotic:
     strategy:
       fail-fast: false
       matrix:
         BUILDTYPE: [Debug, Release]
+        ARCH: [ARM64, x86_64]
         GC64: [ON, OFF]
         FLAVOR: [dualnum]
         include:
@@ -43,10 +44,14 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
           - FLAVOR: dualnum
             FLAVORFLAGS: -DLUAJIT_NUMMODE=2
-    runs-on: [self-hosted, regular, Linux, x86_64]
+        exclude:
+          # DUALNUM is default for ARM64, no need for additional testing.
+          - FLAVOR: dualnum
+            ARCH: ARM64
+    runs-on: [self-hosted, regular, Linux, '${{ matrix.ARCH }}']
     name: >
       LuaJIT ${{ matrix.FLAVOR }}
-      (Linux/x86_64)
+      (Linux/${{ matrix.ARCH }})
       ${{ matrix.BUILDTYPE }}
       GC64:${{ matrix.GC64 }}
     steps:
