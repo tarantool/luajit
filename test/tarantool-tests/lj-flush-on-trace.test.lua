@@ -3,51 +3,62 @@ local utils = require('utils')
 -- Disabled on *BSD due to #4819.
 utils.skipcond(jit.os == 'BSD', 'Disabled due to #4819')
 
-utils.selfrun(arg, {
-  {
-    arg = {
-      1, -- hotloop (arg[1])
-      1, -- trigger (arg[2])
-    },
-    msg = 'Trace is aborted',
-    res = 'OK',
-    test = 'is',
-  },
-  {
-    arg = {
-      1, -- hotloop (arg[1])
-      2, -- trigger (arg[2])
-    },
-    msg = 'Trace is recorded',
-    res = 'JIT mode change is detected while executing the trace',
-    test = 'like',
-  },
+local tap = require('tap')
+
+local test = tap.test('lj-flush-on-trace')
+test:plan(2)
+
+-- <makecmd> runs %testname%/script.lua by <LUAJIT_TEST_BINARY>
+-- with the given environment, launch options and CLI arguments.
+local script = utils.makecmd(arg, {
+  -- XXX: Apple tries their best to "protect their users from
+  -- malware". As a result SIP (see the link[1] below) has been
+  -- designed and released. Now, Apple developers are so
+  -- protected, that they can load nothing being not installed in
+  -- the system, since the environment is sanitized before the
+  -- child process is launched. In particular, environment
+  -- variables starting with DYLD_ and LD_ are unset for child
+  -- process. For more info, see the docs[2] below.
+  --
+  -- The environment variable below is used by FFI machinery to
+  -- find the proper shared library.
+  --
+  -- luacheck: push no max comment line length
+  --
+  -- [1]: https://support.apple.com/en-us/HT204899
+  -- [2]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/RuntimeProtections/RuntimeProtections.html
+  --
+  -- luacheck: pop
+  env = { DYLD_LIBRARY_PATH = os.getenv('DYLD_LIBRARY_PATH') },
+  redirect = '2>&1',
 })
-
------ Test payload. ----------------------------------------------
-
-local cfg = {
-  hotloop = arg[1] or 1,
-  trigger = arg[2] or 1,
-}
-
-local ffi = require('ffi')
-local ffiflush = ffi.load('libflush')
-ffi.cdef('void flush(struct flush *state, int i)')
-
--- Save the current coroutine and set the value to trigger
--- <flush> call the Lua routine instead of C implementation.
-local flush = require('libflush')(cfg.trigger)
 
 -- Depending on trigger and hotloop values the following contexts
 -- are possible:
 -- * if trigger <= hotloop -> trace recording is aborted
 -- * if trigger >  hotloop -> trace is recorded but execution
 --   leads to panic
-jit.opt.start("3", string.format("hotloop=%d", cfg.hotloop))
+local hotloop = 1
+local cases = {
+  abort = {
+    trigger = hotloop,
+    expected = 'LJ flush still works',
+    test = 'is',
+    message = 'Trace is aborted',
+  },
+  panic = {
+    trigger = hotloop + 1,
+    expected = 'JIT mode change is detected while executing the trace',
+    test = 'like',
+    message = 'Trace is compiled',
+  },
+}
 
-for i = 0, cfg.trigger + cfg.hotloop do
-  ffiflush.flush(flush, i)
+for _, subtest in pairs(cases) do
+  local output = script(hotloop, subtest.trigger)
+  -- XXX: explicitly pass <test> as an argument to <testf>
+  -- to emulate test:is(...), test:like(...), etc.
+  test[subtest.test](test, output, subtest.expected, subtest.message)
 end
--- Panic didn't occur earlier.
-print('OK')
+
+os.exit(test:check() and 0 or 1)

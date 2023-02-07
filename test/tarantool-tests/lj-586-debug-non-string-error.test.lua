@@ -8,7 +8,7 @@ test:plan(1)
 -- that testing the debug interactive interface always ends with
 -- sending commands to another instance via stdin. However, the
 -- module with test helpers lacks the suitable routine.
--- `utils.selfrun()` doesn't fit for this, since `debug.debug()`
+-- `utils.makecmd()` doesn't fit for this, since `debug.debug()`
 -- captures `io.stdin` and waits at `fgets()` in debug busy loop.
 -- As it's already mentioned, such tests are not usual, so there
 -- is no need to introduce a new helper to utils module (at least
