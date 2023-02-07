@@ -1,7 +1,6 @@
 local M = {}
 
 local ffi = require('ffi')
-local tap = require('tap')
 local bc = require('jit.bc')
 local bit = require('bit')
 
@@ -44,55 +43,42 @@ function M.luacmd(args)
   return table.concat(args, ' ', idx + 1, -1)
 end
 
-local function unshiftenv(variable, value, sep)
-  local envvar = os.getenv(variable)
-  return ('%s="%s%s"'):format(variable, value,
-                              envvar and ('%s%s'):format(sep, envvar) or '')
+local function makeenv(tabenv)
+  if tabenv == nil then return '' end
+  local flatenv = {}
+  for var, value in pairs(tabenv) do
+    table.insert(flatenv, ('%s=%s'):format(var, value))
+  end
+  return table.concat(flatenv, ' ')
 end
 
-function M.selfrun(arg, checks)
-  -- If TEST_SELFRUN is set, it means the test has been run via
-  -- <io.popen>, so just return from this routine and proceed
-  -- the execution to the test payload, ...
-  if os.getenv('TEST_SELFRUN') then return end
-
-  -- ... otherwise initialize <tap>, setup testing environment
-  -- and run this chunk via <io.popen> for each case in <checks>.
-  -- XXX: The function doesn't return back from this moment. It
-  -- checks whether all assertions are fine and exits.
-
-  local test = tap.test(arg[0]:match('/?(.+)%.test%.lua'))
-
-  test:plan(#checks)
-
-  local libext = package.cpath:match('?.(%a+);')
-  local vars = {
+-- <makecmd> creates a command that runs %testname%/script.lua by
+-- <LUAJIT_TEST_BINARY> with the given environment, launch options
+-- and CLI arguments. The function yields an object (i.e. table)
+-- with the aforementioned parameters. To launch the command just
+-- call the object.
+function M.makecmd(arg, opts)
+  return setmetatable({
     LUABIN = M.luacmd(arg),
-    SCRIPT = arg[0],
-    PATH   = arg[0]:gsub('%.test%.lua', ''),
-    SUFFIX = libext,
-    ENV = table.concat({
-      unshiftenv('LUA_PATH', '<PATH>/?.lua', ';'),
-      unshiftenv('LUA_CPATH', '<PATH>/?.<SUFFIX>', ';'),
-      unshiftenv((libext == 'dylib' and 'DYLD' or 'LD') .. '_LIBRARY_PATH',
-                 '<PATH>', ':'),
-      'TEST_SELFRUN=1',
-    }, ' '),
-  }
-
-  local cmd = string.gsub('<ENV> <LUABIN> 2>&1 <SCRIPT>', '%<(%w+)>', vars)
-
-  for _, ch in pairs(checks) do
-    local testf = test[ch.test]
-    assert(testf, ("tap doesn't provide test.%s function"):format(ch.test))
-    local proc = io.popen((cmd .. (' %s'):rep(#ch.arg)):format(unpack(ch.arg)))
-    local res = proc:read('*all'):gsub('^%s+', ''):gsub('%s+$', '')
-    -- XXX: explicitly pass <test> as an argument to <testf>
-    -- to emulate test:is(...), test:like(...), etc.
-    testf(test, res, ch.res, ch.msg)
-  end
-
-  os.exit(test:check() and 0 or 1)
+    SCRIPT = opts and opts.script or arg[0]:gsub('%.test%.lua$', '/script.lua'),
+    ENV = opts and makeenv(opts.env) or '',
+    REDIRECT = opts and opts.redirect or '',
+  }, {
+    __call = function(self, ...)
+      -- This line just makes the command for <io.popen> by the
+      -- following steps:
+      -- 1. Replace the placeholders with the corresponding values
+      --    given to the command constructor (e.g. script, env).
+      -- 2. Join all CLI arguments given to the __call metamethod.
+      -- 3. Concatenate the results of step 1 and step 2 to obtain
+      --    the resulting command.
+      local cmd = ('<ENV> <LUABIN> <REDIRECT> <SCRIPT>'):gsub('%<(%w+)>', self)
+                  .. (' %s'):rep(select('#', ...)):format(...)
+      -- Trim both leading and trailing whitespace from the output
+      -- produced by the child process.
+      return io.popen(cmd):read('*all'):gsub('^%s+', ''):gsub('%s+$', '')
+    end
+  })
 end
 
 function M.skipcond(condition, message)

@@ -1,4 +1,9 @@
-local utils = require('utils')
+local tap = require('tap')
+
+local test = tap.test('lj-351-print-tostring-number')
+test:plan(8)
+
+local script = require('utils').makecmd(arg)
 
 local cases = {
   {typename = 'nil', value = 'nil'},
@@ -15,27 +20,10 @@ local cases = {
   {typename = 'cdata', value = '1ULL'}
 }
 
-local checks = {}
-
-for i, case in pairs(cases) do
-  checks[i] = {
-    arg = {('"%s"'):format(case.value), case.typename},
-    msg = ('%s'):format(case.typename),
-    res = ('__tostring is reloaded for %s'):format(case.typename),
-    test = 'is',
-  }
+for _, subtest in pairs(cases) do
+  local output = script(('"%s"'):format(subtest.value), subtest.typename)
+  test:is(output, ('__tostring is reloaded for %s'):format(subtest.typename),
+          ('subtest is OK for %s type'):format(subtest.typename))
 end
 
-utils.selfrun(arg, checks)
-
------ Test payload. ----------------------------------------------
-
-local test = [[
-  local testvar = %s
-  debug.setmetatable(testvar, {__tostring = function(o)
-    return ('__tostring is reloaded for %s'):format(type(o))
-  end})
-  print(testvar)
-]]
-
-pcall(load(test:format(unpack(arg))))
+os.exit(test:check() and 0 or 1)
