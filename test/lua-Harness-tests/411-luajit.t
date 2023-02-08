@@ -37,7 +37,7 @@ if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
     skip_all("io.popen not supported")
 end
 
-local compiled_with_jit = jit.status()
+local compiled_with_jit = jit.opt ~= nil
 local has_jutil = pcall(require, 'jit.util')
 local has_openresty_listing = profile.openresty or jit.version:match'moonjit'
 

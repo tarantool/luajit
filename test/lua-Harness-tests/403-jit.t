@@ -31,7 +31,7 @@ if not jit then
     skip_all("only with LuaJIT")
 end
 
-local compiled_with_jit = jit.status()
+local compiled_with_jit = jit.opt ~= nil
 local luajit20 = jit.version_num < 20100 and not jit.version:match'RaptorJIT'
 local has_jit_opt = compiled_with_jit
 local has_jit_security = jit.security
