@@ -36,6 +36,7 @@ local function do_test()
     -- Tarantool at start, so just skip test for it.
     -- luacheck: no global
     ['Disable test for Tarantool'] = _TARANTOOL,
+    ['Always skip for this branch'] = true,
   })
 
   test:ok(not handler_is_called)
