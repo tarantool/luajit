@@ -1,14 +1,23 @@
 local M = {}
 
-function M.luacmd(args)
+local function executable_idx(args)
   -- arg[-1] is guaranteed to be not nil.
   local idx = -2
   while args[idx] do
     assert(type(args[idx]) == 'string', 'Command part have to be a string')
     idx = idx - 1
   end
-  -- return the full command with flags.
-  return table.concat(args, ' ', idx + 1, -1)
+  return idx + 1
+end
+
+function M.luabin(args)
+  -- Return only the executable.
+  return args[executable_idx(args)]
+end
+
+function M.luacmd(args)
+  -- Return the full command with flags.
+  return table.concat(args, ' ', executable_idx(args), -1)
 end
 
 local function makeenv(tabenv)
