@@ -101,6 +101,13 @@ local function skipall(test, reason)
   finalize(test)
 end
 
+local function skiprest(test, reason)
+  for _ = 1, test.planned - test.total do
+    test:skip(reason)
+  end
+  finalize(test)
+end
+
 local function like(test, got, pattern, message, extra)
   extra = extra or {}
   extra.got = got
@@ -330,6 +337,7 @@ test_mt = {
     fail       = fail,
     skip       = skip,
     skipall    = skipall,
+    skiprest   = skiprest,
     is         = is,
     isnt       = isnt,
     isnil      = isnil,
