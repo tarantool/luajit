@@ -7,6 +7,12 @@
 local ffi = require("ffi")
 local NULL = ffi.new("void *")
 
+local function finalize(test)
+  -- TODO: implement finalization for subtests too.
+  assert(test.parent == nil, 'FIXME: There is no way to use finalize subtest')
+  os.exit(test:check() and 0 or 1)
+end
+
 local function indent(level, size)
   -- Use the default indent size if none is specified.
   size = tonumber(size) or 4
@@ -88,6 +94,11 @@ end
 
 local function skip(test, message, extra)
   ok(test, true, message .. " # skip", extra)
+end
+
+local function skipall(test, reason)
+  test:plan(0, reason)
+  finalize(test)
 end
 
 local function like(test, got, pattern, message, extra)
@@ -246,7 +257,7 @@ local function new(parent, name, fun, ...)
     level   = level,
     total   = 0,
     failed  = 0,
-    planned = 0,
+    planned = nil,
     trace   = parent == nil and true or parent.trace,
     -- Set test.strict = true if test:is, test:isnt and
     -- test:is_deeply must be compared strictly with nil.
@@ -266,9 +277,14 @@ local function new(parent, name, fun, ...)
   return test:check()
 end
 
-local function plan(test, planned)
+local function plan(test, planned, reason)
+  if test.planned then
+    -- Use <plan> call location in the error message.
+    error("plan called twice", 2)
+  end
   test.planned = planned
-  io.write(indent(test.level), ("1..%d\n"):format(planned))
+  local tail = planned == 0 and (" # SKIP %s"):format(reason) or ""
+  io.write(indent(test.level), ("1..%d%s\n"):format(planned, tail))
 end
 
 local function check(test)
@@ -313,6 +329,7 @@ test_mt = {
     ok         = ok,
     fail       = fail,
     skip       = skip,
+    skipall    = skipall,
     is         = is,
     isnt       = isnt,
     isnil      = isnil,
