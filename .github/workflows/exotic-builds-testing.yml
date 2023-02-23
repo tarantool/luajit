@@ -74,5 +74,5 @@ jobs:
         run: cmake --build . --parallel
         working-directory: ${{ env.BUILDDIR }}
       - name: test
-        run: cmake --build . --parallel --target test
+        run: cmake --build . --parallel --target LuaJIT-test
         working-directory: ${{ env.BUILDDIR }}
