@@ -24,3 +24,4 @@ install_manifest.txt
 luajit-parse-memprof
 luajit-parse-sysprof
 luajit.pc
+*.c_test

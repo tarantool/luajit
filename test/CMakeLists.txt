@@ -48,12 +48,14 @@ separate_arguments(LUAJIT_TEST_COMMAND)
 add_subdirectory(LuaJIT-tests)
 add_subdirectory(PUC-Rio-Lua-5.1-tests)
 add_subdirectory(lua-Harness-tests)
+add_subdirectory(tarantool-c-tests)
 add_subdirectory(tarantool-tests)
 
 add_custom_target(${PROJECT_NAME}-test DEPENDS
   LuaJIT-tests
   PUC-Rio-Lua-5.1-tests
   lua-Harness-tests
+  tarantool-c-tests
   tarantool-tests
 )
 
