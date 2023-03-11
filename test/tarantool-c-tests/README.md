@@ -44,3 +44,29 @@ earlier:
 * `skip_all("reason")` -- skip the current group of tests.
 * `todo("reason")` -- skip the current test marking as TODO.
 * `bail_out("reason")` -- exit the entire process due to some emergency.
+
+## Testing with Lua source code
+
+Sometimes we need to test C API for modules, that show some Lua metrics (like
+`luaM_metrics` or sysprof). In these cases, the required Lua script should be
+named like the following: `<ctestname-script.lua>` and contains a table with a
+bunch of Lua functions named the same as the unit C test, that uses this
+function.
+
+```lua
+local M = {}
+M.base = function()
+  -- ...
+end
+
+M.test_simple = function()
+  -- ...
+end
+
+return M
+```
+
+The script is loaded via `utils_load_aux_script(L, script_name)`. It loads the
+file and place the table with functions at the top of Lua stack. Each function
+is get from the table via `utils_get_aux_lfunc(L)` helper in the corresponding
+test.
