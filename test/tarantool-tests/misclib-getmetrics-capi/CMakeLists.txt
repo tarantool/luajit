@@ -1,1 +1,0 @@
-BuildTestCLib(testgetmetrics testgetmetrics.c)

@@ -325,6 +325,8 @@ if(NOT BUILDMODE STREQUAL "dynamic")
   set(LUAJIT_BIN luajit_static)
   set(LUAJIT_LIB libluajit_static)
 endif()
+# Need for the test linking, so the PARENT_SCOPE option is used.
+set(LUAJIT_LIBRARY ${LUAJIT_LIB} PARENT_SCOPE)
 set(LIBLUAJIT_DEPS ${LIBLUAJIT_STATIC_DEPS} ${LIBLUAJIT_SHARED_DEPS})
 
 add_executable(${LUAJIT_BIN} EXCLUDE_FROM_ALL ${CLI_SOURCES})
