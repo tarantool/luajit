@@ -26,6 +26,9 @@ set_target_properties(libtest PROPERTIES
 # lj_arch.h in compiled test are consistent with the LuaJIT library
 # to link.
 AppendFlags(TESTS_C_FLAGS ${TARGET_C_FLAGS})
+# Use directory for absolute path to the Lua script helper. So,
+# test binary can be run from any directory.
+AppendFlags(TESTS_C_FLAGS "-D__LJ_TEST_DIR__='\"${CMAKE_CURRENT_SOURCE_DIR}\"'")
 
 set(CTEST_SRC_SUFFIX ".test.c")
 file(GLOB tests "${CMAKE_CURRENT_SOURCE_DIR}/*${CTEST_SRC_SUFFIX}")
