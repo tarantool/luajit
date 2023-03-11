@@ -1,32 +1,26 @@
-local tap = require('tap')
-local test = tap.test("clib-misc-getmetrics"):skipcond({
-  ['Test requires JIT enabled'] = not jit.status(),
-  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
-})
+local ffi = require('ffi')
 
-test:plan(11)
+-- Auxiliary script to provide Lua functions to be used in tests
+-- for `getmetrics()` C API inside the test
+-- <misclib-getmetrics-capi.test.c>.
+local M = {}
 
-local path = arg[0]:gsub('%.test%.lua', '')
-local suffix = package.cpath:match('?.(%a+);')
-package.cpath = ('%s/?.%s;'):format(path, suffix)..package.cpath
+-- XXX: Max nins is limited by max IRRef, that equals to
+-- REF_DROP - REF_BIAS. Unfortunately, these constants are not
+-- provided to Lua space, so we ought to make some math:
+-- * REF_DROP = 0xffff
+-- * REF_BIAS = 0x8000
+-- See <src/lj_ir.h> for details.
+local MAXNINS =  0xffff - 0x8000
 
-local MAXNINS = require('utils').const.maxnins
 local jit_opt_default = {
     3, -- level
-    "hotloop=56",
-    "hotexit=10",
-    "minstitch=0",
+    'hotloop=56',
+    'hotexit=10',
+    'minstitch=0',
 }
 
-local testgetmetrics = require("testgetmetrics")
-
-test:ok(testgetmetrics.base())
-test:ok(testgetmetrics.gc_allocated_freed())
-test:ok(testgetmetrics.gc_steps())
-
-test:ok(testgetmetrics.objcount(function(iterations)
-    local ffi = require("ffi")
-
+M.objcount = function(iterations)
     jit.opt.start(0)
 
     local placeholder = {
@@ -51,35 +45,34 @@ test:ok(testgetmetrics.objcount(function(iterations)
 
     for _ = 1, iterations do
         -- Check counting of VLA/VLS/aligned cdata.
-        table.insert(placeholder.cdata, ffi.new("char[?]", 4))
+        table.insert(placeholder.cdata, ffi.new('char[?]', 4))
     end
 
     for _ = 1, iterations do
         -- Check counting of non-VLA/VLS/aligned cdata.
-        table.insert(placeholder.cdata, ffi.new("uint64_t", _))
+        table.insert(placeholder.cdata, ffi.new('uint64_t', _))
     end
 
     placeholder = nil -- luacheck: no unused
     -- Restore default jit settings.
     jit.opt.start(unpack(jit_opt_default))
-end))
+end
 
-test:ok(testgetmetrics.objcount_cdata_decrement(function()
+M.objcount_cdata_decrement = function()
     -- gc_cdatanum decrement test.
     -- See https://github.com/tarantool/tarantool/issues/5820.
-    local ffi = require("ffi")
     local function nop() end
-    ffi.gc(ffi.cast("void *", 0), nop)
+    ffi.gc(ffi.cast('void *', 0), nop)
     -- Does not collect the cdata, but resurrects the object and
     -- removes LJ_GC_CDATA_FIN flag.
     collectgarbage()
     -- Collects the cdata.
     collectgarbage()
-end))
+end
 
 -- Compiled loop with a direct exit to the interpreter.
-test:ok(testgetmetrics.snap_restores(function()
-    jit.opt.start(0, "hotloop=1")
+M.snap_restores_direct_exit = function()
+    jit.opt.start(0, 'hotloop=1')
 
     local sum = 0
     for i = 1, 20 do
@@ -91,11 +84,11 @@ test:ok(testgetmetrics.snap_restores(function()
 
     -- A single snapshot restoration happened on loop finish.
     return 1
-end))
+end
 
 -- Compiled loop with a side exit which does not get compiled.
-test:ok(testgetmetrics.snap_restores(function()
-    jit.opt.start(0, "hotloop=1", "hotexit=2", ("minstitch=%d"):format(MAXNINS))
+M.snap_restores_side_exit_not_compiled = function()
+    jit.opt.start(0, 'hotloop=1', 'hotexit=2', ('minstitch=%d'):format(MAXNINS))
 
     local function foo(i)
         -- math.fmod is not yet compiled!
@@ -112,13 +105,13 @@ test:ok(testgetmetrics.snap_restores(function()
 
     -- Side exits from the root trace could not get compiled.
     return 5
-end))
+end
 
 -- Compiled loop with a side exit which gets compiled.
-test:ok(testgetmetrics.snap_restores(function()
+M.snap_restores_side_exit_compiled = function()
     -- Optimization level is important here as `loop` optimization
     -- may unroll the loop body and insert +1 side exit.
-    jit.opt.start(0, "hotloop=1", "hotexit=5")
+    jit.opt.start(0, 'hotloop=1', 'hotexit=5')
 
     local function foo(i)
         return i <= 10 and i or tostring(i)
@@ -136,13 +129,13 @@ test:ok(testgetmetrics.snap_restores(function()
     -- and compiled
     -- 1 side exit on loop end
     return 6
-end))
+end
 
 -- Compiled scalar trace with a direct exit to the interpreter.
-test:ok(testgetmetrics.snap_restores(function()
+M.snap_restores_direct_exit_scalar = function()
     -- For calls it will be 2 * hotloop (see lj_dispatch.{c,h}
     -- and hotcall@vm_*.dasc).
-    jit.opt.start(3, "hotloop=2", "hotexit=3")
+    jit.opt.start(3, 'hotloop=2', 'hotexit=3')
 
     local function foo(i)
         return i <= 15 and i or tostring(i)
@@ -167,15 +160,15 @@ test:ok(testgetmetrics.snap_restores(function()
     jit.opt.start(unpack(jit_opt_default))
 
     return 2
-end))
+end
 
-test:ok(testgetmetrics.strhash())
-
-test:ok(testgetmetrics.tracenum_base(function()
+M.tracenum_base = function()
     local sum = 0
     for i = 1, 200 do
         sum = sum + i
     end
     -- Compiled only 1 loop as new trace.
     return 1
-end))
+end
+
+return M
