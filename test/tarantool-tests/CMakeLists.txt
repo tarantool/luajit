@@ -66,7 +66,6 @@ add_subdirectory(lj-416-xor-before-jcc)
 add_subdirectory(lj-601-fix-gc-finderrfunc)
 add_subdirectory(lj-727-lightuserdata-itern)
 add_subdirectory(lj-flush-on-trace)
-add_subdirectory(misclib-sysprof-capi)
 
 # The part of the memory profiler toolchain is located in tools
 # directory, jit, profiler, and bytecode toolchains are located
