@@ -102,6 +102,11 @@ endif()
 # loaded modules on MacOS instead of shared libraries as it is
 # done on Linux and BSD, another environment variable should be
 # used to guide <ffi.load> while searching the extension.
+# XXX: Be noticed that we shouldn't use `"` here to wrap
+# the variable's content. If we do this, the variable value will
+# contain `"` at the beginning and the end, so this `"` at the
+# beginning will be treated as the directory for the first entry
+# (the last subdirectory added).
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   # XXX: Apple tries their best to "protect their users from
   # malware". As a result SIP (see the link[1] below) has been
@@ -122,9 +127,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   #
   # [1]: https://support.apple.com/en-us/HT204899
   # [2]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/RuntimeProtections/RuntimeProtections.html
-  list(APPEND LUA_TEST_ENV_MORE DYLD_LIBRARY_PATH="${LD_LIBRARY_PATH}")
+  list(APPEND LUA_TEST_ENV_MORE DYLD_LIBRARY_PATH=${LD_LIBRARY_PATH})
 else()
-  list(APPEND LUA_TEST_ENV_MORE LD_LIBRARY_PATH="${LD_LIBRARY_PATH}")
+  list(APPEND LUA_TEST_ENV_MORE LD_LIBRARY_PATH=${LD_LIBRARY_PATH})
 endif()
 
 # LUA_CPATH and LD_LIBRARY_PATH variables and also TESTLIBS list
