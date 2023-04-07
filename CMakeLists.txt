@@ -256,15 +256,30 @@ if(LUA_USE_ASSERT)
   AppendFlags(TARGET_C_FLAGS -DLUA_USE_ASSERT)
 endif()
 
-# TODO: Implement a configuration option to enable ASAN.
-# There are two entries of LUAJIT_USE_ASAN define:
-# $ grep -rnF 'LUAJIT_USE_ASAN' .
-# ./src/lj_str.c:15:#if LUAJIT_USE_ASAN
-# ./src/host/buildvm.c:36:#if LUAJIT_USE_ASAN
-# At the same time this flag is not provided by LuaJIT original
-# build system (i.e. src/Makefile.original) so there are no
-# related compiler and linker flags passed. This should be done
-# the right way later.
+# Turn on AddressSanitizer support. As a result, all artefacts
+# (i.e. buildvm, LuaJIT, testing infrastructure) are built with
+# ASan enabled.
+option(LUAJIT_USE_ASAN "Build LuaJIT with AddressSanitizer" OFF)
+if(LUAJIT_USE_ASAN)
+  if(NOT LUAJIT_USE_SYSMALLOC)
+    message(WARNING
+      "Unfortunately, internal LuaJIT memory allocator is not instrumented yet,"
+      " so to find any memory errors it's better to build LuaJIT with system"
+      " provided memory allocator (i.e. run CMake configuration phase with"
+      " -DLUAJIT_USE_SYSMALLOC=ON)."
+    )
+  endif()
+  # Use all recommendations described in AddressSanitize docs:
+  # https://clang.llvm.org/docs/AddressSanitizer.html.
+  AppendFlags(CMAKE_C_FLAGS
+    # Enable hints for AddressSanitizer (see src/lj_str.c).
+    -DLUAJIT_USE_ASAN
+    # XXX: To get nicer stack traces in error messages.
+    -fno-omit-frame-pointer
+    # Enable AddressSanitizer support.
+    -fsanitize=address
+  )
+endif()
 
 # --- Main source tree ---------------------------------------------------------
 
