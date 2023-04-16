@@ -260,13 +260,13 @@ u, m = nil
 collectgarbage()
 assert(m==10)
 
-
+-- The test below is disabled for LuaJIT, since it handles errors from
+-- GC finalizers via VM event.
 -- errors during collection
-u = newproxy(true)
-getmetatable(u).__gc = function () error "!!!" end
-u = nil
-assert(not pcall(collectgarbage))
-
+-- u = newproxy(true)
+-- getmetatable(u).__gc = function () error "!!!" end
+-- u = nil
+-- assert(not pcall(collectgarbage))
 
 if not rawget(_G, "_soft") then
   print("deep structures")
