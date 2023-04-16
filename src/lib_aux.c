@@ -21,6 +21,7 @@
 #include "lj_state.h"
 #include "lj_trace.h"
 #include "lj_lib.h"
+#include "lj_vmevent.h"
 
 #if LJ_TARGET_POSIX
 #include <sys/wait.h>
@@ -311,6 +312,18 @@ static int panic(lua_State *L)
   return 0;
 }
 
+#ifndef LUAJIT_DISABLE_VMEVENT
+static int error_finalizer(lua_State *L)
+{
+  const char *s = lua_tostring(L, -1);
+  fputs("ERROR in finalizer: ", stderr);
+  fputs(s ? s : "?", stderr);
+  fputc('\n', stderr);
+  fflush(stderr);
+  return 0;
+}
+#endif
+
 #ifdef LUAJIT_USE_SYSMALLOC
 
 #if LJ_64 && !LJ_GC64 && !defined(LUAJIT_USE_VALGRIND)
@@ -332,7 +345,15 @@ static void *mem_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 LUALIB_API lua_State *luaL_newstate(void)
 {
   lua_State *L = lua_newstate(mem_alloc, NULL);
-  if (L) G(L)->panic = panic;
+  if (L) {
+    G(L)->panic = panic;
+#ifndef LUAJIT_DISABLE_VMEVENT
+    luaL_findtable(L, LUA_REGISTRYINDEX, LJ_VMEVENTS_REGKEY, LJ_VMEVENTS_HSIZE);
+    lua_pushcfunction(L, error_finalizer);
+    lua_rawseti(L, -2, VMEVENT_HASH(LJ_VMEVENT_ERRFIN));
+    G(L)->vmevmask = VMEVENT_MASK(LJ_VMEVENT_ERRFIN);
+#endif
+  }
   return L;
 }
 
@@ -350,7 +371,15 @@ LUALIB_API lua_State *luaL_newstate(void)
 #else
   L = lua_newstate(lj_alloc_f, ud);
 #endif
-  if (L) G(L)->panic = panic;
+  if (L) {
+    G(L)->panic = panic;
+#ifndef LUAJIT_DISABLE_VMEVENT
+    luaL_findtable(L, LUA_REGISTRYINDEX, LJ_VMEVENTS_REGKEY, LJ_VMEVENTS_HSIZE);
+    lua_pushcfunction(L, error_finalizer);
+    lua_rawseti(L, -2, VMEVENT_HASH(LJ_VMEVENT_ERRFIN));
+    G(L)->vmevmask = VMEVENT_MASK(LJ_VMEVENT_ERRFIN);
+#endif
+  }
   return L;
 }
 
