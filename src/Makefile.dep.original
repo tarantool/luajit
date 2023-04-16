@@ -1,6 +1,6 @@
 lib_aux.o: lib_aux.c lua.h luaconf.h lauxlib.h lj_obj.h lj_def.h \
  lj_arch.h lj_err.h lj_errmsg.h lj_state.h lj_trace.h lj_jit.h lj_ir.h \
- lj_dispatch.h lj_bc.h lj_traceerr.h lj_lib.h lj_alloc.h
+ lj_dispatch.h lj_bc.h lj_traceerr.h lj_lib.h lj_alloc.h lj_vmevent.h
 lib_base.o: lib_base.c lua.h luaconf.h lauxlib.h lualib.h lj_obj.h \
  lj_def.h lj_arch.h lj_gc.h lj_err.h lj_errmsg.h lj_debug.h lj_str.h \
  lj_tab.h lj_meta.h lj_state.h lj_frame.h lj_bc.h lj_ctype.h lj_cconv.h \
@@ -123,7 +123,7 @@ lj_func.o: lj_func.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h lj_gc.h \
 lj_gc.o: lj_gc.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h lj_gc.h \
  lj_err.h lj_errmsg.h lj_buf.h lj_str.h lj_tab.h lj_func.h lj_udata.h \
  lj_meta.h lj_state.h lj_frame.h lj_bc.h lj_ctype.h lj_cdata.h lj_trace.h \
- lj_jit.h lj_ir.h lj_dispatch.h lj_traceerr.h lj_vm.h
+ lj_jit.h lj_ir.h lj_dispatch.h lj_traceerr.h lj_vm.h lj_vmevent.h
 lj_gdbjit.o: lj_gdbjit.c lj_obj.h lua.h luaconf.h lj_def.h lj_arch.h \
  lj_gc.h lj_err.h lj_errmsg.h lj_debug.h lj_frame.h lj_bc.h lj_buf.h \
  lj_str.h lj_strfmt.h lj_jit.h lj_ir.h lj_dispatch.h
