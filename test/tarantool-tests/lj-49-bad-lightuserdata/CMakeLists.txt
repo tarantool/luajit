@@ -1,1 +1,0 @@
-BuildTestCLib(testlightuserdata testlightuserdata.c)

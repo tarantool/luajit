@@ -1,16 +1,21 @@
-#include <lua.h>
-#include <lauxlib.h>
+#include "lua.h"
+#include "lauxlib.h"
 
 #include <sys/mman.h>
 #include <unistd.h>
 
-#undef NDEBUG
-#include <assert.h>
+#include "test.h"
+#include "utils.h"
 
 #define START ((void *)-1)
 
-static int crafted_ptr(lua_State *L)
+/* XXX: Still need normal assert to validate mmap correctness. */
+#undef NDEBUG
+#include <assert.h>
+
+static int crafted_ptr(void *test_state)
 {
+	lua_State *L = test_state;
 	/*
 	 * We know that for arm64 at least 48 bits are available.
 	 * So emulate manually push of lightuseradata within
@@ -18,15 +23,15 @@ static int crafted_ptr(lua_State *L)
 	 */
 	void *longptr = (void *)(1llu << 48);
 	lua_pushlightuserdata(L, longptr);
-	assert(longptr == lua_topointer(L, -1));
+	assert_ptr_equal(longptr, lua_topointer(L, -1));
 	/* Clear our stack. */
 	lua_pop(L, 0);
-	lua_pushboolean(L, 1);
-	return 1;
+	return TEST_EXIT_SUCCESS;
 }
 
-static int mmaped_ptr(lua_State *L)
+static int mmaped_ptr(void *test_state)
 {
+	lua_State *L = test_state;
 	/*
 	 * If start mapping address is not NULL, then the kernel
 	 * takes it as a hint about where to place the mapping, so
@@ -38,24 +43,22 @@ static int mmaped_ptr(lua_State *L)
 			    -1, 0);
 	if (mmaped != MAP_FAILED) {
 		lua_pushlightuserdata(L, mmaped);
-		assert(mmaped == lua_topointer(L, -1));
+		assert_ptr_equal(mmaped, lua_topointer(L, -1));
 		assert(munmap(mmaped, pagesize) == 0);
 	}
 	/* Clear our stack. */
 	lua_pop(L, 0);
-	lua_pushboolean(L, 1);
-	return 1;
+	return TEST_EXIT_SUCCESS;
 }
 
-static const struct luaL_Reg testlightuserdata[] = {
-	{"crafted_ptr", crafted_ptr},
-	{"mmaped_ptr", mmaped_ptr},
-	{NULL, NULL}
-};
-
-LUA_API int luaopen_testlightuserdata(lua_State *L)
+int main(void)
 {
-	luaL_register(L, "testlightuserdata", testlightuserdata);
-	return 1;
+	lua_State *L = utils_lua_init();
+	const struct test_unit tgroup[] = {
+		test_unit_def(crafted_ptr),
+		test_unit_def(mmaped_ptr)
+	};
+	const int test_result = test_run_group(tgroup, L);
+	utils_lua_close(L);
+	return test_result;
 }
-
