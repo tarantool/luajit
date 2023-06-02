@@ -10,7 +10,7 @@ local test = tap.test('lj-994-instable-types-during-loop-unroll'):skipcond({
 
 -- TODO: test that compiled traces don't always exit by the type
 -- guard. See also the comment for the TDUP test chunk.
-test:plan(1)
+test:plan(2)
 
 -- TNEW.
 local result
@@ -34,20 +34,16 @@ end
 test:is(result, nil, 'TNEW load forwarding was successful')
 
 -- TDUP.
---[[
--- FIXME: Disable test case for now. Enable, with another
--- backported commit with a fix for the aforementioned issue
--- (and after patch "Improve assertions.").
--- Test taken trace exits too.
 for _ = 1, 5 do
   local t = slot
   -- Now use constant key slot to get necessary branch.
   -- LJ_TRERR_GFAIL isn't triggered here.
   -- See `fwd_ahload()` in <src/lj_opt_mem.c> for details.
   result = t[1]
+  -- The constant table should contain the key with a different
+  -- type.
   slot = _ % 2 ~= 0 and stored_tab or {true}
 end
 test:is(result, true, 'TDUP load forwarding was successful')
-]]
 
 test:done(true)
