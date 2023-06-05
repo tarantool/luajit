@@ -109,6 +109,12 @@ static void stream_epilogue(struct sysprof *sp)
   lj_wbuf_addbyte(&sp->out, LJP_EPILOGUE_BYTE);
 }
 
+static void stream_ffunc_impl(struct lj_wbuf *buf, uint8_t ffid)
+{
+  lj_wbuf_addbyte(buf, LJP_FRAME_FFUNC);
+  lj_wbuf_addu64(buf, ffid);
+}
+
 static void stream_lfunc(struct lj_wbuf *buf, const GCfunc *func)
 {
   lj_assertX(isluafunc(func), "bad lua function in sysprof stream");
@@ -129,8 +135,7 @@ static void stream_cfunc(struct lj_wbuf *buf, const GCfunc *func)
 static void stream_ffunc(struct lj_wbuf *buf, const GCfunc *func)
 {
   lj_assertX(isffunc(func), "bad fast function in sysprof stream");
-  lj_wbuf_addbyte(buf, LJP_FRAME_FFUNC);
-  lj_wbuf_addu64(buf, func->c.ffid);
+  stream_ffunc_impl(buf, func->c.ffid);
 }
 
 static void stream_frame_lua(struct lj_wbuf *buf, const cTValue *frame)
@@ -148,7 +153,7 @@ static void stream_frame_lua(struct lj_wbuf *buf, const cTValue *frame)
     lj_assertX(0, "bad function type in sysprof stream");
 }
 
-static void stream_backtrace_lua(struct sysprof *sp)
+static void stream_backtrace_lua(struct sysprof *sp, uint32_t vmstate)
 {
   global_State *g = sp->g;
   struct lj_wbuf *buf = &sp->out;
@@ -158,8 +163,19 @@ static void stream_backtrace_lua(struct sysprof *sp)
   lj_assertX(g != NULL, "uninitialized global state in sysprof state");
   L = gco2th(gcref(g->cur_L));
   lj_assertG(L != NULL, "uninitialized Lua state in sysprof state");
+  /*
+  ** Lua stack may be inconsistent during the execution of a
+  ** fast-function, so instead of updating the `top_frame` for
+  ** it, its `ffid` is set instead. The first frame on the
+  ** result stack is streamed manually, and the rest of the
+  ** stack is streamed based on the previous `top_frame` value.
+  */
+  if (vmstate == LJ_VMST_FFUNC) {
+    uint8_t ffid = g->top_frame_info.ffid;
+    stream_ffunc_impl(buf, ffid);
+  }
 
-  top_frame = g->top_frame - 1; //(1 + LJ_FR2)
+  top_frame = g->top_frame_info.top_frame - 1;
 
   bot = tvref(L->stack) + LJ_FR2;
   /* Traverse frames backwards */
@@ -234,7 +250,7 @@ static void stream_trace(struct sysprof *sp, uint32_t vmstate)
 static void stream_guest(struct sysprof *sp, uint32_t vmstate)
 {
   lj_wbuf_addbyte(&sp->out, (uint8_t)vmstate);
-  stream_backtrace_lua(sp);
+  stream_backtrace_lua(sp, vmstate);
   stream_backtrace_host(sp);
 }
 
