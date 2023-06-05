@@ -101,6 +101,7 @@
 |.define FCARG2,	CARG2d
 |
 |.define XCHGd,		r11d		// TMP on x64, used for exchange.
+|.define XCHGb,		r11b		// TMPRb on x64, used for exchange.
 |.endif
 |
 |// Type definitions. Some of these are only used for documentation.
@@ -451,12 +452,34 @@
 |// it syncs with the BASE register only when the control is passed to
 |// user code. So we need to sync the BASE on each vmstate change to
 |// keep it consistent.
+|// The only exception are FFUNCs because sometimes even internal BASE
+|// stash is inconsistent for them. To address that issue, their ffid
+|// is stashed instead, so the corresponding frame can be streamed
+|// manually.
 |.macro set_vmstate_sync_base, st
 |.if LJ_HASSYSPROF
 |  set_vmstate INTERP  // Guard for non-atomic VM context restoration
-|  mov dword [DISPATCH+DISPATCH_GL(top_frame)], BASE
+|  mov dword [DISPATCH+DISPATCH_GL(top_frame_info.top_frame)], BASE
 |.endif
 |  set_vmstate st
+|.endmacro
+|
+|.macro set_vmstate_ffunc
+|.if LJ_HASSYSPROF
+|  set_vmstate INTERP
+|.if not X64
+|  mov SPILLECX, ecx
+|  mov LFUNC:ecx, [BASE - 4]
+|  mov cl, LFUNC:ecx->ffid
+|  mov byte [DISPATCH+DISPATCH_GL(top_frame_info.ffid)], cl
+|  mov ecx, SPILLECX
+|.else // X64
+|  mov LFUNC:XCHGd, [BASE - 8]
+|  mov XCHGb, LFUNC:XCHGd->ffid
+|  mov byte [DISPATCH+DISPATCH_GL(top_frame_info.ffid)], XCHGb
+|.endif // X64
+|.endif // LJ_HASSYSPROF
+|  set_vmstate FFUNC
 |.endmacro
 |
 |// Uses spilled ecx on x86 or XCHGd (r11d) on x64.
@@ -485,7 +508,7 @@
 |.if LJ_HASSYSPROF
 |  mov ecx, SAVE_L
 |  mov ecx, L:ecx->base
-|  mov dword [DISPATCH+DISPATCH_GL(top_frame)], ecx
+|  mov dword [DISPATCH+DISPATCH_GL(top_frame_info.top_frame)], ecx
 |.endif
 |  mov ecx, SAVE_VMSTATE
 |  mov dword [DISPATCH+DISPATCH_GL(vmstate)], ecx
@@ -494,7 +517,7 @@
 |.if LJ_HASSYSPROF
 |  mov XCHGd, SAVE_L
 |  mov XCHGd, L:XCHGd->base
-|  mov dword [DISPATCH+DISPATCH_GL(top_frame)], XCHGd
+|  mov dword [DISPATCH+DISPATCH_GL(top_frame_info.top_frame)], XCHGd
 |.endif
 |  mov XCHGd, SAVE_VMSTATE
 |  mov dword [DISPATCH+DISPATCH_GL(vmstate)], XCHGd
@@ -1483,7 +1506,7 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |.macro .ffunc, name
   |->ff_ .. name:
-  |  set_vmstate_sync_base FFUNC
+  |  set_vmstate_ffunc
   |.endmacro
   |
   |.macro .ffunc_1, name

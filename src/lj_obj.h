@@ -598,6 +598,11 @@ enum {
   GCSmax
 };
 
+struct lj_sysprof_topframe {
+  uint8_t ffid; /* FFID of the fast function VM is about to execute. */
+  TValue *top_frame; /* Top frame for sysprof. */
+};
+
 typedef struct GCState {
   GCSize total;		/* Memory currently allocated. */
   GCSize threshold;	/* Memory threshold. */
@@ -675,7 +680,7 @@ typedef struct global_State {
   MRef ctype_state;	/* Pointer to C type state. */
   GCRef gcroot[GCROOT_MAX];  /* GC roots. */
 #ifdef LJ_HASSYSPROF
-  TValue *top_frame;	/* Top frame for sysprof. */
+  struct lj_sysprof_topframe top_frame_info;	/* Top frame info for sysprof. */
 #endif
 } global_State;
 

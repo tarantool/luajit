@@ -53,6 +53,7 @@
 |.define RDL,		RCL
 |.define TMPR,		r10
 |.define TMPRd,		r10d
+|.define TMPRb,		r10b
 |.define ITYPE,		r11
 |.define ITYPEd,	r11d
 |
@@ -353,12 +354,27 @@
 |// it syncs with the BASE register only when the control is passed to
 |// user code. So we need to sync the BASE on each vmstate change to
 |// keep it consistent.
+|// The only exception are FFUNCs because sometimes even internal BASE
+|// stash is inconsistent for them. To address that issue, their ffid
+|// is stashed instead, so the corresponding frame can be streamed
+|// manually.
 |.macro set_vmstate_sync_base, st
 |.if LJ_HASSYSPROF
 |  set_vmstate INTERP  // Guard for non-atomic VM context restoration
-|  mov qword [DISPATCH+DISPATCH_GL(top_frame)], BASE
+|  mov qword [DISPATCH+DISPATCH_GL(top_frame_info.top_frame)], BASE
 |.endif
 |  set_vmstate st
+|.endmacro
+|
+|.macro set_vmstate_ffunc
+|.if LJ_HASSYSPROF
+|  set_vmstate INTERP
+|  mov TMPR, [BASE - 16]
+|  cleartp LFUNC:TMPR // Obtain plain address value. Equivalent of `gcval`.
+|  mov TMPRb, LFUNC:TMPR->ffid
+|  mov byte [DISPATCH+DISPATCH_GL(top_frame_info.ffid)], TMPRb
+|.endif
+|  set_vmstate FFUNC
 |.endmacro
 |
 |// Uses TMPRd (r10d).
@@ -376,7 +392,7 @@
 |  set_vmstate INTERP
 |  mov TMPR, SAVE_L
 |  mov TMPR, L:TMPR->base
-|  mov qword [DISPATCH+DISPATCH_GL(top_frame)], TMPR
+|  mov qword [DISPATCH+DISPATCH_GL(top_frame_info.top_frame)], TMPR
 |.endif
 |  mov TMPRd, SAVE_VMSTATE
 |  mov dword [DISPATCH+DISPATCH_GL(vmstate)], TMPRd
@@ -1183,7 +1199,7 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |.macro .ffunc, name
   |->ff_ .. name:
-  |  set_vmstate_sync_base FFUNC
+  |  set_vmstate_ffunc
   |.endmacro
   |
   |.macro .ffunc_1, name
