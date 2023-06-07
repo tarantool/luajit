@@ -523,6 +523,55 @@ def dump_gc(g):
     return '\n'.join(map(lambda s: '\t' + s, stats))
 
 
+from gdb.FrameDecorator import FrameDecorator
+
+def log(msg):
+    gdb.write(msg + '\n')
+    pass
+
+class LJFrameFilter():
+    def __init__(self):
+        self.name = "LJFrameFilter"
+        self.priority = 90
+        self.enabled = True
+        gdb.frame_filters[self.name] = self
+
+    def filter(self, frame_iter):
+        for frame in frame_iter:
+            if frame.inferior_frame().name() == 'lj_BC_FUNCC':
+                L = frame.inferior_frame().older().read_var('L')
+                # for framelink, frametop in frames(L):
+                #     yield LJGuestFrameDecorator(frame, L, framelink)
+                frame = LJFrameDecorator(frame, L)
+            yield frame
+
+class LJFrameDecorator(FrameDecorator):
+    def __init__(self, frame, L):
+        super(LJFrameDecorator, self).__init__(frame)
+        self.frame = frame
+        self.L = L
+
+    def elided(self):
+        for framelink, frametop in frames(self.L):
+            yield LJGuestFrameDecorator(self.frame, self.L, framelink)
+
+class LJGuestFrameDecorator(FrameDecorator):
+    def __init__(self, host_frame, L, guest_frame):
+        super(LJGuestFrameDecorator, self).__init__(host_frame)
+        self.frame = host_frame
+        self.L = L
+        self.guest_frame = guest_frame
+
+    def address(self):
+        return self.guest_frame
+    
+    def function(self):
+        return dump_lj_tfunc(self.guest_frame - LJ_FR2)
+
+
+LJFrameFilter()
+
+
 class LJBase(gdb.Command):
 
     def __init__(self, name):
