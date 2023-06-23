@@ -110,4 +110,7 @@ jobs:
         -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
       arch: ${{ matrix.ARCH }}
       os: ${{ matrix.OS }}
+      # XXX: Quotes are mandatory, otherwise the trailing zero is
+      # stripped and the branch is mischosen as a result.
+      release: 'release/2.11'
       revision: ${{ github.sha }}
