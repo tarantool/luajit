@@ -111,5 +111,5 @@ jobs:
       os: ${{ matrix.OS }}
       # XXX: Quotes are mandatory, otherwise the trailing zero is
       # stripped and the branch is mischosen as a result.
-      release: '2.10'
+      release: 'release/2.10'
       revision: ${{ github.sha }}
