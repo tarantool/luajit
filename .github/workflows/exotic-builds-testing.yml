@@ -36,7 +36,7 @@ jobs:
         BUILDTYPE: [Debug, Release]
         ARCH: [ARM64, x86_64]
         GC64: [ON, OFF]
-        FLAVOR: [dualnum, checkhook, nojit]
+        FLAVOR: [dualnum, checkhook, nojit, gdbjit]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -48,6 +48,8 @@ jobs:
             FLAVORFLAGS: -DLUAJIT_ENABLE_CHECKHOOK=ON
           - FLAVOR: nojit
             FLAVORFLAGS: -DLUAJIT_DISABLE_JIT=ON
+          - FLAVOR: gdbjit
+            FLAVORFLAGS: -DLUAJIT_USE_GDBJIT=ON
         exclude:
           # DUALNUM is default for ARM64, no need for additional testing.
           - FLAVOR: dualnum

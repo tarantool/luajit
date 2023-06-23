@@ -150,7 +150,7 @@ set(SOURCES_CORE ${SOURCES_CORE_NO_JIT_FFI})
 # Build JIT sources if JIT support is enabled.
 if(NOT LUAJIT_DISABLE_JIT)
   list(APPEND SOURCES_CORE ${SOURCES_JIT})
-  if(LUAJIT_ENABLE_GDBJIT)
+  if(LUAJIT_USE_GDBJIT)
     list(APPEND SOURCES_CORE ${CMAKE_CURRENT_SOURCE_DIR}/lj_gdbjit.c)
   endif()
   # The support provided within src/lj_opt_split.c is required
