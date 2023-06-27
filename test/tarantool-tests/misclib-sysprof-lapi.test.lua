@@ -15,7 +15,7 @@ pcall(jit.flush)
 local bufread = require("utils.bufread")
 local symtab = require("utils.symtab")
 local sysprof = require("sysprof.parse")
-local profilename = require("utils").profilename
+local profilename = require("utils").tools.profilename
 
 local TMP_BINFILE = profilename("sysprofdata.tmp.bin")
 local BAD_PATH = profilename("sysprofdata/tmp.bin")

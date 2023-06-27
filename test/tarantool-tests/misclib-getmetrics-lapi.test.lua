@@ -10,7 +10,7 @@ local test = tap.test("lib-misc-getmetrics"):skipcond({
 
 test:plan(10)
 
-local MAXNINS = require('utils').const.maxnins
+local MAXNINS = require('utils').jit.const.maxnins
 local jit_opt_default = {
     3, -- level
     "hotloop=56",

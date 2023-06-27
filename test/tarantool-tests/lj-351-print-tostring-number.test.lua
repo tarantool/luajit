@@ -3,7 +3,7 @@ local tap = require('tap')
 local test = tap.test('lj-351-print-tostring-number')
 test:plan(8)
 
-local script = require('utils').makecmd(arg)
+local script = require('utils').exec.makecmd(arg)
 
 local cases = {
   {typename = 'nil', value = 'nil'},

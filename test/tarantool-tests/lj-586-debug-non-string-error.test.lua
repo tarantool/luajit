@@ -21,7 +21,7 @@ test:plan(1)
 -- Debugger prompt.
 local ldb = 'lua_debug> '
 local magic = 42
-local luabin = utils.luacmd(arg)
+local luabin = utils.exec.luacmd(arg)
 local stderr = {
   -- XXX: The first debugger prompt printed at the start.
   ldb,

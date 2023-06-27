@@ -8,7 +8,7 @@ test:plan(2)
 
 -- <makecmd> runs %testname%/script.lua by <LUAJIT_TEST_BINARY>
 -- with the given environment, launch options and CLI arguments.
-local script = require('utils').makecmd(arg, {
+local script = require('utils').exec.makecmd(arg, {
   -- XXX: Apple tries their best to "protect their users from
   -- malware". As a result SIP (see the link[1] below) has been
   -- designed and released. Now, Apple developers are so

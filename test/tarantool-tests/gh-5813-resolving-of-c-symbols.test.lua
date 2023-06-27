@@ -17,7 +17,7 @@ local symtab = require "utils.symtab"
 local testboth = require "resboth"
 local testhash = require "reshash"
 local testgnuhash = require "resgnuhash"
-local profilename = require("utils").profilename
+local profilename = require("utils").tools.profilename
 
 local TMP_BINFILE = profilename("memprofdata.tmp.bin")
 
