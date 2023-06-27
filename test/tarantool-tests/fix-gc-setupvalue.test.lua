@@ -1,5 +1,5 @@
 local tap = require('tap')
-local utils = require('utils')
+local gcisblack = require('utils').gc.isblack
 
 local test = tap.test('fix-gc-setupvalue')
 test:plan(1)
@@ -40,7 +40,7 @@ local oldstepmul = collectgarbage('setstepmul', 1)
 
 -- `parent()` function is marked before `child()`, so wait until
 -- it becomes black and proceed with the test.
-while not utils.gcisblack(_G.parent) do
+while not gcisblack(_G.parent) do
   collectgarbage('step')
 end
 

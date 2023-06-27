@@ -76,6 +76,7 @@ add_subdirectory(lj-flush-on-trace)
 make_lua_path(LUA_PATH
   PATHS
     ${CMAKE_CURRENT_SOURCE_DIR}/?.lua
+    ${CMAKE_CURRENT_SOURCE_DIR}/?/init.lua
     ${PROJECT_SOURCE_DIR}/tools/?.lua
     ${LUAJIT_SOURCE_DIR}/?.lua
     ${LUAJIT_BINARY_DIR}/?.lua

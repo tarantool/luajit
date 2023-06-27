@@ -13,12 +13,13 @@ end
 
 local ret1bc = 'RET1%s*1%s*2'
 -- Check that this bytecode still persists.
-assert(utils.hasbc(load(string.dump(f)), ret1bc))
+assert(utils.frontend.hasbc(load(string.dump(f)), ret1bc))
 
 jit.opt.start('hotloop=1', 'hotexit=1')
 -- Compile function to get JLOOP bytecode in recursion.
 f(5)
 
-test:ok(utils.hasbc(load(string.dump(f)), ret1bc), 'bytecode unpatching is OK ')
+test:ok(utils.frontend.hasbc(load(string.dump(f)), ret1bc),
+        'bytecode unpatching is OK')
 
 os.exit(test:check() and 0 or 1)

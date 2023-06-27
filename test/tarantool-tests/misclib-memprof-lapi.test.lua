@@ -26,7 +26,7 @@ local bufread = require "utils.bufread"
 local memprof = require "memprof.parse"
 local process = require "memprof.process"
 local symtab = require "utils.symtab"
-local profilename = require("utils").profilename
+local profilename = require("utils").tools.profilename
 
 local TMP_BINFILE = profilename("memprofdata.tmp.bin")
 local BAD_PATH = profilename("memprofdata/tmp.bin")

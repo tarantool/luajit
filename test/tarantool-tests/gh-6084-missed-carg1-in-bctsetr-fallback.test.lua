@@ -15,7 +15,7 @@ test:plan(2)
 
 -- XXX: We need to make sure the bytecode is present in the chosen
 -- built-in to make sure our test is still valid.
-assert(utils.hasbc(table.move, 'TSETR'))
+assert(utils.frontend.hasbc(table.move, 'TSETR'))
 
 -- `t` table asize equals 1. Just copy its first element (1)
 -- to the field by index 2 > 1, to fallback inside TSETR.
