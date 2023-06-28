@@ -720,7 +720,7 @@ def bc_a(ins):
 
 
 def frame_ftsz(framelink):
-    return vtou64(cast('ptrdiff_t', framelink.ftsz if LJ_FR2 \
+    return vtou64(cast('ptrdiff_t', framelink.ftsz if LJ_FR2
                        else framelink.fr.tp.ftsz))
 
 
