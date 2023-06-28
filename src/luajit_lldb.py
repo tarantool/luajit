@@ -211,7 +211,7 @@ c_structs = {
 }
 
 for cls in c_structs.keys():
-    globals()[cls] = type(cls, (Struct, ), {'metainfo': c_structs[cls]} )
+    globals()[cls] = type(cls, (Struct, ), {'metainfo': c_structs[cls]})
 
 for cls in Struct.__subclasses__():
     ptr_name = cls.__name__ + 'Ptr'
@@ -394,16 +394,16 @@ def dump_gc(g):
         'total', 'threshold', 'debt', 'estimate', 'stepmul', 'pause'
     )]
 
-    stats += [ 'sweepstr: {sweepstr}/{strmask}'.format(
+    stats += ['sweepstr: {sweepstr}/{strmask}'.format(
         sweepstr = gc.sweepstr,
         # String hash mask (size of hash table - 1).
         strmask = g.strmask + 1,
-    ) ]
+    )]
 
-    stats += [ '{key}: {number} objects'.format(
+    stats += ['{key}: {number} objects'.format(
         key = stat,
         number = handler(getattr(gc, stat))
-    ) for stat, handler in gclen.items() ]
+    ) for stat, handler in gclen.items()]
     return '\n'.join(map(lambda s: '\t' + s, stats))
 
 def mref(typename, obj):
@@ -424,7 +424,7 @@ def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
     # XXX Fragile: though the loop initialization looks like a crap but it
     # respects both Python 2 and Python 3.
-    for l in [ L ] + list(map(lambda l: lookup_global(l), (
+    for l in [L] + list(map(lambda l: lookup_global(l), (
         # LuaJIT main coro (see luajit/src/luajit.c)
         'globalL',
         # Tarantool main coro (see tarantool/src/lua/init.h)
