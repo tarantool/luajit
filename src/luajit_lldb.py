@@ -50,7 +50,6 @@ class Ptr:
         else:
             return int((self.value.unsigned - other.value.unsigned) / sizeof(self.normal_type.__name__))
 
-
     def __eq__(self, other):
         assert isinstance(other, Ptr) or (isinstance(other, int) and other >= 0)
         if isinstance(other, Ptr):
@@ -896,7 +895,6 @@ error message occurs.
         print('{}'.format(dump_tvalue(tvptr)))
 
 
-
 class LJState(Command):
     '''
 lj-state
@@ -1095,7 +1093,6 @@ def configure(debugger):
 
     PADDING = ' ' * len(strx64((TValuePtr(L().addr))))
     LJ_TISNUM = 0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX']
-
 
 
 def __lldb_init_module(debugger, internal_dict):
