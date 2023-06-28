@@ -88,8 +88,8 @@ class MetaStruct(type):
 
         def make_general(field, tp):
             builtin = {
-                        'uint': 'unsigned',
-                        'int': 'signed',
+                        'uint':   'unsigned',
+                        'int':    'signed',
                         'string': 'value',
                     }
             if tp in builtin.keys():
@@ -380,12 +380,12 @@ def gcringlen(root):
         return 1 + gclistlen(gcnext(root), gcref(root))
 
 gclen = {
-    'root': gclistlen,
-    'gray': gclistlen,
+    'root':      gclistlen,
+    'gray':      gclistlen,
     'grayagain': gclistlen,
-    'weak': gclistlen,
+    'weak':      gclistlen,
     # XXX: gc.mmudata is a ring-list.
-    'mmudata': gcringlen,
+    'mmudata':   gcringlen,
 }
 
 def dump_gc(g):
@@ -582,37 +582,37 @@ def dump_lj_invalid(tv):
     return 'not valid type @ {}'.format(strx64(gcval(tv.gcr)))
 
 dumpers = {
-    'LJ_TNIL': dump_lj_tnil,
-    'LJ_TFALSE': dump_lj_tfalse,
-    'LJ_TTRUE': dump_lj_ttrue,
+    'LJ_TNIL':     dump_lj_tnil,
+    'LJ_TFALSE':   dump_lj_tfalse,
+    'LJ_TTRUE':    dump_lj_ttrue,
     'LJ_TLIGHTUD': dump_lj_tlightud,
-    'LJ_TSTR': dump_lj_tstr,
-    'LJ_TUPVAL': dump_lj_tupval,
-    'LJ_TTHREAD': dump_lj_tthread,
-    'LJ_TPROTO': dump_lj_tproto,
-    'LJ_TFUNC': dump_lj_tfunc,
-    'LJ_TTRACE': dump_lj_ttrace,
-    'LJ_TCDATA': dump_lj_tcdata,
-    'LJ_TTAB': dump_lj_ttab,
-    'LJ_TUDATA': dump_lj_tudata,
-    'LJ_TNUMX': dump_lj_tnumx,
+    'LJ_TSTR':     dump_lj_tstr,
+    'LJ_TUPVAL':   dump_lj_tupval,
+    'LJ_TTHREAD':  dump_lj_tthread,
+    'LJ_TPROTO':   dump_lj_tproto,
+    'LJ_TFUNC':    dump_lj_tfunc,
+    'LJ_TTRACE':   dump_lj_ttrace,
+    'LJ_TCDATA':   dump_lj_tcdata,
+    'LJ_TTAB':     dump_lj_ttab,
+    'LJ_TUDATA':   dump_lj_tudata,
+    'LJ_TNUMX':    dump_lj_tnumx,
 }
 
 LJ_T = {
-    'NIL'     : i2notu32(0),
-    'FALSE'   : i2notu32(1),
-    'TRUE'    : i2notu32(2),
-    'LIGHTUD' : i2notu32(3),
-    'STR'     : i2notu32(4),
-    'UPVAL'   : i2notu32(5),
-    'THREAD'  : i2notu32(6),
-    'PROTO'   : i2notu32(7),
-    'FUNC'    : i2notu32(8),
-    'TRACE'   : i2notu32(9),
-    'CDATA'   : i2notu32(10),
-    'TAB'     : i2notu32(11),
-    'UDATA'   : i2notu32(12),
-    'NUMX'    : i2notu32(13),
+    'NIL':     i2notu32(0),
+    'FALSE':   i2notu32(1),
+    'TRUE':    i2notu32(2),
+    'LIGHTUD': i2notu32(3),
+    'STR':     i2notu32(4),
+    'UPVAL':   i2notu32(5),
+    'THREAD':  i2notu32(6),
+    'PROTO':   i2notu32(7),
+    'FUNC':    i2notu32(8),
+    'TRACE':   i2notu32(9),
+    'CDATA':   i2notu32(10),
+    'TAB':     i2notu32(11),
+    'UDATA':   i2notu32(12),
+    'NUMX':    i2notu32(13),
 }
 
 def itypemap(o):
@@ -635,22 +635,22 @@ FRAME_P = 0x4
 FRAME_TYPEP = FRAME_TYPE | FRAME_P
 
 FRAME = {
-    'LUA': 0x0,
-    'C': 0x1,
-    'CONT': 0x2,
-    'VARG': 0x3,
-    'LUAP': 0x4,
-    'CP': 0x5,
-    'PCALL': 0x6,
+    'LUA':    0x0,
+    'C':      0x1,
+    'CONT':   0x2,
+    'VARG':   0x3,
+    'LUAP':   0x4,
+    'CP':     0x5,
+    'PCALL':  0x6,
     'PCALLH': 0x7,
 }
 
 def frametypes(ft):
     return {
-        FRAME['LUA']  : 'L',
-        FRAME['C']    : 'C',
-        FRAME['CONT'] : 'M',
-        FRAME['VARG'] : 'V',
+        FRAME['LUA']:  'L',
+        FRAME['C']:    'C',
+        FRAME['CONT']: 'M',
+        FRAME['VARG']: 'V',
     }.get(ft, '?')
 
 def bc_a(ins):
@@ -838,8 +838,8 @@ The command requires no args and dumps current VM and GC states
         g = G(L(None))
         print('{}'.format('\n'.join(
             map(lambda t: '{} state: {}'.format(*t), {
-                'VM': vm_state(g),
-                'GC': gc_state(g),
+                'VM':  vm_state(g),
+                'GC':  gc_state(g),
                 'JIT': jit_state(g),
             }.items())
         )))
@@ -1024,12 +1024,12 @@ def configure(debugger):
 def __lldb_init_module(debugger, internal_dict):
     configure(debugger)
     register_commands(debugger, {
-        'lj-tv': LJDumpTValue,
+        'lj-tv':    LJDumpTValue,
         'lj-state': LJState,
-        'lj-arch': LJDumpArch,
-        'lj-gc': LJGC,
-        'lj-str': LJDumpString,
-        'lj-tab': LJDumpTable,
+        'lj-arch':  LJDumpArch,
+        'lj-gc':    LJGC,
+        'lj-str':   LJDumpString,
+        'lj-tab':   LJDumpTable,
         'lj-stack': LJDumpStack,
     })
     print('luajit_lldb.py is successfully loaded')
