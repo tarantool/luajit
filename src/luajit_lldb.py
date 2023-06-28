@@ -1101,7 +1101,7 @@ def configure(debugger):
                 LJ_64 = member.unsigned & 0x1f == IRT_P64
             if member.name == 'IRT_PGC':
                 LJ_FR2 = LJ_GC64 = member.unsigned & 0x1f == IRT_P64
-    except:
+    except Exception:
         print('luajit_lldb.py failed to load: '
               'no debugging symbols found for libluajit')
         return

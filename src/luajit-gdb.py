@@ -838,14 +838,14 @@ def init(commands):
         # Try to remove the callback at first to not append duplicates to
         # gdb.events.new_objfile internal list.
         disconnect(load)
-    except:
+    except Exception:
         # Callback is not connected.
         pass
 
     try:
         # Detect whether libluajit objfile is loaded.
         gdb.parse_and_eval('luaJIT_setmode')
-    except:
+    except Exception:
         gdb.write('luajit-gdb.py initialization is postponed '
                   'until libluajit objfile is loaded\n')
         # Add a callback to be executed when the next objfile is loaded.
@@ -856,7 +856,7 @@ def init(commands):
         LJ_64 = str(gdb.parse_and_eval('IRT_PTR')) == 'IRT_P64'
         LJ_FR2 = LJ_GC64 = str(gdb.parse_and_eval('IRT_PGC')) == 'IRT_P64'
         LJ_DUALNUM = gdb.lookup_global_symbol('lj_lib_checknumber') is not None
-    except:
+    except Exception:
         gdb.write('luajit-gdb.py failed to load: '
                   'no debugging symbols found for libluajit\n')
         return
