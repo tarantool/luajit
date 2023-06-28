@@ -42,6 +42,34 @@ else()
   )
 endif()
 
+find_program(FLAKE8 flake8)
+if(FLAKE8)
+  get_filename_component(FLAKE8_SOURCE_DIR "${PROJECT_SOURCE_DIR}" REALPATH)
+  set(FLAKE8_RC ${FLAKE8_SOURCE_DIR}/.flake8rc)
+  file(GLOB_RECURSE FLAKE8_DEPS ${FLAKE8_SOURCE_DIR}/*.py)
+  add_custom_target(${PROJECT_NAME}-flake8
+    DEPENDS ${FLAKE8_DEPS}
+  )
+  add_custom_command(TARGET ${PROJECT_NAME}-flake8
+    COMMENT "Running flake8 static analysis"
+    COMMAND
+      ${FLAKE8} ${FLAKE8_DEPS}
+        --config ${FLAKE8_RC}
+        --jobs ${CMAKE_BUILD_PARALLEL_LEVEL}
+    WORKING_DIRECTORY ${FLAKE8_SOURCE_DIR}
+  )
+else()
+  add_custom_target(${PROJECT_NAME}-flake8)
+  add_custom_command(TARGET ${PROJECT_NAME}-flake8
+    COMMENT "`flake8' is not found, so ${PROJECT_NAME}-flake8 target is dummy"
+  )
+endif()
+
+add_custom_target(${PROJECT_NAME}-lint DEPENDS
+  ${PROJECT_NAME}-luacheck
+  ${PROJECT_NAME}-flake8
+)
+
 set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")
 separate_arguments(LUAJIT_TEST_COMMAND)
 
@@ -74,6 +102,6 @@ if(LUAJIT_USE_TEST)
 
   add_custom_target(test DEPENDS
     ${PROJECT_NAME}-test
-    ${PROJECT_NAME}-luacheck
+    ${PROJECT_NAME}-lint
   )
 endif()
