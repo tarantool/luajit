@@ -166,7 +166,7 @@ c_structs = {
         ('uint', 'state')
     ],
     'GChead': [
-        ('GCRef','nextgc')
+        ('GCRef', 'nextgc')
     ],
     'GCobj': [
         ('GChead', 'gch')
