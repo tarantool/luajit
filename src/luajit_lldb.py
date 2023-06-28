@@ -451,15 +451,15 @@ def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
     # XXX Fragile: though the loop initialization looks like a crap but it
     # respects both Python 2 and Python 3.
-    for l in [L] + list(map(lambda l: lookup_global(l), (
+    for lstate in [L] + list(map(lambda main: lookup_global(main), (
         # LuaJIT main coro (see luajit/src/luajit.c)
         'globalL',
         # Tarantool main coro (see tarantool/src/lua/init.h)
         'tarantool_L',
         # TODO: Add more
     ))):
-        if l:
-            return lua_State(l)
+        if lstate:
+            return lua_State(lstate)
 
 
 def tou32(val):
@@ -1070,9 +1070,9 @@ coroutine guest stack:
 If L is ommited the main coroutine is used.
     '''
     def execute(self, debugger, args, result):
-        l = self.parse(args)
-        l_ptr = cast('lua_State *', l) if l is not None else None
-        print('{}'.format(dump_stack(L(l_ptr))))
+        lstate = self.parse(args)
+        lstate_ptr = cast('lua_State *', lstate) if coro is not None else None
+        print('{}'.format(dump_stack(L(lstate_ptr))))
 
 
 def register_commands(debugger, commands):

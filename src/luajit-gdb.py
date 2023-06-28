@@ -233,15 +233,15 @@ def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
     # XXX Fragile: though the loop initialization looks like a crap but it
     # respects both Python 2 and Python 3.
-    for l in [L] + list(map(lambda l: lookup(l), (
+    for lstate in [L] + list(map(lambda main: lookup(main), (
         # LuaJIT main coro (see luajit/src/luajit.c)
         'globalL',
         # Tarantool main coro (see tarantool/src/lua/init.h)
         'tarantool_L',
         # TODO: Add more
     ))):
-        if l:
-            return cast('lua_State *', l)
+        if lstate:
+            return cast('lua_State *', lstate)
 
 
 def G(L):
