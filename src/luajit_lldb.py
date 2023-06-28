@@ -215,6 +215,7 @@ for cls in c_structs.keys():
 
 for cls in Struct.__subclasses__():
     ptr_name = cls.__name__ + 'Ptr'
+
     def make_ptr_init(nm, cls):
         return type(
                 nm,
