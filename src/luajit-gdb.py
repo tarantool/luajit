@@ -347,8 +347,8 @@ def dump_lj_tlightud(tv):
 
 def dump_lj_tstr(tv):
     return 'string {body} @ {address}'.format(
-        body = strdata(gcval(tv['gcr'])),
-        address = strx64(gcval(tv['gcr']))
+        body=strdata(gcval(tv['gcr'])),
+        address=strx64(gcval(tv['gcr']))
     )
 
 def dump_lj_tupval(tv):
@@ -367,10 +367,10 @@ def dump_lj_tfunc(tv):
     if ffid == 0:
         pt = funcproto(func)
         return 'Lua function @ {addr}, {nupvals} upvalues, {chunk}:{line}'.format(
-            addr = strx64(func),
-            nupvals = int(func['nupvalues']),
-            chunk = strdata(cast('GCstr *', gcval(pt['chunkname']))),
-            line = pt['firstline']
+            addr=strx64(func),
+            nupvals=int(func['nupvalues']),
+            chunk=strdata(cast('GCstr *', gcval(pt['chunkname']))),
+            line=pt['firstline']
         )
     elif ffid == 1:
         return 'C function @ {}'.format(strx64(func['f']))
@@ -380,8 +380,8 @@ def dump_lj_tfunc(tv):
 def dump_lj_ttrace(tv):
     trace = cast('struct GCtrace *', gcval(tv['gcr']))
     return 'trace {traceno} @ {addr}'.format(
-        traceno = strx64(trace['traceno']),
-        addr = strx64(trace)
+        traceno=strx64(trace['traceno']),
+        addr=strx64(trace)
     )
 
 def dump_lj_tcdata(tv):
@@ -390,9 +390,9 @@ def dump_lj_tcdata(tv):
 def dump_lj_ttab(tv):
     table = cast('GCtab *', gcval(tv['gcr']))
     return 'table @ {gcr} (asize: {asize}, hmask: {hmask})'.format(
-        gcr = strx64(table),
-        asize = table['asize'],
-        hmask = strx64(table['hmask']),
+        gcr=strx64(table),
+        asize=table['asize'],
+        hmask=strx64(table['hmask']),
     )
 
 def dump_lj_tudata(tv):
@@ -436,16 +436,16 @@ def dump_framelink_slot_address(fr):
 def dump_framelink(L, fr):
     if fr == frame_sentinel(L):
         return '{addr} [S   ] FRAME: dummy L'.format(
-            addr = dump_framelink_slot_address(fr),
+            addr=dump_framelink_slot_address(fr),
         )
     return '{addr} [    ] FRAME: [{pp}] delta={d}, {f}'.format(
-        addr = dump_framelink_slot_address(fr),
-        pp = 'PP' if frame_ispcall(fr) else '{frname}{p}'.format(
-            frname = frametypes(int(frame_type(fr))),
-            p = 'P' if frame_typep(fr) & FRAME_P else ''
+        addr=dump_framelink_slot_address(fr),
+        pp='PP' if frame_ispcall(fr) else '{frname}{p}'.format(
+            frname=frametypes(int(frame_type(fr))),
+            p='P' if frame_typep(fr) & FRAME_P else ''
         ),
-        d = cast('TValue *', fr) - cast('TValue *', frame_prev(fr)),
-        f = dump_lj_tfunc(fr - LJ_FR2),
+        d=cast('TValue *', fr) - cast('TValue *', frame_prev(fr)),
+        f=dump_lj_tfunc(fr - LJ_FR2),
     )
 
 def dump_stack_slot(L, slot, base=None, top=None):
@@ -453,12 +453,12 @@ def dump_stack_slot(L, slot, base=None, top=None):
     top = top or L['top']
 
     return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}'.format(
-        addr = strx64(slot),
-        padding = PADDING,
-        B = 'B' if slot == base else ' ',
-        T = 'T' if slot == top else ' ',
-        M = 'M' if slot == mref('TValue *', L['maxstack']) else ' ',
-        value = dump_tvalue(slot),
+        addr=strx64(slot),
+        padding=PADDING,
+        B='B' if slot == base else ' ',
+        T='T' if slot == top else ' ',
+        M='M' if slot == mref('TValue *', L['maxstack']) else ' ',
+        value=dump_tvalue(slot),
     )
 
 def dump_stack(L, base=None, top=None):
@@ -470,8 +470,8 @@ def dump_stack(L, base=None, top=None):
 
     dump = [
         '{padding} Red zone: {nredslots: >2} slots {padding}'.format(
-            padding = '-' * len(PADDING),
-            nredslots = red,
+            padding='-' * len(PADDING),
+            nredslots=red,
         ),
     ]
     dump.extend([
@@ -480,14 +480,14 @@ def dump_stack(L, base=None, top=None):
     ])
     dump.extend([
         '{padding} Stack: {nstackslots: >5} slots {padding}'.format(
-            padding = '-' * len(PADDING),
-            nstackslots = int((tou64(maxstack) - tou64(stack)) >> 3),
+            padding='-' * len(PADDING),
+            nstackslots=int((tou64(maxstack) - tou64(stack)) >> 3),
         ),
         dump_stack_slot(L, maxstack, base, top),
         '{start}:{end} [    ] {nfreeslots} slots: Free stack slots'.format(
-            start = strx64(top + 1),
-            end = strx64(maxstack - 1),
-            nfreeslots = int((tou64(maxstack) - tou64(top) - 8) >> 3),
+            start=strx64(top + 1),
+            end=strx64(maxstack - 1),
+            nfreeslots=int((tou64(maxstack) - tou64(top) - 8) >> 3),
         ),
     ])
 
@@ -504,19 +504,19 @@ def dump_stack(L, base=None, top=None):
 
 def dump_gc(g):
     gc = g['gc']
-    stats = ['{key}: {value}'.format(key = f, value = gc[f]) for f in (
+    stats = ['{key}: {value}'.format(key=f, value=gc[f]) for f in (
         'total', 'threshold', 'debt', 'estimate', 'stepmul', 'pause'
     )]
 
     stats += ['sweepstr: {sweepstr}/{strmask}'.format(
-        sweepstr = gc['sweepstr'],
+        sweepstr=gc['sweepstr'],
         # String hash mask (size of hash table - 1).
-        strmask = g['strmask'] + 1,
+        strmask=g['strmask'] + 1,
     )]
 
     stats += ['{key}: {number} objects'.format(
-        key = stat,
-        number = handler(gc[stat])
+        key=stat,
+        number=handler(gc[stat])
     ) for stat, handler in gclen.items()]
 
     return '\n'.join(map(lambda s: '\t' + s, stats))
@@ -543,9 +543,9 @@ pointers respectively.
         gdb.write(
             'LJ_64: {LJ_64}, LJ_GC64: {LJ_GC64}, LJ_DUALNUM: {LJ_DUALNUM}\n'
             .format(
-                LJ_64 = LJ_64,
-                LJ_GC64 = LJ_GC64,
-                LJ_DUALNUM = LJ_DUALNUM
+                LJ_64=LJ_64,
+                LJ_GC64=LJ_GC64,
+                LJ_DUALNUM=LJ_DUALNUM
             )
         )
 
@@ -596,9 +596,9 @@ is replaced with the corresponding error when decoding fails.
     def invoke(self, arg, from_tty):
         string = cast('GCstr *', parse_arg(arg))
         gdb.write("String: {body} [{len} bytes] with hash {hash}\n".format(
-            body = strdata(string),
-            hash = strx64(string['hash']),
-            len = string['len'],
+            body=strdata(string),
+            hash=strx64(string['hash']),
+            len=string['len'],
         ))
 
 class LJDumpTable(LJBase):
@@ -630,9 +630,9 @@ The command receives a GCtab adress and dumps the table contents:
         for i in range(capacity['apart']):
             slot = array + i
             gdb.write('{ptr}: [{index}]: {value}\n'.format(
-                ptr = slot,
-                index = i,
-                value = dump_tvalue(slot)
+                ptr=slot,
+                index=i,
+                value=dump_tvalue(slot)
             ))
 
         gdb.write('Hash part: {} nodes\n'.format(capacity['hpart']))
@@ -640,10 +640,10 @@ The command receives a GCtab adress and dumps the table contents:
         for i in range(capacity['hpart']):
             node = nodes + i
             gdb.write('{ptr}: {{ {key} }} => {{ {val} }}; next = {n}\n'.format(
-                ptr = node,
-                key = dump_tvalue(node['key']),
-                val= dump_tvalue(node['val']),
-                n = mref('struct Node *', node['next'])
+                ptr=node,
+                key=dump_tvalue(node['key']),
+                val=dump_tvalue(node['val']),
+                n=mref('struct Node *', node['next'])
             ))
 
 class LJDumpStack(LJBase):
@@ -723,8 +723,8 @@ The command requires no args and dumps current GC stats:
     def invoke(self, arg, from_tty):
         g = G(L(None))
         gdb.write('GC stats: {state}\n{stats}\n'.format(
-            state = gc_state(g),
-            stats = dump_gc(g)
+            state=gc_state(g),
+            stats=dump_gc(g)
         ))
 
 def init(commands):
