@@ -195,7 +195,7 @@ def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
     # XXX Fragile: though the loop initialization looks like a crap but it
     # respects both Python 2 and Python 3.
-    for l in [ L ] + list(map(lambda l: lookup(l), (
+    for l in [L] + list(map(lambda l: lookup(l), (
         # LuaJIT main coro (see luajit/src/luajit.c)
         'globalL',
         # Tarantool main coro (see tarantool/src/lua/init.h)
@@ -504,20 +504,20 @@ def dump_stack(L, base=None, top=None):
 
 def dump_gc(g):
     gc = g['gc']
-    stats = [ '{key}: {value}'.format(key = f, value = gc[f]) for f in (
+    stats = ['{key}: {value}'.format(key = f, value = gc[f]) for f in (
         'total', 'threshold', 'debt', 'estimate', 'stepmul', 'pause'
-    ) ]
+    )]
 
-    stats += [ 'sweepstr: {sweepstr}/{strmask}'.format(
+    stats += ['sweepstr: {sweepstr}/{strmask}'.format(
         sweepstr = gc['sweepstr'],
         # String hash mask (size of hash table - 1).
         strmask = g['strmask'] + 1,
-    ) ]
+    )]
 
-    stats += [ '{key}: {number} objects'.format(
+    stats += ['{key}: {number} objects'.format(
         key = stat,
         number = handler(gc[stat])
-    ) for stat, handler in gclen.items() ]
+    ) for stat, handler in gclen.items()]
 
     return '\n'.join(map(lambda s: '\t' + s, stats))
 
