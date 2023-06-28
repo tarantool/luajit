@@ -1092,7 +1092,7 @@ def configure(debugger):
     global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, PADDING, LJ_TISNUM, target
     target = debugger.GetSelectedTarget()
     module = target.modules[0]
-    LJ_DUALNUM = module.FindSymbol('lj_lib_checknumber') != None
+    LJ_DUALNUM = module.FindSymbol('lj_lib_checknumber') is not None
 
     try:
         irtype_enum = target.FindFirstType('IRType').enum_members
