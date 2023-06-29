@@ -6,6 +6,11 @@ local test = tap.test('unit-jit-parse'):skipcond({
 
 local jparse = require('utils').jit.parse
 
+-- XXX: Avoid any other traces compilation due to hotcount
+-- collisions for predictable results.
+jit.off()
+jit.flush()
+
 local expected_irs = {
   -- The different exotic builds may add different IR
   -- instructions, so just check some IR-s existence.
@@ -19,15 +24,16 @@ jit.opt.start('hotloop=1')
 
 test:plan(N_TESTS)
 
--- Reset traces.
-jit.flush()
-
+jit.on()
 jparse.start('i')
 
 -- Loop to compile:
 for _ = 1, 3 do end
 
 local traces = jparse.finish()
+
+jit.off()
+
 local loop_trace = traces[1]
 
 for irnum = 1, N_TESTS do
