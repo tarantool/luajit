@@ -2,12 +2,14 @@ local tap = require('tap')
 
 -- Test file to demonstrate LuaJIT incorrect behaviour during
 -- parsing and working with ctypes with attributes.
--- See also: https://github.com/LuaJIT/LuaJIT/issues/861.
+-- See also:
+-- * https://github.com/LuaJIT/LuaJIT/issues/861,
+-- * https://github.com/LuaJIT/LuaJIT/issues/1005.
 
 local test = tap.test('lj-861-ctype-attributes')
 local ffi = require('ffi')
 
-test:plan(5)
+test:plan(6)
 
 local EXPECTED_ALIGN = 4
 
@@ -37,8 +39,15 @@ test:is(ffi.sizeof('struct test_parsing_sizeof'), EXPECTED_ALIGN,
 test:is(ffi.sizeof('struct test_parsing_alignof'), EXPECTED_ALIGN,
         'correct alignof during C parsing')
 
-local ok, _ = pcall(ffi.metatype, 's_aligned', {})
+local EXPECTED_TOSTR = '__tostring overloaded'
+local ok, obj = pcall(ffi.metatype, 's_aligned', {
+  __tostring = function()
+    return EXPECTED_TOSTR
+  end,
+})
 
 test:ok(ok, 'ffi.metatype is called at the structure with attributes')
+test:is(tostring(obj()), EXPECTED_TOSTR,
+        '__tostring is overloaded for the structure with attributes')
 
 test:done(true)
