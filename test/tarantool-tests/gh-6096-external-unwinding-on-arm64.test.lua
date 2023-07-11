@@ -1,6 +1,6 @@
 local tap = require('tap')
 
--- Test file to check correctnes of external unwinding
+-- Test file to check correctness of external unwinding
 -- in LuaJIT.
 -- See also https://github.com/LuaJIT/LuaJIT/issues/698,
 -- https://github.com/LuaJIT/LuaJIT/pull/757.

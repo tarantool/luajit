@@ -39,8 +39,8 @@ function M.form_heap_delta(events, symbols)
       for _, heap_chunk in pairs(event.primary) do
         local ev_line = symtab.demangle(symbols, heap_chunk.loc)
 
-        if (heap_chunk.alloced > 0) then
-          dheap[ev_line].dbytes = dheap[ev_line].dbytes + heap_chunk.alloced
+        if (heap_chunk.allocated > 0) then
+          dheap[ev_line].dbytes = dheap[ev_line].dbytes + heap_chunk.allocated
           dheap[ev_line].nalloc = dheap[ev_line].nalloc + heap_chunk.count
         end
 

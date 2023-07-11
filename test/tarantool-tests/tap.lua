@@ -1,6 +1,6 @@
 --- tap.lua internal file.
 ---
---- The Test Anything Protocol vesion 13 producer.
+--- The Test Anything Protocol version 13 producer.
 ---
 
 -- Initializer FFI for <iscdata> check.
@@ -79,7 +79,7 @@ local function ok(test, cond, message, extra)
   io.write(tindent, ("line:\t%s\n"):format(trace[#trace].line))
   for frameno, frame in ipairs(trace) do
     io.write(tindent, ("frame #%d\n"):format(frameno))
-    -- XXX: Use "half indent" to dump <frame> fiels.
+    -- XXX: Use "half indent" to dump <frame> fields.
     local findent = indent(0.5) .. tindent
     for key, value in pairs(frame) do
       io.write(findent, ("%s:\t%s\n"):format(key, value))

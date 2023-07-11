@@ -20,9 +20,9 @@ local finish = os.clock()
 
 profile.stop()
 
--- XXX: The bug is occured as stopping of callbacks invocation,
+-- XXX: The bug is occurred as stopping of callbacks invocation,
 -- when a new tick strikes inside `gc_call_finalizer()`.
--- The amount of successfull callbacks isn't stable (2-15).
+-- The amount of successful callbacks isn't stable (2-15).
 -- So, assume that amount of profiling samples should be at least
 -- more than 0.5 intervals of time during sampling.
 test:ok(nsamples >= 0.5 * (finish - start) * 1e3 / INTERVAL,

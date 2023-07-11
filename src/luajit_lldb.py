@@ -490,7 +490,7 @@ def strdata(obj):
         ptr = cast('char *', obj + 1)
         return ptr.summary
     except UnicodeEncodeError:
-        return "<luajit-lldb: error occured while rendering non-ascii slot>"
+        return "<luajit-lldb: error occurred while rendering non-ascii slot>"
 
 def itype(o):
     return tou32(o.it64 >> 47) if LJ_GC64 else o.it
@@ -909,7 +909,7 @@ class LJDumpTable(Command):
     '''
 lj-tab <GCtab *>
 
-The command receives a GCtab adress and dumps the table contents:
+The command receives a GCtab address and dumps the table contents:
 * Metatable address whether the one is set
 * Array part <asize> slots:
   <aslot ptr>: [<index>]: <tv>
@@ -979,7 +979,7 @@ coroutine guest stack:
     + CP: Protected C frame
     + PP: VM performs a call as a result of executinig pcall or xpcall
 
-If L is ommited the main coroutine is used.
+If L is omitted the main coroutine is used.
     '''
     def execute(self, debugger, args, result):
         l = self.parse(args)

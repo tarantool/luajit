@@ -52,13 +52,13 @@ local function generate_output(filename, payload)
   collectgarbage()
 
   local res, err = misc.memprof.start(filename)
-  -- Should start succesfully.
+  -- Should start successfully.
   assert(res, err)
 
   payload()
 
   res, err = misc.memprof.stop()
-  -- Should stop succesfully.
+  -- Should stop successfully.
   assert(res, err)
 end
 
@@ -188,7 +188,7 @@ test:test("output", function(subtest)
   -- Check allocation reports. The second argument is a line
   -- number of the allocation event itself. The third is a line
   -- number of the corresponding function definition. The last
-  -- one is the number of allocations. 1 event - alocation of
+  -- one is the number of allocations. 1 event - allocation of
   -- table by itself + 1 allocation of array part as far it is
   -- bigger than LJ_MAX_COLOSIZE (16).
   subtest:ok(check_alloc_report(alloc, { line = 37, linedefined = 35 }, 2))
