@@ -53,3 +53,16 @@ jobs:
       - name: test
         run: cmake --build . --target LuaJIT-luacheck
         working-directory: ${{ env.BUILDDIR }}
+
+  checkpatch:
+    runs-on: [self-hosted, lightweight, Linux, x86_64]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: checkpatch
+        uses: ./.github/actions/checkpatch
+        with:
+          revision-range: HEAD~${{ github.event.pull_request.commits }}..HEAD

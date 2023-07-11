@@ -1,0 +1,17 @@
+name: Checkpatch
+description: Check patches against LuaJIT development guidelines
+inputs:
+  revision-range:
+    description: Git revision range to check
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: tarantool/checkpatch
+        path: 'checkpatch'
+    - run: apt install -y codespell
+      shell: bash
+    - run: checkpatch/checkpatch.pl --codespell --color=always --show-types --git ${{ inputs.revision-range }} --ignore NO_CHANGELOG,NO_DOC,NO_TEST,COMMIT_LOG_LONG_LINE
+      shell: bash
