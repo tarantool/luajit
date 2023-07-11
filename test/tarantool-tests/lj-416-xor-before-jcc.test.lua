@@ -41,7 +41,7 @@ local testxor = ffi.load('libtestxor')
 -- pressure and specific registers allocations.
 local handler = setmetatable({}, {
   __newindex = function ()
-    -- 0 and nil are suggested as differnt constant-zero values
+    -- 0 and nil are suggested as different constant-zero values
     -- for the call and occupied different registers.
     testxor.test_xor_func(0, 0, 0, 0, 0, 0, nil, 0)
   end

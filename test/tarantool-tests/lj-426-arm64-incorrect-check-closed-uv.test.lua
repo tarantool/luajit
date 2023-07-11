@@ -14,7 +14,7 @@ do
   -- The function's prototype is created with the following
   -- constants at chunk parsing. After adding this constant to
   -- the function's prototype it will be marked as gray during
-  -- propogate phase.
+  -- propagate phase.
   local function usets() uv = '' end
   _G.usets = usets
 end

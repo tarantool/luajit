@@ -52,14 +52,14 @@ local function link_to_previous(heap_chunk, e, nsize)
     if not e.primary[heap_chunk[2]] then
       e.primary[heap_chunk[2]] = {
         loc = heap_chunk[3],
-        alloced = 0,
+        allocated = 0,
         freed = 0,
         count = 0,
       }
     end
     -- Save information about delta for memory heap.
     local location_data = e.primary[heap_chunk[2]]
-    location_data.alloced = location_data.alloced + nsize
+    location_data.allocated = location_data.allocated + nsize
     location_data.freed = location_data.freed + heap_chunk[1]
     location_data.count = location_data.count + 1
   end

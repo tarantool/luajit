@@ -66,4 +66,3 @@ add_custom_command(TARGET tarantool-c-tests
     ${C_TEST_FLAGS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
-

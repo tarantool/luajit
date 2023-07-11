@@ -44,7 +44,7 @@ for n = 1, 100 do
       for i = 1, 5 do
         -- This constant fusion leads to the test failure.
         a[i] = 0
-        -- This summ is not necessarry but decreases the amount of
+        -- This summ is not necessary but decreases the amount of
         -- iterations.
         a[i] = a[i] + x + y
         -- Use all FPR registers and one value from the memory

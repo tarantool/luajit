@@ -39,7 +39,7 @@ local loop_trace = traces[1]
 for irnum = 1, N_TESTS do
   local ir_pattern = expected_irs[irnum]
   local irref = loop_trace:has_ir(ir_pattern)
-  test:ok(irref, 'find IR refernce by pattern: ' .. ir_pattern)
+  test:ok(irref, 'find IR reference by pattern: ' .. ir_pattern)
 end
 
 test:done(true)

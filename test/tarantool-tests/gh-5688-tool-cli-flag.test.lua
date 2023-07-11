@@ -91,13 +91,13 @@ end
 
 local function generate_profiler_output(opts, payload, profiler)
   local res, err = profiler.start(opts)
-  -- Should start succesfully.
+  -- Should start successfully.
   assert(res, err)
 
   payload()
 
   res, err = profiler.stop()
-  -- Should stop succesfully.
+  -- Should stop successfully.
   assert(res, err)
 end
 

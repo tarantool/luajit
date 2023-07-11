@@ -75,7 +75,7 @@ void lj_wbuf_addn(struct lj_wbuf *buf, const void *src, size_t n);
 /* Write string to the buffer. */
 void LJ_FASTCALL lj_wbuf_addstring(struct lj_wbuf *buf, const char *s);
 
-/* Immediatly flush the buffer. */
+/* Immediately flush the buffer. */
 void LJ_FASTCALL lj_wbuf_flush(struct lj_wbuf *buf);
 
 /* Check flags. */

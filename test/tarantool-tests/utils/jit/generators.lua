@@ -17,7 +17,7 @@ end
 local recfuncs = {}
 local last_i = 0
 -- This function generates a table of functions with heavy mcode
--- payload with tab arithmetics to fill the mcode area from the
+-- payload with tab arithmetic to fill the mcode area from the
 -- one trace mcode by some given size. This size is usually big
 -- enough, because we want to check long jump side exits from some
 -- traces.

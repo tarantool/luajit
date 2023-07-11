@@ -314,7 +314,7 @@ def strdata(obj):
     try:
         return str(cast('char *', cast('GCstr *', obj) + 1))[len(PADDING):]
     except UnicodeEncodeError:
-        return "<luajit-gdb: error occured while rendering non-ascii slot>"
+        return "<luajit-gdb: error occurred while rendering non-ascii slot>"
 
 
 def itypemap(o):
@@ -687,7 +687,7 @@ class LJDumpTable(LJBase):
     '''
 lj-tab <GCtab *>
 
-The command receives a GCtab adress and dumps the table contents:
+The command receives a GCtab address and dumps the table contents:
 * Metatable address whether the one is set
 * Array part <asize> slots:
   <aslot ptr>: [<index>]: <tv>
@@ -759,7 +759,7 @@ coroutine guest stack:
     + CP: Protected C frame
     + PP: VM performs a call as a result of executinig pcall or xpcall
 
-If L is ommited the main coroutine is used.
+If L is omitted the main coroutine is used.
     '''
 
     def invoke(self, arg, from_tty):
