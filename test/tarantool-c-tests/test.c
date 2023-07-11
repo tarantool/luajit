@@ -164,7 +164,7 @@ static void test_diagnostic(void)
 	while ((ent_end = strchr(ent, '\n')) != NULL) {
 		char *next_ent = ent_end + 1;
 		/*
-		 * Limit string with with the zero byte for
+		 * Limit string with the zero byte for
 		 * formatted output. Anyway, don't need this \n
 		 * anymore.
 		 */

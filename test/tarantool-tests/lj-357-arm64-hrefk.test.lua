@@ -17,7 +17,7 @@ local t = {hrefk = 0}
 -- chooses the same register as a base register for offset and
 -- destination in LDR instruction.
 -- We need 1028 iterations = 1024 iteration for 10 table rehashing
--- (create side traces for invarinat and variant loop part) +
+-- (create side traces for invariant and variant loop part) +
 -- 3 for trace initialize + 1 to run the bad trace.
 local START = 1028
 local STOP = 1

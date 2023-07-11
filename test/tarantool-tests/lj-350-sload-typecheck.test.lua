@@ -1,5 +1,5 @@
 local tap = require('tap')
--- Test file to demonstrate the incorrect GC64 JIT asembling
+-- Test file to demonstrate the incorrect GC64 JIT assembling
 -- `IR_SLOAD`.
 -- See also https://github.com/LuaJIT/LuaJIT/pull/350.
 local test = tap.test('lj-350-sload-typecheck'):skipcond({

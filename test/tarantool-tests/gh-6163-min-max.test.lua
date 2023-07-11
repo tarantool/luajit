@@ -40,7 +40,7 @@ local x = 1
 
 jit.opt.start('hotloop=1')
 
--- XXX: Looping over the operations and their arguments breakes the
+-- XXX: Looping over the operations and their arguments breaks the
 -- semantics of some optimization tests below. The cases are
 -- copy-pasted to preserve optimization semantics.
 

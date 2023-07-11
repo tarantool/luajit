@@ -29,7 +29,7 @@ static int crafted_ptr(void *test_state)
 	return TEST_EXIT_SUCCESS;
 }
 
-static int mmaped_ptr(void *test_state)
+static int mmapped_ptr(void *test_state)
 {
 	lua_State *L = test_state;
 	/*
@@ -39,12 +39,12 @@ static int mmaped_ptr(void *test_state)
 	 * equals to -1.
 	 */
 	const size_t pagesize = getpagesize();
-	void *mmaped = mmap(START, pagesize, PROT_NONE, MAP_PRIVATE | MAP_ANON,
+	void *mmapped = mmap(START, pagesize, PROT_NONE, MAP_PRIVATE | MAP_ANON,
 			    -1, 0);
-	if (mmaped != MAP_FAILED) {
-		lua_pushlightuserdata(L, mmaped);
-		assert_ptr_equal(mmaped, lua_topointer(L, -1));
-		assert(munmap(mmaped, pagesize) == 0);
+	if (mmapped != MAP_FAILED) {
+		lua_pushlightuserdata(L, mmapped);
+		assert_ptr_equal(mmapped, lua_topointer(L, -1));
+		assert(munmap(mmapped, pagesize) == 0);
 	}
 	/* Clear our stack. */
 	lua_pop(L, 0);
@@ -56,7 +56,7 @@ int main(void)
 	lua_State *L = utils_lua_init();
 	const struct test_unit tgroup[] = {
 		test_unit_def(crafted_ptr),
-		test_unit_def(mmaped_ptr)
+		test_unit_def(mmapped_ptr)
 	};
 	const int test_result = test_run_group(tgroup, L);
 	utils_lua_close(L);

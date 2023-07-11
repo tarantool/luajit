@@ -134,7 +134,7 @@ else()
 endif()
 
 # LUA_CPATH and LD_LIBRARY_PATH variables and also TESTLIBS list
-# with dependecies are set in scope of BuildTestLib macro.
+# with dependencies are set in scope of BuildTestLib macro.
 add_custom_target(tarantool-tests
   DEPENDS ${LUAJIT_TEST_BINARY} ${TESTLIBS}
 )

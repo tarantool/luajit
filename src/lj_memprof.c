@@ -257,10 +257,10 @@ int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
   lj_assertL(opt->writer != NULL, "uninitialized memprof writer");
   lj_assertL(opt->on_stop != NULL, "uninitialized on stop memprof callback");
   lj_assertL(opt->buf != NULL, "uninitialized memprof writer buffer");
-  lj_assertL(opt->len != 0, "bad memprof writer buffer lenght");
+  lj_assertL(opt->len != 0, "bad memprof writer buffer length");
 
   if (mp->state != MPS_IDLE) {
-    /* Clean up resourses. Ignore possible errors. */
+    /* Clean up resources. Ignore possible errors. */
     opt->on_stop(opt->ctx, opt->buf);
     return PROFILE_ERRRUN;
   }
@@ -392,7 +392,7 @@ void lj_memprof_add_trace(const struct GCtrace *tr)
 int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
 {
   UNUSED(L);
-  /* Clean up resourses. Ignore possible errors. */
+  /* Clean up resources. Ignore possible errors. */
   opt->on_stop(opt->ctx, opt->buf);
   return PROFILE_ERRUSE;
 }

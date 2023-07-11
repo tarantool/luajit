@@ -85,7 +85,7 @@ test:ok(not traceinfo(2), 'the second trace should not be compiled')
 jit.on()
 
 for i = 1, N_ITERATIONS do
-  -- Check that that all lookups are correct and there is no
+  -- Check that all lookups are correct and there is no
   -- value from other cdata stored in the table.
   test:ok(result_tab[i] == MAGIC, 'correct hash lookup from the table')
 end

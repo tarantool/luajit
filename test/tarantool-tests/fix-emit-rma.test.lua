@@ -4,7 +4,7 @@ local test = tap.test('fix-emit-rma'):skipcond({
   ['Test requires GC64 mode enabled'] = not require('ffi').abi('gc64'),
 })
 
--- Need to test 2 cases of `emit_rma()` particulary on x64:
+-- Need to test 2 cases of `emit_rma()` particularly on x64:
 --   * `IR_LDEXP` with `fld` instruction for loading constant
 --      number `TValue` by address.
 --   * `IR_OBAR` with the corresponding `test` instruction on

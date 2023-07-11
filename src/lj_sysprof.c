@@ -502,7 +502,7 @@ int lj_sysprof_stop(lua_State *L)
   if (SPS_HALT == sp->state) {
     errno = sp->saved_errno;
     sp->state = SPS_IDLE;
-    /* wbuf was terminated when error occured. */
+    /* wbuf was terminated when error occurred. */
     return PROFILE_ERRIO;
   }
 
