@@ -27,9 +27,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-luacheck:
+  test-lint:
     runs-on: [self-hosted, lightweight, Linux, x86_64]
-    name: LuaJIT linters (luacheck, flake8)
+    name: LuaJIT linters (luacheck, flake8, codespell)
     steps:
       - uses: actions/checkout@v3
         with:
@@ -44,6 +44,7 @@ jobs:
           sudo apt -y install cmake ninja-build lua5.1 luarocks
           sudo luarocks install luacheck
           sudo pip3 install flake8==6.1.0
+          sudo pip3 install codespell==2.2.5
           # Set CMAKE_BUILD_PARALLEL_LEVEL environment variable to
           # limit the number of parallel jobs for build/test step.
           echo CMAKE_BUILD_PARALLEL_LEVEL=$(($(nproc) + 1)) | tee -a $GITHUB_ENV
