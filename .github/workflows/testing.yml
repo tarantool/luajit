@@ -11,8 +11,8 @@ on:
 concurrency:
   # An update of a developer branch cancels the previously
   # scheduled workflow run for this branch. However, the default
-  # branch, and long-term branch (tarantool-1.10, tarantool-2.8,
-  # etc.) workflow runs are never canceled.
+  # branch, and long-term branch (tarantool/release/2.11,
+  # tarantool/release/2.10, etc) workflow runs are never canceled.
   #
   # We use a trick here: define the concurrency group as 'workflow
   # run ID' + # 'workflow run attempt' because it is a unique
@@ -21,11 +21,9 @@ concurrency:
   # XXX: we cannot use `github.sha` as a unique identifier because
   # pushing a tag may cancel a run that works on a branch push
   # event.
-  group: ${{ (
-    github.ref == 'refs/heads/tarantool' ||
-    startsWith(github.ref, 'refs/heads/tarantool-')) &&
-    format('{0}-{1}', github.run_id, github.run_attempt) ||
-    format('{0}-{1}', github.workflow, github.ref) }}
+  group: ${{ startsWith(github.ref, 'refs/heads/tarantool/')
+    && format('{0}-{1}', github.run_id, github.run_attempt)
+    || format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
 jobs:
