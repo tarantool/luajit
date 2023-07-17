@@ -68,6 +68,7 @@ endif()
 add_custom_target(${PROJECT_NAME}-lint DEPENDS
   ${PROJECT_NAME}-luacheck
   ${PROJECT_NAME}-flake8
+  ${PROJECT_NAME}-codespell
 )
 
 set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")

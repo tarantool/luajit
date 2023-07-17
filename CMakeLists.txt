@@ -32,6 +32,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(LuaJITUtils)
 include(SetBuildParallelLevel)
 include(SetVersion)
+include(CodeSpell)
 
 # --- Variables to be exported to child scopes ---------------------------------
 
