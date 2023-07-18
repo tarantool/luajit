@@ -254,6 +254,19 @@ local function iscdata(test, v, ctype, message, extra)
   return ok(test, ffi.istype(ctype, v), message, extra)
 end
 
+local function isnan(v)
+  return v ~= v
+end
+
+local function samevalues(test, got, message, extra)
+  for i = 1, table.maxn(got) - 1 do
+    if got[i] ~= got[i + 1] and not (isnan(got[i]) and isnan(got[i + 1])) then
+      return fail(test, message, extra)
+    end
+  end
+  return ok(test, true, message, extra)
+end
+
 local test_mt
 
 local function new(parent, name, fun, ...)
@@ -372,6 +385,7 @@ test_mt = {
     isudata    = isudata,
     iscdata    = iscdata,
     is_deeply  = is_deeply,
+    samevalues = samevalues,
     like       = like,
     unlike     = unlike,
   }
