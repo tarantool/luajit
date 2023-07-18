@@ -2,24 +2,16 @@ local tap = require('tap')
 local test = tap.test('gh-6163-jit-min-max'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
 })
+
 local x86_64 = jit.arch == 'x86' or jit.arch == 'x64'
+-- XXX: table to use for dummy check for some inconsistent results
+-- on the x86/64 architecture.
+local DUMMY_TAB = {}
+
 test:plan(18)
 --
 -- gh-6163: math.min/math.max inconsistencies.
 --
-
-local function isnan(x)
-    return x ~= x
-end
-
-local function array_is_consistent(res)
-  for i = 1, #res - 1 do
-    if res[i] ~= res[i + 1] and not (isnan(res[i]) and isnan(res[i + 1])) then
-      return false
-    end
-  end
-  return true
-end
 
 -- This function creates dirty values on the Lua stack.
 -- The latter of them is going to be treated as an
@@ -91,14 +83,14 @@ for k = 1, 4 do
     result[k] = min(min(x, nan), x)
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'math.min: reassoc_dup')
+test:samevalues(result, 'math.min: reassoc_dup')
 
 result = {}
 for k = 1, 4 do
     result[k] = max(max(x, nan), x)
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'math.max: reassoc_dup')
+test:samevalues(result, 'math.max: reassoc_dup')
 
 -- If one gets the expression like `math.min(x, math.min(x, nan))`,
 -- and the `comm_dup` optimization is applied, it results in the
@@ -120,7 +112,7 @@ for k = 1, 4 do
 end
 -- FIXME: results are still inconsistent for the x86/64 architecture.
 -- expected: nan nan nan nan
-test:ok(array_is_consistent(result) or x86_64, 'math.min: comm_dup_minmax')
+test:samevalues(x86_64 and DUMMY_TAB or result, 'math.min: comm_dup_minmax')
 
 result = {}
 for k = 1, 4 do
@@ -128,7 +120,7 @@ for k = 1, 4 do
 end
 -- FIXME: results are still inconsistent for the x86/64 architecture.
 -- expected: nan nan nan nan
-test:ok(array_is_consistent(result) or x86_64, 'math.max: comm_dup_minmax')
+test:samevalues(x86_64 and DUMMY_TAB or result, 'math.max: comm_dup_minmax')
 
 -- The following optimization should be disabled:
 -- (x o k1) o k2 ==> x o (k1 o k2)
@@ -139,49 +131,49 @@ for k = 1, 4 do
     result[k] = min(min(x, 0/0), 1.3)
 end
 -- expected: 1.3 1.3 1.3 1.3
-test:ok(array_is_consistent(result), 'math.min: reassoc_minmax_k')
+test:samevalues(result, 'math.min: reassoc_minmax_k')
 
 result = {}
 for k = 1, 4 do
     result[k] = max(max(x, 0/0), 1.1)
 end
 -- expected: 1.1 1.1 1.1 1.1
-test:ok(array_is_consistent(result), 'math.max: reassoc_minmax_k')
+test:samevalues(result, 'math.max: reassoc_minmax_k')
 
 result = {}
 for k = 1, 4 do
   result[k] = min(max(nan, 1), 1)
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'min-max-case1: reassoc_minmax_left')
+test:samevalues(result, 'min-max-case1: reassoc_minmax_left')
 
 result = {}
 for k = 1, 4 do
   result[k] = min(max(1, nan), 1)
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'min-max-case2: reassoc_minmax_left')
+test:samevalues(result, 'min-max-case2: reassoc_minmax_left')
 
 result = {}
 for k = 1, 4 do
   result[k] = max(min(nan, 1), 1)
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'max-min-case1: reassoc_minmax_left')
+test:samevalues(result, 'max-min-case1: reassoc_minmax_left')
 
 result = {}
 for k = 1, 4 do
   result[k] = max(min(1, nan), 1)
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'max-min-case2: reassoc_minmax_left')
+test:samevalues(result, 'max-min-case2: reassoc_minmax_left')
 
 result = {}
 for k = 1, 4 do
   result[k] = min(1, max(nan, 1))
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'min-max-case1: reassoc_minmax_right')
+test:samevalues(result, 'min-max-case1: reassoc_minmax_right')
 
 result = {}
 for k = 1, 4 do
@@ -189,14 +181,15 @@ for k = 1, 4 do
 end
 -- FIXME: results are still inconsistent for the x86/64 architecture.
 -- expected: nan nan nan nan
-test:ok(array_is_consistent(result) or x86_64, 'min-max-case2: reassoc_minmax_right')
+test:samevalues(x86_64 and DUMMY_TAB or result,
+                'min-max-case2: reassoc_minmax_right')
 
 result = {}
 for k = 1, 4 do
   result[k] = max(1, min(nan, 1))
 end
 -- expected: 1 1 1 1
-test:ok(array_is_consistent(result), 'max-min-case1: reassoc_minmax_right')
+test:samevalues(result, 'max-min-case1: reassoc_minmax_right')
 
 result = {}
 for k = 1, 4 do
@@ -204,7 +197,8 @@ for k = 1, 4 do
 end
 -- FIXME: results are still inconsistent for the x86/64 architecture.
 -- expected: nan nan nan nan
-test:ok(array_is_consistent(result) or x86_64, 'max-min-case2: reassoc_minmax_right')
+test:samevalues(x86_64 and DUMMY_TAB or result,
+                'max-min-case2: reassoc_minmax_right')
 
 -- XXX: If we look into the disassembled code of `lj_vm_foldarith()`
 -- we can see the following:
@@ -253,13 +247,13 @@ for k = 1, 4 do
   result[k] = min(min(7.1, 0/0), 1.1)
 end
 -- expected: 1.1 1.1 1.1 1.1
-test:ok(array_is_consistent(result), 'min: fold_kfold_numarith')
+test:samevalues(result, 'min: fold_kfold_numarith')
 
 result = {}
 for k = 1, 4 do
   result[k] = max(max(7.1, 0/0), 1.1)
 end
 -- expected: 1.1 1.1 1.1 1.1
-test:ok(array_is_consistent(result), 'max: fold_kfold_numarith')
+test:samevalues(result, 'max: fold_kfold_numarith')
 
 test:done(true)
