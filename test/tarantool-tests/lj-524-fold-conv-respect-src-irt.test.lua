@@ -21,4 +21,4 @@ end
 
 test:is(tonumber(sq), math.fmod(math.pow(42, 8), math.pow(2, 32)))
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

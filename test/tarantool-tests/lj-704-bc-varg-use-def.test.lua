@@ -90,4 +90,4 @@ wrap_ret_bc(ON_TRACE_VALUE)
 
 test:ok(result ~= 0, 'use-def analysis for FUNCV with jump before BC_VARG')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

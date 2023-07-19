@@ -15,4 +15,4 @@ local runner = ffi.cast("int (*)(int, int, int, int, int, int, int, int, int)",
 local st = pcall(runner, 1, 1, 1, 1, 1, 1, 1, 1, 1)
 test:ok(not st, 'error handling completed correctly')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

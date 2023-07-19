@@ -102,4 +102,4 @@ wrap()
 
 test:ok(true, 'the resulting trace is correct')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

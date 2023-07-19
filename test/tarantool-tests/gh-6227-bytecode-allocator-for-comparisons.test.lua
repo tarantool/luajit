@@ -54,4 +54,4 @@ for _ = 1, 3 do
 end
 
 test:ok(true)
-os.exit(test:check() and 0 or 1)
+test:done(true)

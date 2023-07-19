@@ -32,4 +32,4 @@ for i = 1, NTEST do
   test:ok(results[i] == expected[i], 'correct cdata indexing')
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

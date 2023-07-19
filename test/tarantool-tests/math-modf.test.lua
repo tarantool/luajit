@@ -32,3 +32,5 @@ for i = 1, 3 do
 end
 
 test:ok(array_is_consistent(r1) and array_is_consistent(r2), 'wrong modf')
+
+test:done(true)

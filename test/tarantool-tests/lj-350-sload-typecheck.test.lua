@@ -41,4 +41,4 @@ jit.off()
 
 test:ok(not traceinfo(2), 'the second trace should not be compiled')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

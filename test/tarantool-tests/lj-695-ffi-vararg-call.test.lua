@@ -13,4 +13,4 @@ local result = ffi.string(str)
 test:is(#result, strlen)
 test:is(result, 'try vararg function: imun:9.00(9) - 18446744073709551615')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

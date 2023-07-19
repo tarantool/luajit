@@ -24,4 +24,4 @@ end
 -- due to failing assertion guard for type of loaded vararg slot.
 test:ok(test_rec_varg(42, 0), 'correct BC_VARG recording')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

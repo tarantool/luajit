@@ -25,4 +25,4 @@ end
 
 test:ok(global_env == getfenv(0), 'IR_LREF assembling correctness')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

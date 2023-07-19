@@ -10,7 +10,7 @@ local NULL = ffi.new("void *")
 local function finalize(test)
   -- TODO: implement finalization for subtests too.
   assert(test.parent == nil, 'FIXME: There is no way to use finalize subtest')
-  os.exit(test:check() and 0 or 1)
+  test:done(true)
 end
 
 local function indent(level, size)
@@ -337,12 +337,24 @@ local function skipcond(test, conditions)
   return test
 end
 
+local function done(test, exit)
+  if exit then
+    -- XXX: The second argument is required to properly close Lua
+    -- universe (i.e. invoke <lua_close> before exiting).
+    -- XXX: return is added explicitly to force CALLT emitting.
+    return os.exit(test:check() and 0 or 1, true)
+  else
+    assert(test:check(), 'Test check failed')
+  end
+end
+
 test_mt = {
   __index = {
     test       = new,
     plan       = plan,
     check      = check,
     diag       = diag,
+    done       = done,
     ok         = ok,
     fail       = fail,
     skip       = skip,

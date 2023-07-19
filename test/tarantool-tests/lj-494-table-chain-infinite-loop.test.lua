@@ -174,4 +174,4 @@ for c, v in pairs(victims) do
 end
 test:ok(true, "table keys collisions are resolved properly (no assertions failed)")
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -262,4 +262,4 @@ end
 -- expected: 1.1 1.1 1.1 1.1
 test:ok(array_is_consistent(result), 'max: fold_kfold_numarith')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -83,4 +83,4 @@ for n = 1, 100 do
 end
 
 test:ok(ok, 'IR constant fusion')
-os.exit(test:check() and 0 or 1)
+test:done(true)

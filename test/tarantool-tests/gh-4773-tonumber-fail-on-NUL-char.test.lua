@@ -19,4 +19,4 @@ test:is(tonumber(t.zero), 0)
 test:is(tonumber(t.zero .. t.tail), nil)
 test:is(tonumber(t.zero .. t.null .. t.tail), nil)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

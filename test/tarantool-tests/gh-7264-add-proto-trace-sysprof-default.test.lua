@@ -44,4 +44,4 @@ assert(misc.sysprof.start({ mode = 'D' }))
 allocate()
 test:ok(misc.sysprof.stop(), 'trace record in sysprof runtime')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

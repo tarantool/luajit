@@ -8,4 +8,4 @@ test:plan(1)
 -- See also https://github.com/LuaJIT/LuaJIT/issues/378.
 
 test:is(string.format('%c', 0), '\0', 'string.format %c on null char')
-os.exit(test:check() and 0 or 1)
+test:done(true)

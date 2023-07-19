@@ -22,4 +22,4 @@ f(5)
 test:ok(utils.frontend.hasbc(load(string.dump(f)), ret1bc),
         'bytecode unpatching is OK')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

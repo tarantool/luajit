@@ -100,4 +100,4 @@ collectgarbage()
 
 test:ok(true, 'correctly throw memory error')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

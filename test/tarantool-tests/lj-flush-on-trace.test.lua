@@ -59,4 +59,4 @@ for _, subtest in pairs(cases) do
   test[subtest.test](test, output, subtest.expected, subtest.message)
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

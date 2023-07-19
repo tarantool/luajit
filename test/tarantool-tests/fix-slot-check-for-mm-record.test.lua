@@ -79,4 +79,4 @@ end
 jit.opt.start('hotloop=1', 'maxrecord=2048')
 
 test:ok(try(require('ffi').abi('gc64')))
-os.exit(test:check() and 0 or 1)
+test:done(true)

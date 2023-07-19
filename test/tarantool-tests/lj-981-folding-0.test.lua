@@ -60,4 +60,4 @@ test:ok(result == expected, 'TDUP and -0 folding')
 -- Test that there is no NEWREF -0 IR.
 test:ok(not traces[1]:has_ir('NEWREF.*-0'), '-0 is canonized for TDUP tab')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

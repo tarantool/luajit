@@ -10,4 +10,4 @@ test:plan(1)
 -- As numbers -0 equals to 0, so convert it back to string.
 test:ok(tostring(tonumber('-0')) == '-0', 'correct "-0" string parsing')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -58,4 +58,4 @@ for i = 1, 1e2 do local _ = {string.rep('0', i)} end
 
 test:ok(_G.parent() == 42, 'correct set up of upvalue')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

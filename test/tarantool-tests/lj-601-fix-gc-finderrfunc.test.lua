@@ -35,4 +35,4 @@ a = nil
 -- frame. As a result, error is raised in __gc metamethod above.
 test:ok(mixcframe.test_handle_err(), 'error in __gc is successfully handled')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

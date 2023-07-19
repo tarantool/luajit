@@ -129,4 +129,4 @@ check_mode("C", 100)
 
 os.remove(TMP_BINFILE)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

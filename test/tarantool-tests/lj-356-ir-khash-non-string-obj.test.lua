@@ -90,4 +90,4 @@ for i = 1, N_ITERATIONS do
   test:ok(result_tab[i] == MAGIC, 'correct hash lookup from the table')
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

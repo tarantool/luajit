@@ -96,4 +96,4 @@ end, function()
   test:fail('Invalid Lua stack has been restored')
 end)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

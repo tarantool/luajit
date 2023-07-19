@@ -55,4 +55,4 @@ for i = 1, NITERATIONS do
   test:ok(union_type(i).u == i, 'first member init only')
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -60,4 +60,4 @@ end
 
 test:ok(true, 'BC_VARG recording with VARG slots defined on trace')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

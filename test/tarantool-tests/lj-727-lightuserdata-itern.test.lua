@@ -42,4 +42,4 @@ end)
 test.strict = true
 test:is_deeply(visited, t, 'userdata node is visited')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)
