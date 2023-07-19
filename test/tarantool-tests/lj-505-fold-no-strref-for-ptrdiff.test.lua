@@ -18,4 +18,4 @@ for _ = 1, 20 do
 end
 test:ok(true, "string.find offset aritmetics wasn't broken while recording")
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

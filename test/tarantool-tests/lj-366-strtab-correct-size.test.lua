@@ -202,4 +202,4 @@ test:ok(sym_is_found == true, 'symbol is found')
 local ret = os.remove(elf_filename)
 assert(ret == true, 'cannot remove an object file')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

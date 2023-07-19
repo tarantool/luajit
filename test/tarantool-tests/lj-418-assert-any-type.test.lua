@@ -15,4 +15,4 @@ xpcall(assert, function(obj)
   test:ok(obj == retv, 'xpcall error handler function get non-string argument')
 end, false, retv)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

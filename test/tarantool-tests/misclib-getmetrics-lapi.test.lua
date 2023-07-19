@@ -430,4 +430,4 @@ test:test("tracenum-base", function(subtest)
     subtest:is(metrics.jit_trace_num, 0)
 end)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

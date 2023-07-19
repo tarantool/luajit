@@ -9,4 +9,4 @@ test:plan(1)
 local r, e = pcall(unpack, {}, 0, 2^31 - 1)
 test:ok(not r and e == 'too many results to unpack', 'overflow check in unpack')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

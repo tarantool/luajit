@@ -12,4 +12,4 @@ test:is(h:len(), 20)
 h = "\x0F\x93\xE2\x1C\xCA\xDE\x28\x08\x26\x01\xED\x0A\x2F\xE4\x21\x02\x97\x77\xD9\x3E"
 test:is(h:len(), 20)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

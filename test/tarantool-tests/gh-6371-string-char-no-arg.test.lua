@@ -27,4 +27,4 @@ for i = 1, NTEST do
   test:ok(results[i] == '', 'correct recording of string.char() without args')
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

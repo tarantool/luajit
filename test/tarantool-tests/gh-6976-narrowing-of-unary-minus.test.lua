@@ -48,4 +48,4 @@ test:ok(check(function()
   return res
 end), 'assertion guard fail')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

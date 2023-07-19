@@ -28,4 +28,4 @@ end
 
 test:ok(traceinfo(1), 'new trace created')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

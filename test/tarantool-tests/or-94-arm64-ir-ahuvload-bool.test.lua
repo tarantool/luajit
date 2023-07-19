@@ -145,4 +145,4 @@ for i = 1, N_TESTS do
   jit.flush()
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

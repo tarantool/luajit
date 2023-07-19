@@ -11,4 +11,4 @@ local res, err = package.loadlib(long_path, 'func')
 test:ok(res == nil, 'loaded library with a too large path')
 test:like(err, 'path too long', 'incorrect error')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

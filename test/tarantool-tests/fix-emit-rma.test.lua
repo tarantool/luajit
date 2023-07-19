@@ -101,4 +101,4 @@ end
 -- trace.
 test:ok(true, 'IR_OBAR emit_rma check correctness')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

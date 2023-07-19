@@ -29,4 +29,4 @@ end
 test:is(t.hrefk, -START)
 test:is(t[t.hrefk], STOP)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -95,4 +95,4 @@ test:ok(tree_contains(symbols.cfunc, "allocate_string"))
 -- perform a test in that case, since it is impossible to load Lua module
 -- written in C if it doesn't have a .dynsym segment.
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

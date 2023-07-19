@@ -38,4 +38,4 @@ test:is(avl.floor(root, -10), nil)
 -- Not exact upper bound.
 test:is(avl.floor(root, 2.75), 2)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

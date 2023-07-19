@@ -18,4 +18,4 @@ debug.getmetatable(1LL).__concat = function(a, b)
 end
 test:ok(1LL .. 2LL == '1LL2LL', 'cdata concatenation with defined metamethod')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -28,4 +28,4 @@ assert(pcall(libcur_L.error_from_other_thread) == false, "return from error")
 cbool(false)
 
 test:ok(true)
-os.exit(test:check() and 0 or 1)
+test:done(true)

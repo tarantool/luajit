@@ -32,4 +32,4 @@ require('jit.bc').dump(loadstring(string.dump(fibb)), {
 -- `jit.bc` functions inside.
 test:ok(fibb(2) == 1, 'run compiled function inside vmevent handler')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

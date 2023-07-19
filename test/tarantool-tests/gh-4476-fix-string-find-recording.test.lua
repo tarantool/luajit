@@ -76,4 +76,4 @@ until not e
 
 test:is(count_vm, count_jit)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

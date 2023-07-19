@@ -97,4 +97,4 @@ for _ = 1, 3 do
 end
 test:ok(true, 'impossible branch is not taken')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

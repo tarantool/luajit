@@ -41,4 +41,4 @@ check(0LL)
 test:ok(check(0LL), 'recorded with 0LL and converted for 0LL')
 test:ok(not check(NULL), 'recorded with 0LL and not converted for NULL')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

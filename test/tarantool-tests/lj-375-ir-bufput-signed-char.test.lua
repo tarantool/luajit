@@ -29,4 +29,4 @@ for i = 1, NTEST do
   test:ok(results[i] == 0xff, 'correct 0xff signed char assembling')
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

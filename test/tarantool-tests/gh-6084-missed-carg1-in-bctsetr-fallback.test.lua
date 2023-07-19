@@ -24,4 +24,4 @@ local res = table.move(t, 1, 1, 2)
 test:ok(t == res, 'table.move returns the same table')
 test:ok(t[1] == t[2], 'table.move is correct')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -26,4 +26,4 @@ test:ok(f:read(0), 'profile output was flushed and closed')
 
 assert(os.remove(TEST_FILE))
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

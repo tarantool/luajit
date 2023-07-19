@@ -26,4 +26,4 @@ for _, subtest in pairs(cases) do
           ('subtest is OK for %s type'):format(subtest.typename))
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

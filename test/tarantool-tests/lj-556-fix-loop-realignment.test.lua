@@ -17,4 +17,4 @@ while s > 0 do
 end
 
 test:ok(true, 'loop is compiled and ran successfully')
-os.exit(test:check() and 0 or 1)
+test:done(true)

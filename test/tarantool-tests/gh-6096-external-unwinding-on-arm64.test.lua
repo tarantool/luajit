@@ -10,4 +10,4 @@ test:plan(1)
 local res = pcall(require, 'not-existing-module')
 test:ok(res == false, 'successful unwinding in pcall')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

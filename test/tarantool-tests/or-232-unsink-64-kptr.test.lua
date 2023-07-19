@@ -41,4 +41,4 @@ for i = 1, 1000 do
 end
 test:ok(true, "allocation is unsunk at the trace exit (no platform failures)")
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

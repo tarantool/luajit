@@ -50,4 +50,4 @@ end
 test:is(result, true, 'TDUP load forwarding was successful')
 ]]
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

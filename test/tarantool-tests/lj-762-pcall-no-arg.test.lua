@@ -12,4 +12,4 @@ local result, err = pcall(pcall)
 test:ok(not result, 'pcall() without args: bad status')
 test:like(err, 'value expected', 'pcall() without args: error message')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

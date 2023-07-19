@@ -28,4 +28,4 @@ profile.stop()
 test:ok(nsamples >= 0.5 * (finish - start) * 1e3 / INTERVAL,
         'profiler sampling')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

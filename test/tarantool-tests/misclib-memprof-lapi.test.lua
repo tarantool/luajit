@@ -296,4 +296,4 @@ test:test("jit-output", function(subtest)
   jit.opt.start(unpack(jit_opt_default))
 end)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -10,4 +10,4 @@ test:plan(1)
 -- as a second argument to the assertion.
 test:ok(pcall(jit.on))
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -129,4 +129,4 @@ pxcall(cbool, false)
 cbool(false)
 
 test:ok(true)
-os.exit(test:check() and 0 or 1)
+test:done(true)

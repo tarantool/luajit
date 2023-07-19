@@ -26,4 +26,4 @@ test:ok(tonumber('- 1010  ', 2) == nil, 'space between sign and value')
 test:ok(tonumber('-_1010  ', 2) == nil,
 	'invalid character between sign and value')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

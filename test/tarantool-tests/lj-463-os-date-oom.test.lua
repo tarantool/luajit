@@ -14,4 +14,4 @@ end
 
 test:ok(true, 'os.date() finished without OOM')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

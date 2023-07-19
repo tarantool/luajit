@@ -36,4 +36,4 @@ while (misc.getmetrics().gc_steps_atomic == old_steps_atomic) do
 end
 
 test:ok(true)
-os.exit(test:check() and 0 or 1)
+test:done(true)

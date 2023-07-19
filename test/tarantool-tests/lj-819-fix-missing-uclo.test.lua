@@ -112,4 +112,4 @@ local _
 _, res = pcall(f)
 test:ok(type(res) == 'function', 'consistency on compilation: type of returned value is correct')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

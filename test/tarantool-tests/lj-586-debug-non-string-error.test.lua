@@ -44,4 +44,4 @@ EOF]]):format(luabin, magic)
 
 local res = io.popen(cmd):read('*all'):gsub('%s+$', '')
 test:ok(res == expected, 'handle non-string error in debug.debug()')
-os.exit(test:check() and 0 or 1)
+test:done(true)

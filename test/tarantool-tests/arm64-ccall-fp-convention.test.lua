@@ -62,4 +62,4 @@ test:ok(assert_sz12(sz12_222, {2, 2, 2}), '2 structures as args')
 local sz12_333 = ffi_ccall.sum3sz12(sz12_111, sz12_111, sz12_111)
 test:ok(assert_sz12(sz12_333, {3, 3, 3}), '3 structures as args')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

@@ -44,4 +44,4 @@ irconst4()
 jit.off()
 test:ok(not traceinfo(2), 'trace should not appear due to maxirconst limit')
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

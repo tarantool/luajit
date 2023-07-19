@@ -42,4 +42,4 @@ for irnum = 1, N_TESTS do
   test:ok(irref, 'find IR refernce by pattern: ' .. ir_pattern)
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

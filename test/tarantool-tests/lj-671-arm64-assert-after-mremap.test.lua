@@ -21,4 +21,4 @@ local DEFAULT_MMAP_THRESHOLD = 128 * 1024
 local s = string.rep('x', DEFAULT_MMAP_THRESHOLD)..'x'
 test:ok(s)
 
-os.exit(test:check() and 0 or 1)
+test:done(true)

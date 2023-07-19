@@ -44,4 +44,4 @@ for i = 1, NTESTS do
   test:ok(result[i] == shl(1ULL, i + 32), 'valid rol')
 end
 
-os.exit(test:check() and 0 or 1)
+test:done(true)
