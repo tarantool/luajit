@@ -295,7 +295,6 @@ int lj_memprof_start(struct lua_State *L, const struct lj_memprof_options *opt)
   oalloc->allocf = lua_getallocf(L, &oalloc->state);
   lua_assert(oalloc->allocf != NULL);
   lua_assert(oalloc->allocf != memprof_allocf);
-  lua_assert(oalloc->state != NULL);
   lua_setallocf(L, memprof_allocf, oalloc->state);
 
   return PROFILE_SUCCESS;
@@ -328,7 +327,6 @@ int lj_memprof_stop(struct lua_State *L)
 
   lua_assert(memprof_allocf == lua_getallocf(L, NULL));
   lua_assert(oalloc->allocf != NULL);
-  lua_assert(oalloc->state != NULL);
   lua_setallocf(L, oalloc->allocf, oalloc->state);
 
   if (LJ_UNLIKELY(lj_wbuf_test_flag(out, STREAM_STOP))) {
