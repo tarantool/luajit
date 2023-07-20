@@ -118,7 +118,7 @@ def bc_a(ins):
 
 def frame_ftsz(framelink):
     return cast('ptrdiff_t', framelink['ftsz'] if LJ_FR2 \
-        else framelink['fr']['tp']['ftsz'])
+                else framelink['fr']['tp']['ftsz'])
 
 def frame_pc(framelink):
     return cast('BCIns *', frame_ftsz(framelink)) if LJ_FR2 \
@@ -182,11 +182,11 @@ def mref(typename, obj):
 
 def gcref(obj):
     return cast('GCobj *', obj['gcptr64'] if LJ_GC64
-        else cast('uintptr_t', obj['gcptr32']))
+                else cast('uintptr_t', obj['gcptr32']))
 
 def gcval(obj):
     return cast('GCobj *', obj['gcptr64'] & LJ_GCVMASK if LJ_GC64
-        else cast('uintptr_t', obj['gcptr32']))
+                else cast('uintptr_t', obj['gcptr32']))
 
 def gcnext(obj):
     return gcref(obj)['gch']['nextgc']
@@ -212,9 +212,8 @@ def J(g):
     typeGG = gtype('GG_State')
 
     return cast('jit_State *', int(cast('char *', g))
-        - int(typeGG['g'].bitpos / 8)
-        + int(typeGG['J'].bitpos / 8)
-    )
+                - int(typeGG['g'].bitpos / 8)
+                + int(typeGG['J'].bitpos / 8))
 
 def vm_state(g):
     return {
@@ -282,7 +281,7 @@ def funcproto(func):
     assert func['ffid'] == 0
 
     return cast('GCproto *',
-        mref('char *', func['pc']) - gdb.lookup_type('GCproto').sizeof)
+                mref('char *', func['pc']) - gdb.lookup_type('GCproto').sizeof)
 
 def gclistlen(root, end=0x0):
     count = 0
