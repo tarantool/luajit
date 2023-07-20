@@ -617,8 +617,8 @@ LJ_T = {
 
 def itypemap(o):
     if LJ_64 and not LJ_GC64:
-        return LJ_T['NUMX'] if tvisnumber(o)       \
-        else LJ_T['LIGHTUD'] if tvislightud(o) else itype(o)
+        return LJ_T['NUMX'] if tvisnumber(o) \
+            else LJ_T['LIGHTUD'] if tvislightud(o) else itype(o)
     else:
         return LJ_T['NUMX'] if tvisnumber(o) else itype(o)
 
