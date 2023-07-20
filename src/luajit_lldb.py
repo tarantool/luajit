@@ -355,11 +355,11 @@ def dbg_eval(expr):
 
 def gcval(obj):
     return cast(GCobjPtr, cast('uintptr_t', obj.gcptr & LJ_GCVMASK) if LJ_GC64
-        else cast('uintptr_t', obj.gcptr))
+                else cast('uintptr_t', obj.gcptr))
 
 def gcref(obj):
     return cast(GCobjPtr, obj.gcptr if LJ_GC64
-        else cast('uintptr_t', obj.gcptr))
+                else cast('uintptr_t', obj.gcptr))
 
 def gcnext(obj):
     return gcref(obj).gch.nextgc
@@ -658,7 +658,7 @@ def bc_a(ins):
 
 def frame_ftsz(framelink):
     return vtou64(cast('ptrdiff_t', framelink.ftsz if LJ_FR2 \
-        else framelink.fr.tp.ftsz))
+                       else framelink.fr.tp.ftsz))
 
 def frame_pc(framelink):
     return cast(BCInsPtr, frame_ftsz(framelink)) if LJ_FR2 \
