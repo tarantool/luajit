@@ -683,7 +683,6 @@ static void build_subroutines(BuildCtx *ctx)
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  mov L:RB, SAVE_L
   |  mov GL:RB, L:RB->glref
-  |  mov dword GL:RB->cur_L, L:RB
   |  mov dword GL:RB->vmstate, ~LJ_VMST_CFUNC
   |  mov DISPATCH, GL:RB   // Setup pointer to dispatch table.
   |  add DISPATCH, GG_G2DISP
@@ -719,7 +718,6 @@ static void build_subroutines(BuildCtx *ctx)
   |  add DISPATCH, GG_G2DISP
   |  mov PC, [BASE-4]			// Fetch PC of previous frame.
   |  mov dword [BASE-4], LJ_TFALSE	// Prepend false to error message.
-  |  mov [DISPATCH+DISPATCH_GL(cur_L)], L:RB
   |  // INTERP until jump to BC_RET* or return to C.
   |  set_vmstate INTERP
   |  jmp ->vm_returnc			// Increments RD/MULTRES and returns.
