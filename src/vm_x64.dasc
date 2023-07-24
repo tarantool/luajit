@@ -535,7 +535,6 @@ static void build_subroutines(BuildCtx *ctx)
   |->vm_unwind_c_eh:			// Landing pad for external unwinder.
   |  mov L:RB, SAVE_L
   |  mov GL:RB, L:RB->glref
-  |  mov [GL:RB->cur_L], L:RB
   |  mov dword GL:RB->vmstate, ~LJ_VMST_CFUNC
   |  mov DISPATCH, GL:RB   // Setup pointer to dispatch table.
   |  add DISPATCH, GG_G2DISP
