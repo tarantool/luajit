@@ -18,6 +18,8 @@ LJ_GCVMASK = ((1 << 47) - 1)
 LJ_TISNUM = None
 
 # Debugger specific {{{
+
+
 # Global
 target = None
 
@@ -121,6 +123,7 @@ class Struct(metaclass=MetaStruct):
     def addr(self):
         return self.value.address_of
 
+
 c_structs = {
     'MRef': [
         (property(lambda self: self['ptr64'].unsigned if LJ_GC64 else self['ptr32'].unsigned), 'ptr')
@@ -212,8 +215,10 @@ c_structs = {
     'BCIns': []
 }
 
+
 for cls in c_structs.keys():
     globals()[cls] = type(cls, (Struct, ), {'metainfo': c_structs[cls]})
+
 
 for cls in Struct.__subclasses__():
     ptr_name = cls.__name__ + 'Ptr'
@@ -363,6 +368,7 @@ def dbg_eval(expr):
     frame = thread.GetSelectedFrame()
     return frame.EvaluateExpression(expr)
 
+
 # }}} Debugger specific
 
 
@@ -395,6 +401,7 @@ def gcringlen(root):
         return 1
     else:
         return 1 + gclistlen(gcnext(root), gcref(root))
+
 
 gclen = {
     'root':      gclistlen,
@@ -630,6 +637,7 @@ def dump_lj_tnumx(tv):
 def dump_lj_invalid(tv):
     return 'not valid type @ {}'.format(strx64(gcval(tv.gcr)))
 
+
 dumpers = {
     'LJ_TNIL':     dump_lj_tnil,
     'LJ_TFALSE':   dump_lj_tfalse,
@@ -646,6 +654,7 @@ dumpers = {
     'LJ_TUDATA':   dump_lj_tudata,
     'LJ_TNUMX':    dump_lj_tnumx,
 }
+
 
 LJ_T = {
     'NIL':     i2notu32(0),
@@ -681,6 +690,7 @@ def typenames(value):
 
 def dump_tvalue(tvptr):
     return dumpers.get(typenames(itypemap(tvptr)), dump_lj_invalid)(tvptr)
+
 
 FRAME_TYPE = 0x3
 FRAME_P = 0x4

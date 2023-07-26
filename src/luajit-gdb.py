@@ -7,6 +7,7 @@ import sys
 
 # make script compatible with the ancient Python {{{
 
+
 LEGACY = re.match(r'^2\.', sys.version)
 
 if LEGACY:
@@ -14,7 +15,9 @@ if LEGACY:
     int = long
     range = xrange
 
+
 # }}}
+
 
 gtype_cache = {}
 
@@ -70,7 +73,9 @@ def strx64(val):
     return re.sub('L?$', '',
                   hex(int(cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF)))
 
+
 # Types {{{
+
 
 LJ_T = {
     'NIL':     i2notu32(0),
@@ -95,9 +100,11 @@ def typenames(value):
         LJ_T[k]: 'LJ_T' + k for k in LJ_T.keys()
     }.get(int(value), 'LJ_TINVALID')
 
+
 # }}}
 
 # Frames {{{
+
 
 FRAME_TYPE = 0x3
 FRAME_P = 0x4
@@ -175,9 +182,11 @@ def frame_prev(framelink):
 def frame_sentinel(L):
     return mref('TValue *', L['stack']) + LJ_FR2
 
+
 # }}}
 
 # Const {{{
+
 
 LJ_64 = None
 LJ_GC64 = None
@@ -193,6 +202,7 @@ LJ_LIGHTUD_BITS_SEG = 8
 LJ_LIGHTUD_BITS_LO = 47 - LJ_LIGHTUD_BITS_SEG
 LIGHTUD_SEG_MASK = (1 << LJ_LIGHTUD_BITS_SEG) - 1
 LIGHTUD_LO_MASK = (1 << LJ_LIGHTUD_BITS_LO) - 1
+
 
 # }}}
 
@@ -339,6 +349,7 @@ def gcringlen(root):
     else:
         return 1 + gclistlen(gcnext(root), gcref(root))
 
+
 gclen = {
     'root':      gclistlen,
     'gray':      gclistlen,
@@ -373,6 +384,7 @@ def lightudV(tv):
         return (int(segmap[seg]) << 32) | (u & LIGHTUD_LO_MASK)
     else:
         return gcval(tv['gcr'])
+
 
 # Dumpers {{{
 
@@ -465,7 +477,9 @@ def dump_lj_tnumx(tv):
 def dump_lj_invalid(tv):
     return 'not valid type @ {}'.format(strx64(gcval(tv['gcr'])))
 
+
 # }}}
+
 
 dumpers = {
     'LJ_TNIL':     dump_lj_tnil,
@@ -866,5 +880,6 @@ def load(event=None):
         'lj-state': LJState,
         'lj-gc':    LJGC,
     })
+
 
 load(None)
