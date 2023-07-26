@@ -18,6 +18,7 @@ if LEGACY:
 
 gtype_cache = {}
 
+
 def gtype(typestr):
     global gtype_cache
     if typestr in gtype_cache:
@@ -31,12 +32,15 @@ def gtype(typestr):
     gtype_cache[typestr] = gtype
     return gtype
 
+
 def cast(typestr, val):
     return gdb.Value(val).cast(gtype(typestr))
+
 
 def lookup(symbol):
     variable, _ = gdb.lookup_symbol(symbol)
     return variable.value() if variable else None
+
 
 def parse_arg(arg):
     if not arg:
@@ -49,14 +53,18 @@ def parse_arg(arg):
 
     return ret
 
+
 def tou64(val):
     return cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF
+
 
 def tou32(val):
     return cast('uint32_t', val) & 0xFFFFFFFF
 
+
 def i2notu32(val):
     return ~int(val) & 0xFFFFFFFF
+
 
 def strx64(val):
     return re.sub('L?$', '',
@@ -80,6 +88,7 @@ LJ_T = {
     'UDATA':   i2notu32(12),
     'NUMX':    i2notu32(13),
 }
+
 
 def typenames(value):
     return {
@@ -105,6 +114,7 @@ FRAME = {
     'PCALLH': 0x7,
 }
 
+
 def frametypes(ft):
     return {
         FRAME['LUA']:  'L',
@@ -113,42 +123,54 @@ def frametypes(ft):
         FRAME['VARG']: 'V',
     }.get(ft, '?')
 
+
 def bc_a(ins):
     return (ins >> 8) & 0xff
+
 
 def frame_ftsz(framelink):
     return cast('ptrdiff_t', framelink['ftsz'] if LJ_FR2 \
                 else framelink['fr']['tp']['ftsz'])
 
+
 def frame_pc(framelink):
     return cast('BCIns *', frame_ftsz(framelink)) if LJ_FR2 \
         else mref('BCIns *', framelink['fr']['tp']['pcr'])
 
+
 def frame_prevl(framelink):
     return framelink - (1 + LJ_FR2 + bc_a(frame_pc(framelink)[-1]))
+
 
 def frame_ispcall(framelink):
     return (frame_ftsz(framelink) & FRAME['PCALL']) == FRAME['PCALL']
 
+
 def frame_sized(framelink):
     return (frame_ftsz(framelink) & ~FRAME_TYPEP)
+
 
 def frame_prevd(framelink):
     return cast('TValue *', cast('char *', framelink) - frame_sized(framelink))
 
+
 def frame_type(framelink):
     return frame_ftsz(framelink) & FRAME_TYPE
 
+
 def frame_typep(framelink):
     return frame_ftsz(framelink) & FRAME_TYPEP
+
 
 def frame_islua(framelink):
     return frametypes(int(frame_type(framelink))) == 'L' \
         and int(frame_ftsz(framelink)) > 0
 
+
 def frame_prev(framelink):
     return frame_prevl(framelink) if frame_islua(framelink) \
         else frame_prevd(framelink)
+
 
 def frame_sentinel(L):
     return mref('TValue *', L['stack']) + LJ_FR2
@@ -174,22 +196,28 @@ LIGHTUD_LO_MASK = (1 << LJ_LIGHTUD_BITS_LO) - 1
 
 # }}}
 
+
 def itype(o):
     return cast('uint32_t', o['it64'] >> 47) if LJ_GC64 else o['it']
 
+
 def mref(typename, obj):
     return cast(typename, obj['ptr64'] if LJ_GC64 else obj['ptr32'])
+
 
 def gcref(obj):
     return cast('GCobj *', obj['gcptr64'] if LJ_GC64
                 else cast('uintptr_t', obj['gcptr32']))
 
+
 def gcval(obj):
     return cast('GCobj *', obj['gcptr64'] & LJ_GCVMASK if LJ_GC64
                 else cast('uintptr_t', obj['gcptr32']))
 
+
 def gcnext(obj):
     return gcref(obj)['gch']['nextgc']
+
 
 def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
@@ -205,8 +233,10 @@ def L(L=None):
         if l:
             return cast('lua_State *', l)
 
+
 def G(L):
     return mref('global_State *', L['glref'])
+
 
 def J(g):
     typeGG = gtype('GG_State')
@@ -214,6 +244,7 @@ def J(g):
     return cast('jit_State *', int(cast('char *', g))
                 - int(typeGG['g'].bitpos / 8)
                 + int(typeGG['J'].bitpos / 8))
+
 
 def vm_state(g):
     return {
@@ -228,6 +259,7 @@ def vm_state(g):
         i2notu32(8): 'ASM',
     }.get(int(tou32(g['vmstate'])), 'TRACE')
 
+
 def gc_state(g):
     return {
         0: 'PAUSE',
@@ -238,6 +270,7 @@ def gc_state(g):
         5: 'FINALIZE',
         6: 'LAST',
     }.get(int(g['gc']['state']), 'INVALID')
+
 
 def jit_state(g):
     return {
@@ -250,11 +283,14 @@ def jit_state(g):
         0x15: 'ERR',
     }.get(int(J(g)['state']), 'INVALID')
 
+
 def tvisint(o):
     return LJ_DUALNUM and itype(o) == LJ_TISNUM
 
+
 def tvisnumber(o):
     return itype(o) <= LJ_TISNUM
+
 
 def tvislightud(o):
     if LJ_64 and not LJ_GC64:
@@ -262,12 +298,14 @@ def tvislightud(o):
     else:
         return itype(o) == LJ_T['LIGHTUD']
 
+
 def strdata(obj):
     # String is printed with pointer to it, thanks to gdb. Just strip it.
     try:
         return str(cast('char *', cast('GCstr *', obj) + 1))[len(PADDING):]
     except UnicodeEncodeError:
         return "<luajit-gdb: error occured while rendering non-ascii slot>"
+
 
 def itypemap(o):
     if LJ_64 and not LJ_GC64:
@@ -277,11 +315,13 @@ def itypemap(o):
     else:
         return LJ_T['NUMX'] if tvisnumber(o) else itype(o)
 
+
 def funcproto(func):
     assert func['ffid'] == 0
 
     return cast('GCproto *',
                 mref('char *', func['pc']) - gdb.lookup_type('GCproto').sizeof)
+
 
 def gclistlen(root, end=0x0):
     count = 0
@@ -289,6 +329,7 @@ def gclistlen(root, end=0x0):
         count += 1
         root = gcnext(root)
     return count
+
 
 def gcringlen(root):
     if not gcref(root):
@@ -307,6 +348,7 @@ gclen = {
     'mmudata':   gcringlen,
 }
 
+
 # The generator that implements frame iterator.
 # Every frame is represented as a tuple of framelink and frametop.
 def frames(L):
@@ -319,6 +361,7 @@ def frames(L):
         if framelink <= framelink_sentinel:
             break
         framelink = frame_prev(framelink)
+
 
 def lightudV(tv):
     if LJ_64:
@@ -333,17 +376,22 @@ def lightudV(tv):
 
 # Dumpers {{{
 
+
 def dump_lj_tnil(tv):
     return 'nil'
+
 
 def dump_lj_tfalse(tv):
     return 'false'
 
+
 def dump_lj_ttrue(tv):
     return 'true'
 
+
 def dump_lj_tlightud(tv):
     return 'light userdata @ {}'.format(strx64(lightudV(tv)))
+
 
 def dump_lj_tstr(tv):
     return 'string {body} @ {address}'.format(
@@ -351,14 +399,18 @@ def dump_lj_tstr(tv):
         address=strx64(gcval(tv['gcr']))
     )
 
+
 def dump_lj_tupval(tv):
     return 'upvalue @ {}'.format(strx64(gcval(tv['gcr'])))
+
 
 def dump_lj_tthread(tv):
     return 'thread @ {}'.format(strx64(gcval(tv['gcr'])))
 
+
 def dump_lj_tproto(tv):
     return 'proto @ {}'.format(strx64(gcval(tv['gcr'])))
+
 
 def dump_lj_tfunc(tv):
     func = cast('struct GCfuncC *', gcval(tv['gcr']))
@@ -377,6 +429,7 @@ def dump_lj_tfunc(tv):
     else:
         return 'fast function #{}'.format(int(ffid))
 
+
 def dump_lj_ttrace(tv):
     trace = cast('struct GCtrace *', gcval(tv['gcr']))
     return 'trace {traceno} @ {addr}'.format(
@@ -384,8 +437,10 @@ def dump_lj_ttrace(tv):
         addr=strx64(trace)
     )
 
+
 def dump_lj_tcdata(tv):
     return 'cdata @ {}'.format(strx64(gcval(tv['gcr'])))
+
 
 def dump_lj_ttab(tv):
     table = cast('GCtab *', gcval(tv['gcr']))
@@ -395,14 +450,17 @@ def dump_lj_ttab(tv):
         hmask=strx64(table['hmask']),
     )
 
+
 def dump_lj_tudata(tv):
     return 'userdata @ {}'.format(strx64(gcval(tv['gcr'])))
+
 
 def dump_lj_tnumx(tv):
     if tvisint(tv):
         return 'integer {}'.format(cast('int32_t', tv['i']))
     else:
         return 'number {}'.format(cast('double', tv['n']))
+
 
 def dump_lj_invalid(tv):
     return 'not valid type @ {}'.format(strx64(gcval(tv['gcr'])))
@@ -426,12 +484,15 @@ dumpers = {
     'LJ_TNUMX':    dump_lj_tnumx,
 }
 
+
 def dump_tvalue(tvalue):
     return dumpers.get(typenames(itypemap(tvalue)), dump_lj_invalid)(tvalue)
+
 
 def dump_framelink_slot_address(fr):
     return '{}:{}'.format(fr - 1, fr) if LJ_FR2 \
         else '{}'.format(fr) + PADDING
+
 
 def dump_framelink(L, fr):
     if fr == frame_sentinel(L):
@@ -448,6 +509,7 @@ def dump_framelink(L, fr):
         f=dump_lj_tfunc(fr - LJ_FR2),
     )
 
+
 def dump_stack_slot(L, slot, base=None, top=None):
     base = base or L['base']
     top = top or L['top']
@@ -460,6 +522,7 @@ def dump_stack_slot(L, slot, base=None, top=None):
         M='M' if slot == mref('TValue *', L['maxstack']) else ' ',
         value=dump_tvalue(slot),
     )
+
 
 def dump_stack(L, base=None, top=None):
     base = base or L['base']
@@ -502,6 +565,7 @@ def dump_stack(L, base=None, top=None):
 
     return '\n'.join(dump)
 
+
 def dump_gc(g):
     gc = g['gc']
     stats = ['{key}: {value}'.format(key=f, value=gc[f]) for f in (
@@ -530,6 +594,7 @@ class LJBase(gdb.Command):
         gdb.Command.__init__(self, name, gdb.COMMAND_DATA)
         gdb.write('{} command initialized\n'.format(name))
 
+
 class LJDumpArch(LJBase):
     '''
 lj-arch
@@ -548,6 +613,7 @@ pointers respectively.
                 LJ_DUALNUM=LJ_DUALNUM
             )
         )
+
 
 class LJDumpTValue(LJBase):
     '''
@@ -582,6 +648,7 @@ error message occurs.
         tv = cast('TValue *', parse_arg(arg))
         gdb.write('{}\n'.format(dump_tvalue(tv)))
 
+
 class LJDumpString(LJBase):
     '''
 lj-str <GCstr *>
@@ -600,6 +667,7 @@ is replaced with the corresponding error when decoding fails.
             hash=strx64(string['hash']),
             len=string['len'],
         ))
+
 
 class LJDumpTable(LJBase):
     '''
@@ -646,6 +714,7 @@ The command receives a GCtab adress and dumps the table contents:
                 n=mref('struct Node *', node['next'])
             ))
 
+
 class LJDumpStack(LJBase):
     '''
 lj-stack [<lua_State *>]
@@ -682,6 +751,7 @@ If L is ommited the main coroutine is used.
     def invoke(self, arg, from_tty):
         gdb.write('{}\n'.format(dump_stack(L(parse_arg(arg)))))
 
+
 class LJState(LJBase):
     '''
 lj-state
@@ -700,6 +770,7 @@ The command requires no args and dumps current VM and GC states
                 'JIT': jit_state(g),
             }.items())
         )))
+
 
 class LJGC(LJBase):
     '''
@@ -726,6 +797,7 @@ The command requires no args and dumps current GC stats:
             state=gc_state(g),
             stats=dump_gc(g)
         ))
+
 
 def init(commands):
     global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, LJ_TISNUM, PADDING
@@ -782,6 +854,7 @@ def init(commands):
     LJ_TISNUM = 0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX']
 
     gdb.write('luajit-gdb.py is successfully loaded\n')
+
 
 def load(event=None):
     init({
