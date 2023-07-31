@@ -6,8 +6,6 @@ local misc = require "sysprof.collapse"
 local stdout, stderr = io.stdout, io.stderr
 local match, gmatch = string.match, string.gmatch
 
-local split_by_vmstate = false
-
 -- Program options.
 local opt_map = {}
 
@@ -23,13 +21,8 @@ luajit-parse-sysprof [options] sysprof.bin
 Supported options are:
 
   --help                            Show this help and exit
-  --split                           Split callchains by vmstate
 ]]
   os.exit(0)
-end
-
-function opt_map.split()
-  split_by_vmstate = true
 end
 
 -- Print error and exit with error status.
@@ -103,7 +96,7 @@ local function dump(inputfile)
   local symbols = symtab.parse(reader)
 
   local events = sysprof.parse(reader, symbols)
-  local calltree = misc.collapse(events, symbols, split_by_vmstate)
+  local calltree = misc.collapse(events, symbols)
 
   traverse_calltree(calltree, '')
 
