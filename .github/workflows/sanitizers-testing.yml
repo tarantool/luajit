@@ -43,6 +43,13 @@ jobs:
       LuaJIT with ASan (Linux/x86_64)
       ${{ matrix.BUILDTYPE }}
       GC64:ON SYSMALLOC:ON
+    container:
+      image: docker.io/tarantool/testing:ubuntu-jammy-clang16
+      # Our testing expects that the init process (PID 1) will
+      # reap orphan processes.
+      # Add extra privileges to the container for successful run
+      # of the .github/actions/setup-sanitizers action.
+      options: '--init --privileged'
     steps:
       - uses: actions/checkout@v3
         with:

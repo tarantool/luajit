@@ -15,9 +15,9 @@ runs:
     - name: Install build and test dependencies
       run: |
         apt -y update
-        apt -y install clang-11 cmake ninja-build make perl
+        apt -y install clang-16 cmake ninja-build make perl
       shell: bash
     - name: Set Clang as a default toolchain
       run: |
-        echo CC=clang-11 | tee -a $GITHUB_ENV
+        echo CC=clang-16 | tee -a $GITHUB_ENV
       shell: bash
