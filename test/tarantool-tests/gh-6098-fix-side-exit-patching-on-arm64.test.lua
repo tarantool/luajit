@@ -1,7 +1,11 @@
 local tap = require('tap')
 local test = tap.test('gh-6098-fix-side-exit-patching-on-arm64'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
+  ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
 })
+
+local generators = require('utils').jit.generators
+local frontend = require('utils').frontend
 
 test:plan(1)
 
@@ -20,52 +24,6 @@ local function cbool(cond)
   end
 end
 
--- XXX: Function template below produces 8Kb mcode for ARM64, so
--- we need to compile at least 128 traces to exceed 1Mb delta
--- between <cbool> root trace side exit and <cbool> side trace.
--- Unfortunately, we have no other option for extending this jump
--- delta, since the base of the current mcode area (J->mcarea) is
--- used as a hint for mcode allocator (see lj_mcode.c for info).
-local FUNCS = 128
-local recfuncs = { }
-for i = 1, FUNCS do
-  -- This is a quite heavy workload (though it doesn't look like
-  -- one at first). Each load from a table is type guarded. Each
-  -- table lookup (for both stores and loads) is guarded for table
-  -- <hmask> value and metatable presence. The code below results
-  -- to 8Kb of mcode for ARM64 in practice.
-  recfuncs[i] = assert(load(([[
-    return function(src)
-      local p = %d
-      local tmp = { }
-      local dst = { }
-      for i = 1, 3 do
-        tmp.a = src.a * p   tmp.j = src.j * p   tmp.s = src.s * p
-        tmp.b = src.b * p   tmp.k = src.k * p   tmp.t = src.t * p
-        tmp.c = src.c * p   tmp.l = src.l * p   tmp.u = src.u * p
-        tmp.d = src.d * p   tmp.m = src.m * p   tmp.v = src.v * p
-        tmp.e = src.e * p   tmp.n = src.n * p   tmp.w = src.w * p
-        tmp.f = src.f * p   tmp.o = src.o * p   tmp.x = src.x * p
-        tmp.g = src.g * p   tmp.p = src.p * p   tmp.y = src.y * p
-        tmp.h = src.h * p   tmp.q = src.q * p   tmp.z = src.z * p
-        tmp.i = src.i * p   tmp.r = src.r * p
-
-        dst.a = tmp.z + p   dst.j = tmp.q + p   dst.s = tmp.h + p
-        dst.b = tmp.y + p   dst.k = tmp.p + p   dst.t = tmp.g + p
-        dst.c = tmp.x + p   dst.l = tmp.o + p   dst.u = tmp.f + p
-        dst.d = tmp.w + p   dst.m = tmp.n + p   dst.v = tmp.e + p
-        dst.e = tmp.v + p   dst.n = tmp.m + p   dst.w = tmp.d + p
-        dst.f = tmp.u + p   dst.o = tmp.l + p   dst.x = tmp.c + p
-        dst.g = tmp.t + p   dst.p = tmp.k + p   dst.y = tmp.b + p
-        dst.h = tmp.s + p   dst.q = tmp.j + p   dst.z = tmp.a + p
-        dst.i = tmp.r + p   dst.r = tmp.i + p
-      end
-      dst.tmp = tmp
-      return dst
-    end
-  ]]):format(i)), ('Syntax error in function recfuncs[%d]'):format(i))()
-end
-
 -- Make compiler work hard:
 -- * No optimizations at all to produce more mcode.
 -- * Try to compile all compiled paths as early as JIT can.
@@ -78,27 +36,13 @@ cbool(true)
 -- a root trace for <cbool>.
 cbool(true)
 
-for i = 1, FUNCS do
-  -- XXX: FNEW is NYI, hence loop recording fails at this point.
-  -- The recording is aborted on purpose: we are going to record
-  -- <FUNCS> number of traces for functions in <recfuncs>.
-  -- Otherwise, loop recording might lead to a very long trace
-  -- error (via return to a lower frame), or a trace with lots of
-  -- side traces. We need neither of this, but just bunch of
-  -- traces filling the available mcode area.
-  local function tnew(p)
-    return {
-      a = p + 1, f = p + 6,  k = p + 11, p = p + 16, u = p + 21, z = p + 26,
-      b = p + 2, g = p + 7,  l = p + 12, q = p + 17, v = p + 22,
-      c = p + 3, h = p + 8,  m = p + 13, r = p + 18, w = p + 23,
-      d = p + 4, i = p + 9,  n = p + 14, s = p + 19, x = p + 24,
-      e = p + 5, j = p + 10, o = p + 15, t = p + 20, y = p + 25,
-    }
-  end
-  -- Each function call produces a trace (see the template for the
-  -- function definition above).
-  recfuncs[i](tnew(i))
-end
+local cbool_traceno = frontend.gettraceno(cbool)
+
+-- XXX: Unfortunately, we have no other option for extending
+-- this jump delta, since the base of the current mcode area
+-- (J->mcarea) is used as a hint for mcode allocator (see
+-- lj_mcode.c for info).
+generators.fillmcode(cbool_traceno, 1024 * 1024)
 
 -- XXX: I tried to make the test in pure Lua, but I failed to
 -- implement the robust solution. As a result I've implemented a
