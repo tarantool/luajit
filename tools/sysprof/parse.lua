@@ -2,6 +2,7 @@
 -- The format spec can be found in <src/lj_sysprof.h>.
 
 local symtab = require "utils.symtab"
+local vmdef = require "jit.vmdef"
 
 local string_format = string.format
 
@@ -10,7 +11,7 @@ local LJP_CURRENT_VERSION = 2
 
 local M = {}
 
-M.VMST = {
+local VMST = {
   INTERP = 0,
   LFUNC  = 1,
   FFUNC  = 2,
@@ -25,12 +26,13 @@ M.VMST = {
 }
 
 
-M.FRAME = {
+local FRAME = {
   LFUNC  = 1,
   CFUNC  = 2,
   FFUNC  = 3,
   BOTTOM = 0x80
 }
+
 
 local STREAM_END = 0x80
 local SYMTAB_LFUNC_EVENT = 10
@@ -54,42 +56,40 @@ local function new_event()
   }
 end
 
-local function parse_lfunc(reader, event, symbols)
+local function parse_lfunc(reader, symbols)
   local addr = reader:read_uleb128()
   local line = reader:read_uleb128()
   local loc = symtab.loc(symbols, { addr = addr, line = line })
-  loc.type = M.FRAME.LFUNC
-  table.insert(event.lua.callchain, 1, loc)
+  loc.type = FRAME.LFUNC
+  return symtab.demangle(symbols, loc)
 end
 
-local function parse_ffunc(reader, event, _)
+local function parse_ffunc(reader, _)
   local ffid = reader:read_uleb128()
-  table.insert(event.lua.callchain, 1, {
-    type = M.FRAME.FFUNC,
-    ffid = ffid,
-  })
+  return vmdef.ffnames[ffid]
 end
 
-local function parse_cfunc(reader, event, symbols)
+local function parse_cfunc(reader, symbols)
   local addr = reader:read_uleb128()
   local loc = symtab.loc(symbols, { addr = addr })
-  loc.type = M.FRAME.CFUNC
-  table.insert(event.lua.callchain, 1, loc)
+  loc.type = FRAME.CFUNC
+  return symtab.demangle(symbols, loc)
 end
 
 local frame_parsers = {
-  [M.FRAME.LFUNC] = parse_lfunc,
-  [M.FRAME.FFUNC] = parse_ffunc,
-  [M.FRAME.CFUNC] = parse_cfunc
+  [FRAME.LFUNC] = parse_lfunc,
+  [FRAME.FFUNC] = parse_ffunc,
+  [FRAME.CFUNC] = parse_cfunc
 }
 
 local function parse_lua_callchain(reader, event, symbols)
   while true do
     local frame_header = reader:read_octet()
-    if frame_header == M.FRAME.BOTTOM then
+    if frame_header == FRAME.BOTTOM then
       break
     end
-    frame_parsers[frame_header](reader, event, symbols)
+    local name = frame_parsers[frame_header](reader, symbols)
+    table.insert(event.lua.callchain, 1, {name = name, type = frame_header})
   end
 end
 
@@ -100,7 +100,7 @@ local function parse_host_callchain(reader, event, symbols)
 
   while addr ~= 0 do
     local loc = symtab.loc(symbols, { addr = addr })
-    table.insert(event.host.callchain, 1, loc)
+    table.insert(event.host.callchain, 1, symtab.demangle(symbols, loc))
     addr = reader:read_uleb128()
   end
 end
@@ -108,10 +108,20 @@ end
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
 
 local function parse_trace_callchain(reader, event, symbols)
-  event.lua.trace.traceno  = reader:read_uleb128()
-  event.lua.trace.addr = reader:read_uleb128()
-  event.lua.trace.line = reader:read_uleb128()
-  event.lua.trace.gen = symtab.loc(symbols, event.lua.trace).gen
+  local loc = {}
+  loc.traceno = reader:read_uleb128()
+  loc.addr = reader:read_uleb128()
+  loc.line = reader:read_uleb128()
+
+  local gen = symtab.loc(symbols, loc).gen
+  local name_lua = symtab.demangle(symbols, {
+    addr = loc.addr,
+    traceno = loc.traceno,
+    gen = gen
+  })
+  event.lua.trace = loc
+  event.lua.trace.gen = gen
+  event.lua.trace.name = name_lua
 end
 
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
@@ -143,17 +153,62 @@ local function parse_symtab(reader, symbols, vmstate)
 end
 
 local event_parsers = {
-  [M.VMST.INTERP] = parse_host_only,
-  [M.VMST.LFUNC]  = parse_lua_host,
-  [M.VMST.FFUNC]  = parse_lua_host,
-  [M.VMST.CFUNC]  = parse_lua_host,
-  [M.VMST.GC]     = parse_host_only,
-  [M.VMST.EXIT]   = parse_host_only,
-  [M.VMST.RECORD] = parse_host_only,
-  [M.VMST.OPT]    = parse_host_only,
-  [M.VMST.ASM]    = parse_host_only,
-  [M.VMST.TRACE]  = parse_trace,
+  [VMST.INTERP] = parse_host_only,
+  [VMST.LFUNC]  = parse_lua_host,
+  [VMST.FFUNC]  = parse_lua_host,
+  [VMST.CFUNC]  = parse_lua_host,
+  [VMST.GC]     = parse_host_only,
+  [VMST.EXIT]   = parse_host_only,
+  [VMST.RECORD] = parse_host_only,
+  [VMST.OPT]    = parse_host_only,
+  [VMST.ASM]    = parse_host_only,
+  [VMST.TRACE]  = parse_trace,
 }
+
+local function insert_lua_callchain(chain, lua)
+  local ins_cnt = 0
+  local name_lua
+  for _, fr in ipairs(lua.callchain) do
+    ins_cnt = ins_cnt + 1
+    if fr.type == FRAME.CFUNC then
+      -- C function encountered, the next chunk
+      -- of frames is located on the C stack.
+      break
+    end
+    name_lua = fr.name
+
+    if fr.type == FRAME.LFUNC
+      and lua.trace.traceno ~= nil
+      and lua.trace.addr == fr.addr
+      and lua.trace.line == fr.line
+    then
+      name_lua = lua.trace.name
+    end
+
+    table.insert(chain, name_lua)
+  end
+  table.remove(lua.callchain, ins_cnt)
+end
+
+local function merge(event)
+  local callchain = {}
+
+  for _, name_host in ipairs(event.host.callchain) do
+    table.insert(callchain, name_host)
+    if string.match(name_host, '^lua_cpcall') ~= nil then
+      -- Any C function is present on both the C and the Lua
+      -- stacks. It is more convenient to get its info from the
+      -- host stack, since it has information about child frames.
+      table.remove(event.lua.callchain)
+    end
+
+    if string.match(name_host, '^lua_p?call') ~= nil then
+      insert_lua_callchain(callchain, event.lua)
+    end
+
+  end
+  return table.concat(callchain, ';') .. ';'
+end
 
 local function parse_event(reader, events, symbols)
   local event = new_event()
@@ -171,8 +226,8 @@ local function parse_event(reader, events, symbols)
   event.lua.vmstate = vmstate
 
   event_parsers[vmstate](reader, event, symbols)
-
-  table.insert(events, event)
+  local callchain = merge(event)
+  events[callchain] = (events[callchain] or 0) + 1
   return true
 end
 
