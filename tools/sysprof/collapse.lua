@@ -75,7 +75,7 @@ end
 
 -- merge lua and host callchains into one callchain representing
 -- transfer of control
-local function merge(event, symbols, sep_vmst)
+local function merge(event, symbols)
   local cc = {}
 
   for _,h_fr in pairs(event.host.callchain) do
@@ -98,19 +98,15 @@ local function merge(event, symbols, sep_vmst)
 
   end
 
-  if sep_vmst == true then
-    table.insert(cc, { name = VMST_NAMES[event.lua.vmstate] })
-  end
-
   return cc
 end
 
 -- Collapse all the events into call tree
-function M.collapse(events, symbols, sep_vmst)
+function M.collapse(events, symbols)
   local root = new_node('root', false)
 
   for _,ev in pairs(events) do
-    local callchain = merge(ev, symbols, sep_vmst)
+    local callchain = merge(ev, symbols)
     local curr_node = root
     for i=#callchain,1,-1 do
       curr_node = insert(callchain[i].name, curr_node, false)
