@@ -40,7 +40,7 @@ jobs:
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
     runs-on: [self-hosted, regular, Linux, x86_64]
     name: >
-      LuaJIT with ASan (Linux/x86_64)
+      LuaJIT with ASan and UBSan (Linux/x86_64)
       ${{ matrix.BUILDTYPE }}
       GC64:ON SYSMALLOC:ON
     steps:
@@ -67,6 +67,7 @@ jobs:
           -G Ninja
           ${{ matrix.CMAKEFLAGS }}
           -DLUAJIT_USE_ASAN=ON
+          -DLUAJIT_USE_UBSAN=ON
           -DLUAJIT_USE_SYSMALLOC=ON
           -DLUAJIT_ENABLE_GC64=ON
       - name: build
@@ -86,6 +87,9 @@ jobs:
             print_suppressions=0:            \
             symbolize=1:                     \
             unmap_shadow_on_exit=1:          \
+          "
+          UBSAN_OPTIONS: "
+            print_stacktrace=1 \
           "
         run: cmake --build . --parallel --target LuaJIT-test
         working-directory: ${{ env.BUILDDIR }}

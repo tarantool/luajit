@@ -294,6 +294,33 @@ if(LUAJIT_USE_ASAN)
   )
 endif()
 
+option(LUAJIT_USE_UBSAN "Build LuaJIT with UndefinedBehaviorSanitizer" OFF)
+if(LUAJIT_USE_UBSAN)
+  string(JOIN "," UBSAN_OPTIONS
+    alignment
+    bool
+    bounds
+    builtin
+    enum
+    float-cast-overflow
+    float-divide-by-zero
+    function
+    integer-divide-by-zero
+    return
+    shift
+    unreachable
+    vla-bound
+  )
+  AppendFlags(CMAKE_C_FLAGS
+    # XXX: To get nicer stack traces in error messages.
+    -fno-omit-frame-pointer
+    # Enable UndefinedBehaviorSanitizer support.
+    -fsanitize=${UBSAN_OPTIONS}
+    # Print a verbose error report and exit the program.
+    -fno-sanitize-recover=${UBSAN_OPTIONS}
+  )
+endif()
+
 # --- Main source tree ---------------------------------------------------------
 
 add_subdirectory(src)
