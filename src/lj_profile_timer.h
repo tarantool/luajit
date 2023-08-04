@@ -25,8 +25,8 @@
 #if LJ_TARGET_PS3
 #include <sys/timer.h>
 #endif
-#define profile_lock(ps)	pthread_mutex_lock(&ps->lock)
-#define profile_unlock(ps)	pthread_mutex_unlock(&ps->lock)
+#define profile_lock(ps)	pthread_mutex_lock(&ps->timer.lock)
+#define profile_unlock(ps)	pthread_mutex_unlock(&ps->timer.lock)
 
 #elif LJ_PROFILE_WTHREAD
 
@@ -38,8 +38,8 @@
 #include <windows.h>
 #endif
 typedef unsigned int (WINAPI *WMM_TPFUNC)(unsigned int);
-#define profile_lock(ps)	EnterCriticalSection(&ps->lock)
-#define profile_unlock(ps)	LeaveCriticalSection(&ps->lock)
+#define profile_lock(ps)	EnterCriticalSection(&ps->timer.lock)
+#define profile_unlock(ps)	LeaveCriticalSection(&ps->timer.lock)
 
 #endif
 
