@@ -8,10 +8,6 @@
 #define lib_misc_c
 #define LUA_LIB
 
-#include <errno.h>
-#include <fcntl.h>
-#include <unistd.h>
-
 #include "lua.h"
 #include "lmisclib.h"
 #include "lauxlib.h"
@@ -24,6 +20,12 @@
 #include "lj_err.h"
 
 #include "lj_memprof.h"
+
+#include <errno.h>
+#include <fcntl.h>
+#if !LJ_TARGET_WINDOWS
+#include <unistd.h>
+#endif
 
 /* ------------------------------------------------------------------------ */
 
@@ -78,6 +80,7 @@ LJLIB_CF(misc_getmetrics)
 
 /* --------- profile common section --------------------------------------- */
 
+#if !LJ_TARGET_WINDOWS
 /*
 ** Yep, 8Mb. Tuned in order not to bother the platform with too often flushes.
 */
@@ -434,6 +437,7 @@ LJLIB_CF(misc_memprof_stop)
   lua_pushboolean(L, 1);
   return 1;
 }
+#endif /* !LJ_TARGET_WINDOWS */
 
 #include "lj_libdef.h"
 
@@ -441,6 +445,7 @@ LJLIB_CF(misc_memprof_stop)
 
 LUALIB_API int luaopen_misc(struct lua_State *L)
 {
+#if !LJ_TARGET_WINDOWS
   luaM_sysprof_set_writer(buffer_writer_default);
   luaM_sysprof_set_on_stop(on_stop_cb_default);
   /*
@@ -448,9 +453,12 @@ LUALIB_API int luaopen_misc(struct lua_State *L)
   ** backtracing function.
   */
   luaM_sysprof_set_backtracer(NULL);
+#endif /* !LJ_TARGET_WINDOWS */
 
   LJ_LIB_REG(L, LUAM_MISCLIBNAME, misc);
+#if !LJ_TARGET_WINDOWS
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".memprof", misc_memprof);
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".sysprof", misc_sysprof);
+#endif /* !LJ_TARGET_WINDOWS */
   return 1;
 }
