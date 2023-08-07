@@ -285,7 +285,7 @@ def funcproto(func):
 
 def gclistlen(root, end=0x0):
     count = 0
-    while(gcref(root) != end):
+    while (gcref(root) != end):
         count += 1
         root = gcnext(root)
     return count
