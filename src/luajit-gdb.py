@@ -279,7 +279,7 @@ def itypemap(o):
         return LJ_T['NUMX'] if tvisnumber(o) else itype(o)
 
 def funcproto(func):
-    assert(func['ffid'] == 0)
+    assert func['ffid'] == 0
 
     return cast('GCproto *',
         mref('char *', func['pc']) - gdb.lookup_type('GCproto').sizeof)
