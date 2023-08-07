@@ -480,7 +480,7 @@ def strx64(val):
                   hex(int(val) & 0xFFFFFFFFFFFFFFFF))
 
 def funcproto(func):
-    assert(func.ffid == 0)
+    assert func.ffid == 0
     proto_size = sizeof('GCproto')
     value = cast('uintptr_t', vtou64(mref('char *', func.pc)) - proto_size)
     return cast(GCprotoPtr, value)
