@@ -11,6 +11,7 @@ local table_new = require('table.new')
 
 ffi.cdef[[
 unsigned long long strtoull(const char *restrict str, char **restrict endptr, int base);
+
 typedef struct GCtab {
     uint64_t nextgc;
     uint8_t marked;
@@ -25,7 +26,6 @@ typedef struct GCtab {
     uint32_t hmask;
     uint64_t freetop;
 } GCtab;
-
 ]]
 
 local function get_table_hash_pointer(obj)
@@ -35,34 +35,45 @@ local function get_table_hash_pointer(obj)
     return ffi.cast('GCtab *', uint64_ptr).node
 end
 
-local nil_node = get_table_hash_pointer({})
-
-local function test_tab(tab)
+local function is_distance_enough(tab)
+    local nil_node = get_table_hash_pointer({})
     local ptr = get_table_hash_pointer(tab)
+    -- node has a type uint64_t, but we cast it to uint32_t to avoid oom.
     local diff = tonumber(ffi.cast('uint32_t', nil_node - ptr))
-    return diff < 65535 * 24
+    return diff <= 65535 * 24
 end
 
-local tab = table_new(0, 65535)
-local root
-
-while not test_tab(tab) do
-    tab.next = root
-    root = tab
-    tab = table_new(0, 65535)
+local function prepare_table()
+    local tbl = table_new(0, 1)
+    local root
+    while not is_distance_enough(tbl) do
+        tbl.next = root
+        root = tbl
+        tbl = table_new(0, 2*10^4)
+    end
+    return tbl
 end
+
+
+-- Record indexed key lookup, rec_idx_key().
+local function get_n(tbl)
+    local n
+    for _ = 1, 3 do
+        n = tbl.n
+    end
+    return n
+end
+
+-- Do not compile, please.
+jit.off()
+local tbl1 = prepare_table()
+jit.on()
 
 jit.opt.start('hotloop=1')
+get_n(tbl1)
+-- Constant value of any type.
+local val = 1
+assert(get_n({n = val}) == 1, "n has incorrect value")
 
-local function get_n(tbl)
-    local x
-    for _ = 1, 3 do
-        x = tbl.n
-    end
-    return x
-end
-
-get_n(tab)
-test:ok(get_n({n = 1}) == 1)
-
-os.exit(test:check() and 0 or 1)
+-- test:ok(get_n({n = 1}) == 1)
+-- os.exit(test:check() and 0 or 1)
