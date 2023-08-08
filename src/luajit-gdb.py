@@ -476,7 +476,7 @@ def dump_stack(L, base=None, top=None):
     ]
     dump.extend([
         dump_stack_slot(L, maxstack + offset, base, top)
-            for offset in range(red, 0, -1)
+            for offset in range(red, 0, -1)  # noqa: E131
     ])
     dump.extend([
         '{padding} Stack: {nstackslots: >5} slots {padding}'.format(
@@ -495,7 +495,7 @@ def dump_stack(L, base=None, top=None):
         # Dump all data slots in the (framelink, top) interval.
         dump.extend([
             dump_stack_slot(L, framelink + offset, base, top)
-                for offset in range(frametop - framelink, 0, -1)
+                for offset in range(frametop - framelink, 0, -1)  # noqa: E131
         ])
         # Dump frame slot (2 slots in case of GC64).
         dump.append(dump_framelink(L, framelink))
