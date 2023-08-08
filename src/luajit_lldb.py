@@ -50,10 +50,11 @@ class Ptr:
         if isinstance(other, int):
             return self.__add__(-other)
         else:
-            return int((self.value.unsigned - other.value.unsigned) / sizeof(self.normal_type.__name__))
+            return int((self.value.unsigned - other.value.unsigned)
+                       / sizeof(self.normal_type.__name__))
 
     def __eq__(self, other):
-        assert isinstance(other, Ptr) or (isinstance(other, int) and other >= 0)
+        assert isinstance(other, Ptr) or isinstance(other, int) and other >= 0
         if isinstance(other, Ptr):
             return self.value.unsigned == other.value.unsigned
         else:
@@ -126,10 +127,12 @@ class Struct(metaclass=MetaStruct):
 
 c_structs = {
     'MRef': [
-        (property(lambda self: self['ptr64'].unsigned if LJ_GC64 else self['ptr32'].unsigned), 'ptr')
+        (property(lambda self: self['ptr64'].unsigned if LJ_GC64
+                  else self['ptr32'].unsigned), 'ptr')
     ],
     'GCRef': [
-        (property(lambda self: self['gcptr64'].unsigned if LJ_GC64 else self['gcptr32'].unsigned), 'gcptr')
+        (property(lambda self: self['gcptr64'].unsigned if LJ_GC64
+                  else self['gcptr32'].unsigned), 'gcptr')
     ],
     'TValue': [
         ('GCRef', 'gcr'),
@@ -137,8 +140,9 @@ c_structs = {
         ('uint', 'i'),
         ('int', 'it64'),
         ('string', 'n'),
-        (property(lambda self: self['ftsz'].signed if LJ_GC64 else None), 'ftsz'),
-        (property(lambda self: FR(self['fr']) if not LJ_GC64 else None), 'fr')
+        (property(lambda self: FR(self['fr']) if not LJ_GC64 else None), 'fr'),
+        (property(lambda self: self['ftsz'].signed if LJ_GC64 else None),
+         'ftsz')
     ],
     'GCState': [
         ('GCRef', 'root'),
@@ -223,16 +227,10 @@ for cls in c_structs.keys():
 for cls in Struct.__subclasses__():
     ptr_name = cls.__name__ + 'Ptr'
 
-    def make_ptr_init(nm, cls):
-        return type(
-                nm,
-                (Ptr,),
-                {
-                    '__init__': lambda self, value: super(type(self), self).__init__(value, cls)
-                }
-            )
-
-    globals()[ptr_name] = make_ptr_init(ptr_name, cls)
+    globals()[ptr_name] = type(ptr_name, (Ptr,), {
+        '__init__':
+            lambda self, value: super(type(self), self).__init__(value, cls)
+    })
 
 
 class Command(object):
@@ -590,9 +588,9 @@ def dump_lj_tfunc(tv):
 
     if ffid == 0:
         pt = funcproto(func)
-        return 'Lua function @ {addr}, {nupvals} upvalues, {chunk}:{line}'.format(
+        return 'Lua function @ {addr}, {nups} upvalues, {chunk}:{line}'.format(
             addr=strx64(func),
-            nupvals=func.nupvalues,
+            nups=func.nupvalues,
             chunk=strdata(cast(GCstrPtr, gcval(pt.chunkname))),
             line=pt.firstline
         )
@@ -737,7 +735,8 @@ def frame_prevl(framelink):
     # a struct member of 32-bit type to 64-bit type without getting onto
     # the next property bits, despite the fact that it's an actual value, not
     # a pointer to it.
-    return framelink - (1 + LJ_FR2 + bc_a(vtou64(dbg_eval('((BCIns *)' + str(frame_pc(framelink)) + ')[-1]'))))
+    bcins = vtou64(dbg_eval('((BCIns *)' + str(frame_pc(framelink)) + ')[-1]'))
+    return framelink - (1 + LJ_FR2 + bc_a(bcins))
 
 
 def frame_ispcall(framelink):
@@ -852,10 +851,15 @@ def dump_stack(L, base=None, top=None):
             nstackslots=int((maxstack - stack) >> 3),
         ),
         dump_stack_slot(L, maxstack, base, top),
-        '{start:{padding}}:{end:{padding}} [    ] {nfreeslots} slots: Free stack slots'.format(
-            start=strx64(top + 1),
-            end=strx64(maxstack - 1),
-            padding=len(PADDING),
+        '{start}:{end} [    ] {nfreeslots} slots: Free stack slots'.format(
+            start='{address:{padding}}'.format(
+                address=strx64(top + 1),
+                padding=len(PADDING),
+            ),
+            end='{address:{padding}}'.format(
+                address=strx64(maxstack - 1),
+                padding=len(PADDING),
+            ),
             nfreeslots=int((maxstack - top - 8) >> 3),
         ),
     ])
@@ -1075,9 +1079,10 @@ def register_commands(debugger, commands):
     for command, cls in commands.items():
         cls.command = command
         debugger.HandleCommand(
-            'command script add --overwrite --class luajit_lldb.{cls} {command}'.format(
+            'command script add --overwrite --class luajit_lldb.{cls} {cmd}'
+            .format(
                 cls=cls.__name__,
-                command=cls.command,
+                cmd=cls.command,
             )
         )
         print('{cmd} command intialized'.format(cmd=cls.command))
