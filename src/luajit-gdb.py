@@ -430,9 +430,9 @@ def dump_lj_tfunc(tv):
 
     if ffid == 0:
         pt = funcproto(func)
-        return 'Lua function @ {addr}, {nupvals} upvalues, {chunk}:{line}'.format(
+        return 'Lua function @ {addr}, {nups} upvalues, {chunk}:{line}'.format(
             addr=strx64(func),
-            nupvals=int(func['nupvalues']),
+            nups=int(func['nupvalues']),
             chunk=strdata(cast('GCstr *', gcval(pt['chunkname']))),
             line=pt['firstline']
         )
