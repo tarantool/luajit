@@ -20,12 +20,12 @@ local expected_irs = {
 }
 local N_TESTS = #expected_irs
 
-jit.opt.start('hotloop=1')
-
 test:plan(N_TESTS)
 
 jit.on()
 jparse.start('i')
+
+jit.opt.start('hotloop=1')
 
 -- Loop to compile:
 for _ = 1, 3 do end
