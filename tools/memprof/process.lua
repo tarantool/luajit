@@ -2,9 +2,7 @@
 
 local M = {}
 
-local symtab = require "utils.symtab"
-
-function M.form_heap_delta(events, symbols)
+function M.form_heap_delta(events)
   -- Auto resurrects source event lines for counting/reporting.
   local dheap = setmetatable({}, {__index = function(t, line)
     rawset(t, line, {
@@ -17,7 +15,7 @@ function M.form_heap_delta(events, symbols)
 
   for _, event in pairs(events.alloc) do
     if event.loc then
-      local ev_line = symtab.demangle(symbols, event.loc)
+      local ev_line = event.loc
 
       if (event.alloc > 0) then
         dheap[ev_line].dbytes = dheap[ev_line].dbytes + event.alloc
@@ -37,7 +35,7 @@ function M.form_heap_delta(events, symbols)
       -- that references the table with memory changed
       -- (may be empty).
       for _, heap_chunk in pairs(event.primary) do
-        local ev_line = symtab.demangle(symbols, heap_chunk.loc)
+        local ev_line = heap_chunk.loc
 
         if (heap_chunk.alloced > 0) then
           dheap[ev_line].dbytes = dheap[ev_line].dbytes + heap_chunk.alloced
