@@ -22,21 +22,12 @@ local SYMTAB_TRACE = 2
 
 local M = {}
 
-function M.loc(symtab, args)
+function M.loc(args)
   local loc = {
     addr = args.addr or 0,
     line = args.line or 0,
     traceno = args.traceno or 0,
   }
-
-  if loc.traceno ~= 0 and symtab.trace[loc.traceno] then
-    loc.gen = #symtab.trace[loc.traceno]
-  elseif symtab.lfunc[loc.addr] then
-    loc.gen = #symtab.lfunc[loc.addr]
-  else
-    local _, csym = avl.floor(symtab.cfunc, loc.addr)
-    loc.gen = csym and #csym or 1
-  end
 
   return loc
 end
@@ -56,10 +47,10 @@ function M.parse_sym_lfunc(reader, symtab)
     )
   end
 
-  table.insert(symtab.lfunc[sym_addr], {
+  symtab.lfunc[sym_addr] = {
     source = sym_chunk,
     linedefined = sym_line,
-  })
+  }
 end
 
 function M.parse_sym_trace(reader, symtab)
@@ -69,9 +60,9 @@ function M.parse_sym_trace(reader, symtab)
 
   symtab.trace[traceno] = symtab.trace[traceno] or {}
 
-  table.insert(symtab.trace[traceno], {
-    start = M.loc(symtab, { addr = sym_addr, line = sym_line })
-  })
+  symtab.trace[traceno] = {
+    start = M.loc({ addr = sym_addr, line = sym_line })
+  }
 end
 
 -- Parse a single entry in a symtab: .so library
@@ -136,7 +127,7 @@ end
 
 function M.id(loc)
   return string_format(
-    "f%#xl%dt%dg%d", loc.addr, loc.line, loc.traceno, loc.gen
+    "f%#xl%dt%dg", loc.addr, loc.line, loc.traceno
   )
 end
 
@@ -146,8 +137,7 @@ local function demangle_trace(symtab, loc)
   assert(traceno ~= 0, "Location is a trace")
 
   local trace_str = string_format("TRACE [%d]", traceno)
-  local gens = symtab.trace[traceno]
-  local trace = gens and gens[loc.gen]
+  local trace = symtab.trace[traceno]
 
   if trace then
     assert(trace.start.traceno == 0, "Trace start is not a trace")
@@ -162,21 +152,20 @@ function M.demangle(symtab, loc)
   end
 
   local addr = loc.addr
-  local gen = loc.gen
 
   if addr == 0 then
     return "INTERNAL"
   end
 
-  if symtab.lfunc[addr] and symtab.lfunc[addr][gen] then
-    local source = symtab.lfunc[addr][gen].source
+  if symtab.lfunc[addr] then
+    local source = symtab.lfunc[addr].source
     return string_format("%s:%d", symtab.alias[source] or source, loc.line)
   end
 
   local key, value = avl.floor(symtab.cfunc, addr)
 
   if key then
-    return string_format("%s:%#x", value[gen].name, key)
+    return string_format("%s:%#x", value.name, key)
   end
 
   return string_format("CFUNC %#x", addr)

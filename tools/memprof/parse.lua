@@ -78,7 +78,7 @@ local function parse_location(reader, asource, symbols)
   else
     error("Unknown asource "..asource)
   end
-  local loc = symtab.loc(symbols, args)
+  local loc = symtab.loc(args)
   return symtab.id(loc), symtab.demangle(symbols, loc)
 end
 
