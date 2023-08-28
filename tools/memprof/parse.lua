@@ -79,7 +79,7 @@ local function parse_location(reader, asource, symbols)
     error("Unknown asource "..asource)
   end
   local loc = symtab.loc(symbols, args)
-  return symtab.id(loc), loc
+  return symtab.id(loc), symtab.demangle(symbols, loc)
 end
 
 local function parse_alloc(reader, asource, events, heap, symbols)

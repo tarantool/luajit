@@ -3,11 +3,9 @@
 -- Major portions taken verbatim or adapted from the LuaVela.
 -- Copyright (C) 2015-2019 IPONWEB Ltd.
 
-local symtab = require "utils.symtab"
-
 local M = {}
 
-function M.render(events, symbols)
+function M.render(events)
   local ids = {}
 
   for id, _ in pairs(events) do
@@ -21,7 +19,7 @@ function M.render(events, symbols)
   for i = 1, #ids do
     local event = events[ids[i]]
     print(string.format("%s: %d events\t+%d bytes\t-%d bytes",
-      symtab.demangle(symbols, event.loc),
+      event.loc,
       event.num,
       event.alloc,
       event.free
@@ -29,7 +27,7 @@ function M.render(events, symbols)
 
     local prim_loc = {}
     for _, heap_chunk in pairs(event.primary) do
-      table.insert(prim_loc, symtab.demangle(symbols, heap_chunk.loc))
+      table.insert(prim_loc, heap_chunk.loc)
     end
     if #prim_loc ~= 0 then
       table.sort(prim_loc)
@@ -42,17 +40,17 @@ function M.render(events, symbols)
   end
 end
 
-function M.profile_info(events, symbols)
+function M.profile_info(events)
   print("ALLOCATIONS")
-  M.render(events.alloc, symbols)
+  M.render(events.alloc)
   print("")
 
   print("REALLOCATIONS")
-  M.render(events.realloc, symbols)
+  M.render(events.realloc)
   print("")
 
   print("DEALLOCATIONS")
-  M.render(events.free, symbols)
+  M.render(events.free)
   print("")
 end
 

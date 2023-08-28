@@ -78,7 +78,7 @@ local function generate_parsed_output(payload)
   -- We don't need it any more.
   os.remove(TMP_BINFILE)
 
-  return symbols, events
+  return events
 end
 
 local function form_source_line(line, source)
@@ -86,44 +86,17 @@ local function form_source_line(line, source)
 end
 
 local function form_trace_line(traceno, line, source)
-  return ("TRACE [%d] %s:%d"):format(traceno, source or SRC_PATH, line)
+  return ("TRACE [%d] started at %s:%d"):format(
+    traceno,
+    source or SRC_PATH,
+    line
+  )
 end
 
-local function fill_ev_type(events, symbols, event_type)
-  local ev_type = {
-    source = {},
-    trace = {},
-  }
+local function fill_ev_type(events, event_type)
+  local ev_type = {}
   for _, event in pairs(events[event_type]) do
-    local addr = event.loc.addr
-    local traceno = event.loc.traceno
-    local gen = event.loc.gen
-
-    if traceno ~= 0 and symbols.trace[traceno] then
-      local trace_loc = symbols.trace[traceno][gen].start
-      addr = trace_loc.addr
-      gen = trace_loc.gen
-      ev_type.trace[traceno] = {
-        name = form_trace_line(
-          traceno, trace_loc.line, symbols.lfunc[addr][gen].source
-        ),
-        num = event.num,
-      }
-    elseif addr == 0 then
-      ev_type.INTERNAL = {
-        name = "INTERNAL",
-        num = event.num,
-      }
-    elseif symbols.lfunc[addr] then
-      local source = symbols.lfunc[addr][gen].source
-
-      ev_type.source[source] = ev_type.source[source] or {}
-
-      ev_type.source[source][event.loc.line] = {
-        name = form_source_line(symbols.lfunc[addr][gen].linedefined, source),
-        num = event.num,
-      }
-    end
+    ev_type[event.loc] = event.num
   end
   return ev_type
 end
@@ -135,17 +108,15 @@ local function check_alloc_report(alloc, location, nevents)
   local source = location.source or SRC_PATH
   if traceno then
     expected_name = form_trace_line(traceno, location.line, source)
-    event = alloc.trace[traceno]
   else
-    expected_name = form_source_line(location.linedefined, source)
-    event = alloc.source[source][location.line]
+    expected_name = form_source_line(location.line, source)
   end
-  assert(expected_name == event.name, ("got='%s', expected='%s'"):format(
-    event.name,
+  event = alloc[expected_name]
+  assert(event, ("expected='%s', but no such event exists"):format(
     expected_name
   ))
-  assert(event.num == nevents, ("got=%d, expected=%d"):format(
-    event.num,
+  assert(event == nevents, ("got=%d, expected=%d"):format(
+    event,
     nevents
   ))
   return true
@@ -180,10 +151,10 @@ end)
 test:test("output", function(subtest)
   subtest:plan(7)
 
-  local symbols, events = generate_parsed_output(default_payload)
+  local events = generate_parsed_output(default_payload)
 
-  local alloc = fill_ev_type(events, symbols, "alloc")
-  local free = fill_ev_type(events, symbols, "free")
+  local alloc = fill_ev_type(events, "alloc")
+  local free = fill_ev_type(events, "free")
 
   -- Check allocation reports. The second argument is a line
   -- number of the allocation event itself. The third is a line
@@ -196,11 +167,11 @@ test:test("output", function(subtest)
   subtest:ok(check_alloc_report(alloc, { line = 42, linedefined = 35 }, 20))
 
   -- Collect all previous allocated objects.
-  subtest:ok(free.INTERNAL.num == 22)
+  subtest:ok(free.INTERNAL == 22)
 
   -- Tests for leak-only option.
   -- See also https://github.com/tarantool/tarantool/issues/5812.
-  local heap_delta = process.form_heap_delta(events, symbols)
+  local heap_delta = process.form_heap_delta(events)
   local tab_alloc_stats = heap_delta[form_source_line(37)]
   local str_alloc_stats = heap_delta[form_source_line(42)]
   subtest:ok(tab_alloc_stats.nalloc == tab_alloc_stats.nfree)
@@ -248,12 +219,12 @@ test:test("symtab-enrich-str", function(subtest)
     return M
   ]]
 
-  local symbols, events = generate_parsed_output(function()
+  local events = generate_parsed_output(function()
     local strchunk = assert(load(payloadstr, "strchunk"))()
     strchunk.payload()
   end)
 
-  local alloc = fill_ev_type(events, symbols, "alloc")
+  local alloc = fill_ev_type(events, "alloc")
 
   subtest:ok(check_alloc_report(
     alloc, { source = "strchunk", line = 2, linedefined = 0 }, 1)
@@ -275,13 +246,13 @@ test:test("jit-output", function(subtest)
 
   -- On this run traces are generated, JIT-related allocations
   -- will be recorded as well.
-  local symbols, events = generate_parsed_output(default_payload)
+  local events = generate_parsed_output(default_payload)
 
-  local alloc = fill_ev_type(events, symbols, "alloc")
+  local alloc = fill_ev_type(events, "alloc")
 
   -- Test for marking JIT-related allocations as internal.
   -- See also https://github.com/tarantool/tarantool/issues/5679.
-  subtest:is(alloc.source[form_source_line(0)], nil)
+  subtest:is(alloc[form_source_line(0)], nil)
 
   -- We expect, that loop will be compiled into a trace.
   -- 10 allocations in interpreter mode, 1 allocation for a trace
