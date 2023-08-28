@@ -59,7 +59,7 @@ end
 local function parse_lfunc(reader, symbols)
   local addr = reader:read_uleb128()
   local line = reader:read_uleb128()
-  local loc = symtab.loc(symbols, { addr = addr, line = line })
+  local loc = symtab.loc({ addr = addr, line = line })
   loc.type = FRAME.LFUNC
   return symtab.demangle(symbols, loc)
 end
@@ -71,7 +71,7 @@ end
 
 local function parse_cfunc(reader, symbols)
   local addr = reader:read_uleb128()
-  local loc = symtab.loc(symbols, { addr = addr })
+  local loc = symtab.loc({ addr = addr })
   loc.type = FRAME.CFUNC
   return symtab.demangle(symbols, loc)
 end
@@ -99,7 +99,7 @@ local function parse_host_callchain(reader, event, symbols)
   local addr = reader:read_uleb128()
 
   while addr ~= 0 do
-    local loc = symtab.loc(symbols, { addr = addr })
+    local loc = symtab.loc({ addr = addr })
     table.insert(event.host.callchain, 1, symtab.demangle(symbols, loc))
     addr = reader:read_uleb128()
   end
@@ -113,14 +113,11 @@ local function parse_trace_callchain(reader, event, symbols)
   loc.addr = reader:read_uleb128()
   loc.line = reader:read_uleb128()
 
-  local gen = symtab.loc(symbols, loc).gen
   local name_lua = symtab.demangle(symbols, {
     addr = loc.addr,
     traceno = loc.traceno,
-    gen = gen
   })
   event.lua.trace = loc
-  event.lua.trace.gen = gen
   event.lua.trace.name = name_lua
 end
 

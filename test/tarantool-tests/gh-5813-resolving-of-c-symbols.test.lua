@@ -24,12 +24,9 @@ local TMP_BINFILE = profilename("memprofdata.tmp.bin")
 local function tree_contains(node, name)
   if node == nil then
     return false
+  elseif node.value.name == name then
+    return true
   else
-    for i = 1, #node.value do
-      if node.value[i].name == name then
-        return true
-      end
-    end
     return tree_contains(node.left, name) or tree_contains(node.right, name)
   end
 end
