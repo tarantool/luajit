@@ -198,6 +198,11 @@ if(LUAJIT_ENABLE_CHECKHOOK)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_CHECKHOOK)
 endif()
 
+option(LUAJIT_ENABLE_RANDOM_RA "Use PRNG in register allocator" OFF)
+if(LUAJIT_ENABLE_RANDOM_RA)
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_RANDOM_RA)
+endif()
+
 # Disable exception unwinding on traces.
 option(LUAJIT_DISABLE_UNWIND_JIT "LuaJIT on-trace exceptions unwinding support" OFF)
 # XXX: On some MacOS versions older than MacOS 13, there is a
