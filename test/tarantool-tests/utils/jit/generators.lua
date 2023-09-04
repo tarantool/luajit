@@ -38,7 +38,7 @@ function M.fillmcode(trace_from, size)
 
   -- Addresses of traces may increase or decrease depending on OS,
   -- so use absolute diff.
-  while math.abs(last_addr - addr_from) > required_diff do
+  while math.abs(last_addr - addr_from) < required_diff do
     last_i = last_i + 1
     -- This is quite a heavy workload (though it doesn't look like
     -- one at first). Each load from a table is type guarded. Each
