@@ -32,9 +32,7 @@ function M.fillmcode(trace_from, size)
   -- Marker to check that traces are not flushed.
   local maxtraceno = getlast_traceno()
   local FLUSH_ERR = 'Traces are flushed, check your maxtrace, maxmcode options'
-
-  local _, last_addr = jutil.tracemc(maxtraceno)
-  last_addr = canonicalize_address(last_addr)
+  local last_addr = addr_from
 
   -- Addresses of traces may increase or decrease depending on OS,
   -- so use absolute diff.
@@ -104,6 +102,7 @@ function M.fillmcode(trace_from, size)
 
     -- Calculate the address of the last trace start.
     maxtraceno = last_traceno
+    local _
     _, last_addr = jutil.tracemc(last_traceno)
     if not last_addr then
       error(FLUSH_ERR)
