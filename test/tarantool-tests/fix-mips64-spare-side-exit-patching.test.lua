@@ -8,8 +8,25 @@ local test = tap.test('fix-mips64-spare-side-exit-patching'):skipcond({
 
 local generators = require('utils').jit.generators
 local frontend = require('utils').frontend
+local jutil = require('jit.util')
+
+-- Allow compilation of up to 2000 traces to avoid flushes.
+local MAXTRACE = 2000;
 
 test:plan(1)
+
+local function find_last_trace()
+  local candidate = misc.getmetrics().jit_trace_num
+  for traceno = candidate, MAXTRACE do
+    -- There is no need for heavy calls here. Just use the
+    -- simplest one to invoke `lj_checktrace()`.
+    if jutil.tracemc(traceno) then
+      candidate = traceno
+    end
+  end
+  assert(jutil.tracemc(candidate), 'tracenum candidate is invalid')
+  return candidate
+end
 
 -- Make compiler work hard.
 jit.opt.start(
@@ -18,8 +35,7 @@ jit.opt.start(
   -- Try to compile all compiled paths as early as JIT can.
   'hotloop=1',
   'hotexit=1',
-  -- Allow compilation of up to 2000 traces to avoid flushes.
-  'maxtrace=2000',
+  ('maxtrace=%d'):format(MAXTRACE),
   -- Allow to compile 8Mb of mcode to be sure the issue occurs.
   'maxmcode=8192',
   -- Use big mcode area for traces to avoid usage of different
@@ -59,7 +75,7 @@ for i = 1, MAX_SPARE_SLOT + 1 do
   parent(i)
   parent(i)
   parent(i)
-  last_traceno = misc.getmetrics().jit_trace_num
+  last_traceno = find_last_trace()
 end
 
 test:ok(true, 'all traces executed correctly')
