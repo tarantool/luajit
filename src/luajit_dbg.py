@@ -1,10 +1,238 @@
-# LLDB extension for LuaJIT post-mortem analysis.
-# To use, just put 'command script import <path-to-repo>/src/luajit_lldb.py'
-# in lldb.
+# Debug extension for LuaJIT post-mortem analysis.
+# To use in LLDB: 'command script import <path-to-repo>/src/luajit_dbg.py'
+# To use in GDB: 'source <path-to-repo>/src/luajit_dbg.py'
 
 import abc
 import re
-import lldb
+import sys
+import types
+
+from importlib import import_module
+
+# Make the script compatible with the ancient Python {{{
+
+
+LEGACY = re.match(r'^2\.', sys.version)
+
+if LEGACY:
+    CONNECTED = False
+    int = long
+    range = xrange
+
+
+def is_integer_type(val):
+    return isinstance(val, int) or (LEGACY and isinstance(val, types.IntType))
+
+
+# }}}
+
+
+class Debugger(object):
+    def __init__(self):
+        self.GDB = False
+        self.LLDB = False
+        self.type_cache = {}
+
+        # XXX: While the `gdb` library is only available inside
+        # a debug session, the `lldb` library can be loaded in
+        # any Python script. To address that, we need to perform
+        # an additional check to ensure a debug session is
+        # actually running.
+        debuggers = {
+            'gdb': lambda lib: True,
+            'lldb': lambda lib: lib.debugger is not None,
+        }
+        for name, healthcheck in debuggers.items():
+            lib = None
+            try:
+                lib = import_module(name)
+                if healthcheck(lib):
+                    setattr(self, name.upper(), True)
+                    globals()[name] = lib
+                    self.name = name
+            except Exception:
+                continue
+
+        assert self.LLDB != self.GDB
+
+    def setup_target(self, debugger):
+        global target
+        if self.LLDB:
+            target = debugger.GetSelectedTarget()
+
+    def write(self, msg):
+        if self.LLDB:
+            print(msg)
+        else:
+            gdb.write(msg + '\n')
+
+    def cmd_init(self, cmd_cls, debugger=None):
+        if self.LLDB:
+            debugger.HandleCommand(
+                'command script add --overwrite --class '
+                'luajit_dbg.{cls} {cmd}'
+                .format(
+                    cls=cmd_cls.__name__,
+                    cmd=cmd_cls.command,
+                )
+            )
+        else:
+            cmd_cls()
+
+    def event_connect(self, callback):
+        if not self.LLDB:
+            # XXX Fragile: though connecting the callback looks like a crap but
+            # it respects both Python 2 and Python 3 (see #4828).
+            if LEGACY:
+                global CONNECTED
+                CONNECTED = True
+            gdb.events.new_objfile.connect(callback)
+
+    def event_disconnect(self, callback):
+        if not self.LLDB:
+            # XXX Fragile: though disconnecting the callback looks like a crap
+            # but it respects both Python 2 and Python 3 (see #4828).
+            if LEGACY:
+                global CONNECTED
+                if not CONNECTED:
+                    return
+                CONNECTED = False
+            gdb.events.new_objfile.disconnect(callback)
+
+    def lookup_variable(self, name):
+        if self.LLDB:
+            return target.FindFirstGlobalVariable(name)
+        else:
+            variable, _ = gdb.lookup_symbol(name)
+            return variable.value() if variable else None
+
+    def lookup_symbol(self, sym):
+        if self.LLDB:
+            return target.modules[0].FindSymbol(sym)
+        else:
+            return gdb.lookup_global_symbol(sym)
+
+    def to_unsigned(self, val):
+        return val.unsigned if self.LLDB else int(val)
+
+    def to_signed(self, val):
+        return val.signed if self.LLDB else int(val)
+
+    def to_str(self, val):
+        return val.value if self.LLDB else str(val)
+
+    def find_type(self, typename):
+        if typename not in self.type_cache:
+            if self.LLDB:
+                self.type_cache[typename] = target.FindFirstType(typename)
+            else:
+                self.type_cache[typename] = gdb.lookup_type(typename)
+        return self.type_cache[typename]
+
+    def type_to_pointer_type(self, tp):
+        if self.LLDB:
+            return tp.GetPointerType()
+        else:
+            return tp.pointer()
+
+    def cast_impl(self, value, t, pointer_type):
+        if self.LLDB:
+            if is_integer_type(value):
+                # Integer casts require some black magic
+                # for lldb to behave properly.
+                if pointer_type:
+                    return target.CreateValueFromAddress(
+                        'value',
+                        lldb.SBAddress(value, target),
+                        t.GetPointeeType(),
+                    ).address_of
+                else:
+                    return target.CreateValueFromData(
+                        name='value',
+                        data=lldb.SBData.CreateDataFromInt(value, size=8),
+                        type=t,
+                    )
+            else:
+                return value.Cast(t)
+        else:
+            return gdb.Value(value).cast(t)
+
+    def dereference(self, val):
+        if self.LLDB:
+            return val.Dereference()
+        else:
+            return val.dereference()
+
+    def eval(self, expression):
+        if self.LLDB:
+            process = target.GetProcess()
+            thread = process.GetSelectedThread()
+            frame = thread.GetSelectedFrame()
+
+            if not expression:
+                return None
+
+            return frame.EvaluateExpression(expression)
+        else:
+            return gdb.parse_and_eval(expression)
+
+    def type_sizeof_impl(self, tp):
+        if self.LLDB:
+            return tp.GetByteSize()
+        else:
+            return tp.sizeof
+
+    def summary(self, val):
+        if self.LLDB:
+            return val.summary
+        else:
+            return str(val)[len(PADDING):].strip()
+
+    def type_member(self, type_obj, name):
+        if self.LLDB:
+            return next((x for x in type_obj.members if x.name == name), None)
+        else:
+            return type_obj[name]
+
+    def type_member_offset(self, member):
+        if self.LLDB:
+            return member.GetOffsetInBytes()
+        else:
+            return member.bitpos // 8
+
+    def get_member(self, value, member_name):
+        if self.LLDB:
+            return value.GetChildMemberWithName(member_name)
+        else:
+            return value[member_name]
+
+    def address_of(self, value):
+        if self.LLDB:
+            return value.address_of
+        else:
+            return value.address
+
+    def arch_init(self):
+        global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, PADDING, LJ_TISNUM, target
+        if self.LLDB:
+            irtype_enum = dbg.find_type('IRType').enum_members
+            for member in irtype_enum:
+                if member.name == 'IRT_PTR':
+                    LJ_64 = dbg.to_unsigned(member) & 0x1f == IRT_P64
+                if member.name == 'IRT_PGC':
+                    LJ_GC64 = dbg.to_unsigned(member) & 0x1f == IRT_P64
+        else:
+            LJ_64 = str(dbg.eval('IRT_PTR')) == 'IRT_P64'
+            LJ_GC64 = str(dbg.eval('IRT_PGC')) == 'IRT_P64'
+
+        LJ_FR2 = LJ_GC64
+        LJ_DUALNUM = dbg.lookup_symbol('lj_lib_checknumber') is not None
+        # Two extra characters are required to fit in the `0x` part.
+        PADDING = ' ' * len(strx64(L()))
+        LJ_TISNUM = 0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX']
+
+
+dbg = Debugger()
 
 LJ_64 = None
 LJ_GC64 = None
@@ -17,68 +245,73 @@ IRT_P64 = 9
 LJ_GCVMASK = ((1 << 47) - 1)
 LJ_TISNUM = None
 
-# Debugger specific {{{
-
-
 # Global
 target = None
 
 
-class Ptr:
+class Ptr(object):
     def __init__(self, value, normal_type):
         self.value = value
         self.normal_type = normal_type
 
     @property
     def __deref(self):
-        return self.normal_type(self.value.Dereference())
+        return self.normal_type(dbg.dereference(self.value))
 
     def __add__(self, other):
-        assert isinstance(other, int)
+        assert is_integer_type(other)
         return self.__class__(
             cast(
                 self.normal_type.__name__ + ' *',
                 cast(
                     'uintptr_t',
-                    self.value.unsigned + other * self.value.deref.size,
+                    dbg.to_unsigned(self.value) + other * sizeof(
+                        self.normal_type.__name__
+                    ),
                 ),
             ),
         )
 
     def __sub__(self, other):
-        assert isinstance(other, int) or isinstance(other, Ptr)
-        if isinstance(other, int):
+        assert is_integer_type(other) or isinstance(other, Ptr)
+        if is_integer_type(other):
             return self.__add__(-other)
         else:
-            return int((self.value.unsigned - other.value.unsigned)
-                       / sizeof(self.normal_type.__name__))
+            return int(
+                (
+                    dbg.to_unsigned(self.value) - dbg.to_unsigned(other.value)
+                ) / sizeof(self.normal_type.__name__)
+            )
 
     def __eq__(self, other):
-        assert isinstance(other, Ptr) or isinstance(other, int) and other >= 0
+        assert isinstance(other, Ptr) or is_integer_type(other)
         if isinstance(other, Ptr):
-            return self.value.unsigned == other.value.unsigned
+            return dbg.to_unsigned(self.value) == dbg.to_unsigned(other.value)
         else:
-            return self.value.unsigned == other
+            return dbg.to_unsigned(self.value) == other
 
     def __ne__(self, other):
         return not self == other
 
     def __gt__(self, other):
         assert isinstance(other, Ptr)
-        return self.value.unsigned > other.value.unsigned
+        return dbg.to_unsigned(self.value) > dbg.to_unsigned(other.value)
 
     def __ge__(self, other):
         assert isinstance(other, Ptr)
-        return self.value.unsigned >= other.value.unsigned
+        return dbg.to_unsigned(self.value) >= dbg.to_unsigned(other.value)
 
     def __bool__(self):
-        return self.value.unsigned != 0
+        return dbg.to_unsigned(self.value) != 0
 
     def __int__(self):
-        return self.value.unsigned
+        return dbg.to_unsigned(self.value)
+
+    def __long__(self):
+        return dbg.to_unsigned(self.value)
 
     def __str__(self):
-        return self.value.value
+        return dbg.to_str(self.value)
 
     def __getattr__(self, name):
         if name != '__deref':
@@ -86,53 +319,26 @@ class Ptr:
         return self.__deref
 
 
-class MetaStruct(type):
-    def __init__(cls, name, bases, nmspc):
-        super(MetaStruct, cls).__init__(name, bases, nmspc)
-
-        def make_general(field, tp):
-            builtin = {
-                        'uint':   'unsigned',
-                        'int':    'signed',
-                        'string': 'value',
-                    }
-            if tp in builtin.keys():
-                return lambda self: getattr(self[field], builtin[tp])
-            else:
-                return lambda self: globals()[tp](self[field])
-
-        if hasattr(cls, 'metainfo'):
-            for field in cls.metainfo:
-                if not isinstance(field[0], str):
-                    setattr(cls, field[1], field[0])
-                else:
-                    setattr(
-                        cls,
-                        field[1],
-                        property(make_general(field[1], field[0])),
-                    )
-
-
-class Struct(metaclass=MetaStruct):
+class Struct(object):
     def __init__(self, value):
         self.value = value
 
     def __getitem__(self, name):
-        return self.value.GetChildMemberWithName(name)
+        return dbg.get_member(self.value, name)
 
     @property
     def addr(self):
-        return self.value.address_of
+        return dbg.address_of(self.value)
 
 
 c_structs = {
     'MRef': [
-        (property(lambda self: self['ptr64'].unsigned if LJ_GC64
-                  else self['ptr32'].unsigned), 'ptr')
+        (property(lambda self: dbg.to_unsigned(self['ptr64']) if LJ_GC64
+                  else dbg.to_unsigned(self['ptr32'])), 'ptr')
     ],
     'GCRef': [
-        (property(lambda self: self['gcptr64'].unsigned if LJ_GC64
-                  else self['gcptr32'].unsigned), 'gcptr')
+        (property(lambda self: dbg.to_unsigned(self['gcptr64']) if LJ_GC64
+                  else dbg.to_unsigned(self['gcptr32'])), 'gcptr')
     ],
     'TValue': [
         ('GCRef', 'gcr'),
@@ -141,8 +347,12 @@ c_structs = {
         ('int', 'it64'),
         ('string', 'n'),
         (property(lambda self: FR(self['fr']) if not LJ_GC64 else None), 'fr'),
-        (property(lambda self: self['ftsz'].signed if LJ_GC64 else None),
-         'ftsz')
+        (
+            property(
+                lambda self: dbg.to_signed(self['ftsz']) if LJ_GC64 else None
+            ),
+            'ftsz'
+        )
     ],
     'GCState': [
         ('GCRef', 'root'),
@@ -216,26 +426,53 @@ c_structs = {
         ('TValue', 'val'),
         ('MRef', 'next')
     ],
-    'BCIns': []
+    'BCIns': [],
 }
 
 
-for cls in c_structs.keys():
-    globals()[cls] = type(cls, (Struct, ), {'metainfo': c_structs[cls]})
+def make_property_from_metadata(field, tp):
+    builtin = {
+        'uint':   dbg.to_unsigned,
+        'int':    dbg.to_signed,
+        'string': dbg.to_str,
+    }
+    if tp in builtin.keys():
+        return lambda self: builtin[tp](self[field])
+    else:
+        return lambda self: globals()[tp](self[field])
+
+
+for cls, metainfo in c_structs.items():
+    cls_dict = {}
+    for field in metainfo:
+        prop_constructor = field[0]
+        prop_name = field[1]
+        if not isinstance(prop_constructor, str):
+            cls_dict[prop_name] = prop_constructor
+        else:
+            cls_dict[prop_name] = property(
+                make_property_from_metadata(prop_name, prop_constructor)
+            )
+    globals()[cls] = type(cls, (Struct, ), cls_dict)
 
 
 for cls in Struct.__subclasses__():
     ptr_name = cls.__name__ + 'Ptr'
 
+    def make_init(cls):
+        return lambda self, value: super(type(self), self).__init__(value, cls)
+
     globals()[ptr_name] = type(ptr_name, (Ptr,), {
-        '__init__':
-            lambda self, value: super(type(self), self).__init__(value, cls)
+        '__init__': make_init(cls)
     })
 
 
-class Command(object):
-    def __init__(self, debugger, unused):
-        pass
+class Command(object if dbg.LLDB else gdb.Command):
+    def __init__(self, debugger=None, unused=None):
+        if dbg.GDB:
+            # XXX Fragile: though initialization looks like a crap but it
+            # respects both Python 2 and Python 3 (see #4828).
+            gdb.Command.__init__(self, self.command, gdb.COMMAND_DATA)
 
     def get_short_help(self):
         return self.__doc__.splitlines()[0]
@@ -245,21 +482,15 @@ class Command(object):
 
     def __call__(self, debugger, command, exe_ctx, result):
         try:
-            self.execute(debugger, command, result)
+            self.execute(command)
         except Exception as e:
             msg = 'Failed to execute command `{}`: {}'.format(self.command, e)
             result.SetError(msg)
 
     def parse(self, command):
-        process = target.GetProcess()
-        thread = process.GetSelectedThread()
-        frame = thread.GetSelectedFrame()
-
         if not command:
             return None
-
-        ret = frame.EvaluateExpression(command)
-        return ret
+        return dbg.to_unsigned(dbg.eval(command))
 
     @abc.abstractproperty
     def command(self):
@@ -270,7 +501,7 @@ class Command(object):
         """
 
     @abc.abstractmethod
-    def execute(self, debugger, args, result):
+    def execute(self, args):
         """Implementation of the command.
         Subclasses override this method to implement the logic of a given
         command, e.g. printing a stacktrace. The command output should be
@@ -278,6 +509,11 @@ class Command(object):
         properly routed to LLDB frontend. Any unhandled exception will be
         automatically transformed into proper errors.
         """
+    def invoke(self, arg, from_tty):
+        try:
+            self.execute(arg)
+        except Exception as e:
+            dbg.write(e)
 
 
 def cast(typename, value):
@@ -299,75 +535,38 @@ def cast(typename, value):
             name = name[:-1].strip()
             pointer_type = True
 
-    # Get the lldb type representation.
-    t = target.FindFirstType(name)
+    # Get the inferior type representation.
+    t = dbg.find_type(name)
     if pointer_type:
-        t = t.GetPointerType()
+        t = dbg.type_to_pointer_type(t)
 
-    if isinstance(value, int):
-        # Integer casts require some black magic for lldb to behave properly.
-        if pointer_type:
-            casted = target.CreateValueFromAddress(
-                'value',
-                lldb.SBAddress(value, target),
-                t.GetPointeeType(),
-            ).address_of
-        else:
-            casted = target.CreateValueFromData(
-                name='value',
-                data=lldb.SBData.CreateDataFromInt(value, size=8),
-                type=t,
-            )
-    else:
-        casted = value.Cast(t)
+    casted = dbg.cast_impl(value, t, pointer_type)
 
     if isinstance(typename, type):
-        # Wrap lldb object, if possible
+        # Wrap inferior object, if possible
         return typename(casted)
     else:
         return casted
 
 
-def lookup_global(name):
-    return target.FindFirstGlobalVariable(name)
-
-
-def type_member(type_obj, name):
-    return next((x for x in type_obj.members if x.name == name), None)
-
-
-def find_type(typename):
-    return target.FindFirstType(typename)
-
-
 def offsetof(typename, membername):
-    type_obj = find_type(typename)
-    member = type_member(type_obj, membername)
+    type_obj = dbg.find_type(typename)
+    member = dbg.type_member(type_obj, membername)
     assert member is not None
-    return member.GetOffsetInBytes()
+    return dbg.type_member_offset(member)
 
 
 def sizeof(typename):
-    type_obj = find_type(typename)
-    return type_obj.GetByteSize()
+    type_obj = dbg.find_type(typename)
+    return dbg.type_sizeof_impl(type_obj)
 
 
 def vtou64(value):
-    return value.unsigned & 0xFFFFFFFFFFFFFFFF
+    return dbg.to_unsigned(value) & 0xFFFFFFFFFFFFFFFF
 
 
 def vtoi(value):
-    return value.signed
-
-
-def dbg_eval(expr):
-    process = target.GetProcess()
-    thread = process.GetSelectedThread()
-    frame = thread.GetSelectedFrame()
-    return frame.EvaluateExpression(expr)
-
-
-# }}} Debugger specific
+    return dbg.to_signed(value)
 
 
 def gcval(obj):
@@ -393,7 +592,7 @@ def gclistlen(root, end=0x0):
 
 
 def gcringlen(root):
-    if not gcref(root):
+    if gcref(root) == 0:
         return 0
     elif gcref(root) == gcref(gcnext(root)):
         return 1
@@ -439,7 +638,7 @@ def J(g):
     J_offset = offsetof('GG_State', 'J')
     return cast(
         jit_StatePtr,
-        vtou64(cast('char *', g)) - g_offset + J_offset,
+        int(vtou64(cast('char *', g)) - g_offset + J_offset),
     )
 
 
@@ -451,7 +650,7 @@ def L(L=None):
     # lookup a symbol for the main coroutine considering the host app
     # XXX Fragile: though the loop initialization looks like a crap but it
     # respects both Python 2 and Python 3.
-    for lstate in [L] + list(map(lambda main: lookup_global(main), (
+    for lstate in [L] + list(map(lambda main: dbg.lookup_variable(main), (
         # LuaJIT main coro (see luajit/src/luajit.c)
         'globalL',
         # Tarantool main coro (see tarantool/src/lua/init.h)
@@ -459,7 +658,7 @@ def L(L=None):
         # TODO: Add more
     ))):
         if lstate:
-            return lua_State(lstate)
+            return lua_StatePtr(lstate)
 
 
 def tou32(val):
@@ -523,9 +722,9 @@ def funcproto(func):
 def strdata(obj):
     try:
         ptr = cast('char *', obj + 1)
-        return ptr.summary
+        return dbg.summary(ptr)
     except UnicodeEncodeError:
-        return "<luajit-lldb: error occurred while rendering non-ascii slot>"
+        return "<luajit_dbg: error occured while rendering non-ascii slot>"
 
 
 def itype(o):
@@ -730,12 +929,12 @@ def frame_pc(framelink):
 
 
 def frame_prevl(framelink):
-    # We are evaluating the `frame_pc(framelink)[-1])` with lldb's
+    # We are evaluating the `frame_pc(framelink)[-1])` with
     # REPL, because the lldb API is faulty and it's not possible to cast
     # a struct member of 32-bit type to 64-bit type without getting onto
     # the next property bits, despite the fact that it's an actual value, not
     # a pointer to it.
-    bcins = vtou64(dbg_eval('((BCIns *)' + str(frame_pc(framelink)) + ')[-1]'))
+    bcins = vtou64(dbg.eval('((BCIns *)' + str(frame_pc(framelink)) + ')[-1]'))
     return framelink - (1 + LJ_FR2 + bc_a(bcins))
 
 
@@ -789,12 +988,12 @@ def frames(L):
 
 def dump_framelink_slot_address(fr):
     return '{start:{padding}}:{end:{padding}}'.format(
-        start=hex(int(fr - 1)),
-        end=hex(int(fr)),
+        start=strx64(fr - 1),
+        end=strx64(fr),
         padding=len(PADDING),
     ) if LJ_FR2 else '{addr:{padding}}'.format(
-        addr=hex(int(fr)),
-        padding=len(PADDING),
+        addr=strx64(fr),
+        padding=2 * len(PADDING) + 1,
     )
 
 
@@ -863,7 +1062,6 @@ def dump_stack(L, base=None, top=None):
             nfreeslots=int((maxstack - top - 8) >> 3),
         ),
     ])
-
     for framelink, frametop in frames(L):
         # Dump all data slots in the (framelink, top) interval.
         dump.extend([
@@ -904,9 +1102,11 @@ the type and some info related to it.
 Whether the type of the given address differs from the listed above, then
 error message occurs.
     '''
-    def execute(self, debugger, args, result):
+    command = 'lj-tv'
+
+    def execute(self, args):
         tvptr = TValuePtr(cast('TValue *', self.parse(args)))
-        print('{}'.format(dump_tvalue(tvptr)))
+        dbg.write('{}'.format(dump_tvalue(tvptr)))
 
 
 class LJState(Command):
@@ -917,9 +1117,11 @@ The command requires no args and dumps current VM and GC states
 * GC state: <PAUSE|PROPAGATE|ATOMIC|SWEEPSTRING|SWEEP|FINALIZE|LAST>
 * JIT state: <IDLE|ACTIVE|RECORD|START|END|ASM|ERR>
     '''
-    def execute(self, debugger, args, result):
+    command = 'lj-state'
+
+    def execute(self, args):
         g = G(L(None))
-        print('{}'.format('\n'.join(
+        dbg.write('{}'.format('\n'.join(
             map(lambda t: '{} state: {}'.format(*t), {
                 'VM':  vm_state(g),
                 'GC':  gc_state(g),
@@ -936,8 +1138,10 @@ The command requires no args and dumps values of LJ_64 and LJ_GC64
 compile-time flags. These values define the sizes of host and GC
 pointers respectively.
     '''
-    def execute(self, debugger, args, result):
-        print(
+    command = 'lj-arch'
+
+    def execute(self, args):
+        dbg.write(
             'LJ_64: {LJ_64}, LJ_GC64: {LJ_GC64}, LJ_DUALNUM: {LJ_DUALNUM}'
             .format(
                 LJ_64=LJ_64,
@@ -965,9 +1169,11 @@ The command requires no args and dumps current GC stats:
 * weak: <number of weak tables (to be cleared)>
 * mmudata: <number of udata|cdata to be finalized>
     '''
-    def execute(self, debugger, args, result):
+    command = 'lj-gc'
+
+    def execute(self, args):
         g = G(L(None))
-        print('GC stats: {state}\n{stats}'.format(
+        dbg.write('GC stats: {state}\n{stats}'.format(
             state=gc_state(g),
             stats=dump_gc(g)
         ))
@@ -983,9 +1189,11 @@ the payload, size in bytes and hash.
 *Caveat*: Since Python 2 provides no native Unicode support, the payload
 is replaced with the corresponding error when decoding fails.
     '''
-    def execute(self, debugger, args, result):
+    command = 'lj-str'
+
+    def execute(self, args):
         string_ptr = GCstrPtr(cast('GCstr *', self.parse(args)))
-        print("String: {body} [{len} bytes] with hash {hash}".format(
+        dbg.write("String: {body} [{len} bytes] with hash {hash}".format(
             body=strdata(string_ptr),
             hash=strx64(string_ptr.hash),
             len=string_ptr.len,
@@ -1003,7 +1211,9 @@ The command receives a GCtab address and dumps the table contents:
 * Hash part <hsize> nodes:
   <hnode ptr>: { <tv> } => { <tv> }; next = <next hnode ptr>
     '''
-    def execute(self, debugger, args, result):
+    command = 'lj-tab'
+
+    def execute(self, args):
         t = GCtabPtr(cast('GCtab *', self.parse(args)))
         array = mref(TValuePtr, t.array)
         nodes = mref(NodePtr, t.node)
@@ -1014,22 +1224,22 @@ The command receives a GCtab address and dumps the table contents:
         }
 
         if mt:
-            print('Metatable detected: {}'.format(strx64(mt)))
+            dbg.write('Metatable detected: {}'.format(strx64(mt)))
 
-        print('Array part: {} slots'.format(capacity['apart']))
+        dbg.write('Array part: {} slots'.format(capacity['apart']))
         for i in range(capacity['apart']):
             slot = array + i
-            print('{ptr}: [{index}]: {value}'.format(
+            dbg.write('{ptr}: [{index}]: {value}'.format(
                 ptr=strx64(slot),
                 index=i,
                 value=dump_tvalue(slot)
             ))
 
-        print('Hash part: {} nodes'.format(capacity['hpart']))
+        dbg.write('Hash part: {} nodes'.format(capacity['hpart']))
         # See hmask comment in lj_obj.h
         for i in range(capacity['hpart']):
             node = nodes + i
-            print('{ptr}: {{ {key} }} => {{ {val} }}; next = {n}'.format(
+            dbg.write('{ptr}: {{ {key} }} => {{ {val} }}; next = {n}'.format(
                 ptr=strx64(node),
                 key=dump_tvalue(TValuePtr(node.key.addr)),
                 val=dump_tvalue(TValuePtr(node.val.addr)),
@@ -1069,56 +1279,72 @@ coroutine guest stack:
 
 If L is omitted the main coroutine is used.
     '''
-    def execute(self, debugger, args, result):
+    command = 'lj-stack'
+
+    def execute(self, args):
         lstate = self.parse(args)
-        lstate_ptr = cast('lua_State *', lstate) if coro is not None else None
-        print('{}'.format(dump_stack(L(lstate_ptr))))
+        lstate_ptr = cast('lua_State *', lstate) if lstate else None
+        dbg.write('{}'.format(dump_stack(L(lstate_ptr))))
 
 
-def register_commands(debugger, commands):
-    for command, cls in commands.items():
-        cls.command = command
-        debugger.HandleCommand(
-            'command script add --overwrite --class luajit_lldb.{cls} {cmd}'
-            .format(
-                cls=cls.__name__,
-                cmd=cls.command,
-            )
-        )
-        print('{cmd} command intialized'.format(cmd=cls.command))
+LJ_COMMANDS = [
+    LJDumpTValue,
+    LJState,
+    LJDumpArch,
+    LJGC,
+    LJDumpString,
+    LJDumpTable,
+    LJDumpStack,
+]
 
 
-def configure(debugger):
-    global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, PADDING, LJ_TISNUM, target
-    target = debugger.GetSelectedTarget()
-    module = target.modules[0]
-    LJ_DUALNUM = module.FindSymbol('lj_lib_checknumber') is not None
+def register_commands(commands, debugger=None):
+    for cls in commands:
+        dbg.cmd_init(cls, debugger)
+        dbg.write('{cmd} command intialized'.format(cmd=cls.command))
+
+
+def configure(debugger=None):
+    global PADDING, LJ_TISNUM, LJ_DUALNUM
+    dbg.setup_target(debugger)
+    try:
+        # Try to remove the callback at first to not append duplicates to
+        # gdb.events.new_objfile internal list.
+        dbg.event_disconnect(load)
+    except Exception:
+        # Callback is not connected.
+        pass
 
     try:
-        irtype_enum = target.FindFirstType('IRType').enum_members
-        for member in irtype_enum:
-            if member.name == 'IRT_PTR':
-                LJ_64 = member.unsigned & 0x1f == IRT_P64
-            if member.name == 'IRT_PGC':
-                LJ_FR2 = LJ_GC64 = member.unsigned & 0x1f == IRT_P64
+        # Detect whether libluajit objfile is loaded.
+        dbg.eval('luaJIT_setmode')
     except Exception:
-        print('luajit_lldb.py failed to load: '
-              'no debugging symbols found for libluajit')
-        return
+        dbg.write('luajit_dbg.py initialization is postponed '
+                  'until libluajit objfile is loaded\n')
+        # Add a callback to be executed when the next objfile is loaded.
+        dbg.event_connect(load)
+        return False
 
-    PADDING = ' ' * len(strx64((TValuePtr(L().addr))))
-    LJ_TISNUM = 0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX']
+    try:
+        dbg.arch_init()
+    except Exception:
+        dbg.write('LuaJIT debug extension failed to load: '
+                  'no debugging symbols found for libluajit')
+        return False
+    return True
 
 
-def __lldb_init_module(debugger, internal_dict):
-    configure(debugger)
-    register_commands(debugger, {
-        'lj-tv':    LJDumpTValue,
-        'lj-state': LJState,
-        'lj-arch':  LJDumpArch,
-        'lj-gc':    LJGC,
-        'lj-str':   LJDumpString,
-        'lj-tab':   LJDumpTable,
-        'lj-stack': LJDumpStack,
-    })
-    print('luajit_lldb.py is successfully loaded')
+# XXX: The dummy parameter is needed for this function to
+# work as a gdb callback.
+def load(_=None, debugger=None):
+    if configure(debugger):
+        register_commands(LJ_COMMANDS, debugger)
+        dbg.write('LuaJIT debug extension is successfully loaded')
+
+
+def __lldb_init_module(debugger, _=None):
+    load(None, debugger)
+
+
+if dbg.GDB:
+    load()
