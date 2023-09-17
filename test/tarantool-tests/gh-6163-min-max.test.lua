@@ -3,11 +3,6 @@ local test = tap.test('gh-6163-jit-min-max'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
 })
 
-local x86_64 = jit.arch == 'x86' or jit.arch == 'x64'
--- XXX: table to use for dummy check for some inconsistent results
--- on the x86/64 architecture.
-local DUMMY_TAB = {}
-
 test:plan(18)
 --
 -- gh-6163: math.min/math.max inconsistencies.
@@ -110,17 +105,17 @@ result = {}
 for k = 1, 4 do
     result[k] = min(x, min(x, nan))
 end
--- FIXME: results are still inconsistent for the x86/64 architecture.
+-- See also https://github.com/LuaJIT/LuaJIT/issues/957.
 -- expected: nan nan nan nan
-test:samevalues(x86_64 and DUMMY_TAB or result, 'math.min: comm_dup_minmax')
+test:samevalues(result, 'math.min: comm_dup_minmax')
 
 result = {}
 for k = 1, 4 do
     result[k] = max(x, max(x, nan))
 end
--- FIXME: results are still inconsistent for the x86/64 architecture.
+-- See also https://github.com/LuaJIT/LuaJIT/issues/957.
 -- expected: nan nan nan nan
-test:samevalues(x86_64 and DUMMY_TAB or result, 'math.max: comm_dup_minmax')
+test:samevalues(result, 'math.max: comm_dup_minmax')
 
 -- The following optimization should be disabled:
 -- (x o k1) o k2 ==> x o (k1 o k2)
@@ -179,10 +174,9 @@ result = {}
 for k = 1, 4 do
   result[k] = min(1, max(1, nan))
 end
--- FIXME: results are still inconsistent for the x86/64 architecture.
+-- See also https://github.com/LuaJIT/LuaJIT/issues/957.
 -- expected: nan nan nan nan
-test:samevalues(x86_64 and DUMMY_TAB or result,
-                'min-max-case2: reassoc_minmax_right')
+test:samevalues(result, 'min-max-case2: reassoc_minmax_right')
 
 result = {}
 for k = 1, 4 do
@@ -195,10 +189,9 @@ result = {}
 for k = 1, 4 do
   result[k] = max(1, min(1, nan))
 end
--- FIXME: results are still inconsistent for the x86/64 architecture.
+-- See also https://github.com/LuaJIT/LuaJIT/issues/957.
 -- expected: nan nan nan nan
-test:samevalues(x86_64 and DUMMY_TAB or result,
-                'max-min-case2: reassoc_minmax_right')
+test:samevalues(result, 'max-min-case2: reassoc_minmax_right')
 
 -- XXX: If we look into the disassembled code of `lj_vm_foldarith()`
 -- we can see the following:
