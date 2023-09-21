@@ -542,7 +542,7 @@ def dump_stack(L, base=None, top=None):
     top = top or L['top']
     stack = mref('TValue *', L['stack'])
     maxstack = mref('TValue *', L['maxstack'])
-    red = 5 + 2 * LJ_FR2
+    red = 5 + 3 * LJ_FR2
 
     dump = [
         '{padding} Red zone: {nredslots: >2} slots {padding}'.format(
