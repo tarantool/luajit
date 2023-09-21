@@ -30,6 +30,10 @@ AppendFlags(TESTS_C_FLAGS ${TARGET_C_FLAGS})
 # test binary can be run from any directory.
 AppendFlags(TESTS_C_FLAGS "-D__LJ_TEST_DIR__='\"${CMAKE_CURRENT_SOURCE_DIR}\"'")
 
+if(NOT LUAJIT_DISABLE_JIT)
+  AppendFlags(TESTS_C_FLAGS "-DLJ_HASJIT")
+endif(NOT LUAJIT_DISABLE_JIT)
+
 set(CTEST_SRC_SUFFIX ".test.c")
 file(GLOB tests "${CMAKE_CURRENT_SOURCE_DIR}/*${CTEST_SRC_SUFFIX}")
 foreach(test_source ${tests})
