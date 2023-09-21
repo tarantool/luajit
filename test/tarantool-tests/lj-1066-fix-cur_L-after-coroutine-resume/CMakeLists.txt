@@ -1,0 +1,1 @@
+BuildTestCLib(libcur_L_coroutine libcur_L_coroutine.c)
