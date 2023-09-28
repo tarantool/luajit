@@ -351,7 +351,6 @@ static void build_subroutines(BuildCtx *ctx)
   |   mv_vmstate CARG4, CFUNC
   |  ldr GL:CARG3, L->glref
   |   str CARG4, GL:CARG3->vmstate
-  |   str L, GL:CARG3->cur_L
   |  b ->vm_leave_unw
   |
   |->vm_unwind_ff:			// Unwind C stack, return from ff pcall.
@@ -372,7 +371,6 @@ static void build_subroutines(BuildCtx *ctx)
   |   mv_vmstate CARG2, INTERP
   |    str CARG1, [BASE, #-4]		// Prepend false to error message.
   |   st_vmstate CARG2
-  |   str L, [DISPATCH, #DISPATCH_GL(cur_L)]
   |  b ->vm_returnc
   |
   |->vm_unwind_ext:			// Complete external unwind.
