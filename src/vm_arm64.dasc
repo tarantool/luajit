@@ -395,7 +395,6 @@ static void build_subroutines(BuildCtx *ctx)
   |   mv_vmstate TMP0w, CFUNC
   |  ldr GL, L->glref
   |   st_vmstate TMP0w
-  |  str L, GL->cur_L
   |  b ->vm_leave_unw
   |
   |->vm_unwind_ff:			// Unwind C stack, return from ff pcall.
@@ -411,7 +410,6 @@ static void build_subroutines(BuildCtx *ctx)
   |   ldr GL, L->glref			// Setup pointer to global state.
   |    mov_false TMP0
   |  sub RA, BASE, #8			// Results start at BASE-8.
-  |   str L, GL->cur_L
   |  ldr PC, [BASE, FRAME_PC]		// Fetch PC of previous frame.
   |    str TMP0, [BASE, #-8]		// Prepend false to error message.
   |   st_vmstate ST_INTERP
