@@ -35,6 +35,8 @@ glibc `assert()`:
   equal to the `b`.
 * `assert_double{_not}_equal(a, b)` -- check that two doubles are {not}
   **exactly** equal.
+* `assert_str{_not}_equal(a, b)` -- check that `char *` variable `a` is {not}
+  equal to the `b`.
 
 ## Directives
 
