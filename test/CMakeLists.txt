@@ -148,6 +148,7 @@ add_subdirectory(PUC-Rio-Lua-5.1-tests)
 add_subdirectory(lua-Harness-tests)
 add_subdirectory(tarantool-c-tests)
 add_subdirectory(tarantool-tests)
+add_subdirectory(LuaJIT-debug-extensions-tests)
 
 # Each testsuite has its own CMake target, but combining these
 # target into a single one is not desired, because each target
