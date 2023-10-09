@@ -175,6 +175,7 @@ add_subdirectory(LuaJIT-tests)
 add_subdirectory(PUC-Rio-Lua-5.1-tests)
 add_subdirectory(lua-Harness-tests)
 add_subdirectory(tarantool-c-tests)
+add_subdirectory(tarantool-debugger-tests)
 add_subdirectory(tarantool-tests)
 
 # Each testsuite has its own CMake target, but combining these
@@ -186,6 +187,9 @@ add_subdirectory(tarantool-tests)
 # command that runs all generated CMake tests.
 add_custom_target(${PROJECT_NAME}-test
   COMMAND ${CMAKE_CTEST_COMMAND} ${CTEST_FLAGS}
+    # Omit this target in LuaJIT-test since we don't want to set
+    # up and run debuggers for every build.
+    --label-exclude tarantool-debugger-tests
   DEPENDS tarantool-c-tests-deps
           tarantool-tests-deps
           lua-Harness-tests-deps
@@ -195,5 +199,8 @@ add_custom_target(${PROJECT_NAME}-test
 
 add_custom_target(${PROJECT_NAME}-check-all
   DEPENDS ${PROJECT_NAME}-test
+          # Omit this target in LuaJIT-test since we don't want to
+          # set up and run debuggers for every build.
+          tarantool-debugger-tests
           ${PROJECT_NAME}-lint
 )
