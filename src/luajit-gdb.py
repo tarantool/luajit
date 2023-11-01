@@ -371,8 +371,11 @@ def frames(L):
         frametop = framelink - (1 + LJ_FR2)
         if framelink <= framelink_sentinel:
             break
-        framelink = frame_prev(framelink)
-
+        framelink_prev = frame_prev(framelink)
+        if framelink_prev < framelink:
+            framelink = framelink_prev
+        else:
+            break
 
 def lightudV(tv):
     if LJ_64:
@@ -521,8 +524,8 @@ def dump_framelink(L, fr):
         ),
         d=cast('TValue *', fr) - cast('TValue *', frame_prev(fr)),
         f=dump_lj_tfunc(fr - LJ_FR2),
+        # f='FFFFFFFFFF',
     )
-
 
 def dump_stack_slot(L, slot, base=None, top=None):
     base = base or L['base']
@@ -536,6 +539,117 @@ def dump_stack_slot(L, slot, base=None, top=None):
         M='M' if slot == mref('TValue *', L['maxstack']) else ' ',
         value=dump_tvalue(slot),
     )
+
+def dump_stack_slot2(L, slot, base=None, top=None):
+    base = base or L['base']
+    top = top or L['top']
+
+    value = None
+    try:
+        value = dump_tvalue(slot)
+    except Exception as e:
+        value = str(e)
+
+    return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}'.format(
+        addr=strx64(slot),
+        padding=PADDING,
+        B='B' if slot == base else ' ',
+        T='T' if slot == top else ' ',
+        M='M' if slot == mref('TValue *', L['maxstack']) else ' ',
+        value=value,
+    )
+
+class Stack(object):
+    def __init__(self, L):
+        self.L = L
+        self.base = L['base']
+        self.top = L['top']
+        self.stack = mref('TValue *', L['stack'])
+        self.maxstack = mref('TValue *', L['maxstack'])
+        self.red = 5 + 2 * LJ_FR2
+        self.dummyframe = self.stack + LJ_FR2
+
+    def slots(self, redzone, offset=0):
+        start_offset = self.maxstack - self.stack + self.red if redzone else \
+                       self.top - self.stack + offset
+        stop_offset = start_offset - self.num_slots(redzone)
+        for offset in range(start_offset, stop_offset, -1):
+            yield self.stack + offset
+
+    def num_slots(self, redzone):
+        return self.red if redzone else self.maxstack - self.stack
+
+    def frames(self):
+        frametop = self.top
+        framelink = self.base - 1
+        while True:
+            yield framelink, frametop
+            frametop = framelink - (1 + LJ_FR2)
+            if framelink <= self.dummyframe:
+                break
+            framelink = frame_prev(framelink)
+
+def print_stack_slots(L, offset = 0):
+    L = Stack(L)
+
+    # Red zone slots
+    gdb.write(
+        '{padding} Red zone: {nredslots: >2} slots {padding}\n'.format(
+            padding = '-' * len(PADDING),
+            nredslots = L.num_slots(True),
+        )
+    )
+    for slot in L.slots(True):
+        gdb.write(dump_stack_slot(L.L, slot) + '\n')
+
+    # General slots
+    gdb.write(str(L.num_slots(False)) + '\n')
+    gdb.write(
+        '{padding} Stack: {nstackslots: >5} slots {padding}\n'.format(
+            padding = '-' * len(PADDING),
+            nstackslots = str(L.num_slots(False)),
+        )
+    )
+    # Display maximum slot
+    gdb.write(dump_stack_slot(L.L, L.maxstack) + '\n')
+    # Collapse slots between maximum and top
+    if L.top + offset != L.maxstack:
+        gdb.write('.......... {} slots\n'.format(L.maxstack - L.top - offset))
+    for slot in L.slots(False, offset):
+        gdb.write(dump_stack_slot(L.L, slot) + '\n')
+
+
+def dump_stack_summary(L, base=None, top=None):
+    base = base or L['base']
+    top = top or L['top']
+    stack = mref('TValue *', L['stack'])
+    maxstack = mref('TValue *', L['maxstack'])
+    red = 5 + 2 * LJ_FR2
+
+    dump = [
+        '{padding} Red zone: {nredslots: >2} slots {padding}'.format(
+            padding='-' * len(PADDING),
+            nredslots=red,
+        ),
+    ]
+    dump.extend([
+        dump_stack_slot(L, maxstack + offset, base, top)
+            for offset in range(red, 0, -1)  # noqa: E131
+    ])
+    dump.extend([
+        '{padding} Stack: {nstackslots: >5} slots {padding}'.format(
+            padding='-' * len(PADDING),
+            nstackslots=int((tou64(maxstack) - tou64(stack)) >> 3),
+        ),
+        dump_stack_slot(L, maxstack, base, top),
+        '{start}:{end} [    ] {nfreeslots} slots: Free stack slots'.format(
+            start=strx64(top + 1),
+            end=strx64(maxstack - 1),
+            nfreeslots=int((tou64(maxstack) - tou64(top) - 8) >> 3),
+        ),
+    ])
+
+    return '\n'.join(dump)
 
 
 def dump_stack(L, base=None, top=None):
@@ -571,7 +685,7 @@ def dump_stack(L, base=None, top=None):
     for framelink, frametop in frames(L):
         # Dump all data slots in the (framelink, top) interval.
         dump.extend([
-            dump_stack_slot(L, framelink + offset, base, top)
+            dump_stack_slot2(L, framelink + offset, base, top)
                 for offset in range(frametop - framelink, 0, -1)  # noqa: E131
         ])
         # Dump frame slot (2 slots in case of GC64).
@@ -763,7 +877,19 @@ If L is ommited the main coroutine is used.
     '''
 
     def invoke(self, arg, from_tty):
-        gdb.write('{}\n'.format(dump_stack(L(parse_arg(arg)))))
+        # gdb.write('{}\n'.format(dump_stack(L(parse_arg(arg)))))
+        L_ = L(parse_arg(arg))
+        gdb.write('{}\n'.format(dump_stack_summary(L_)))
+        for framelink, frametop in frames(L_):
+            # Dump all data slots in the (framelink, top) interval.
+            for offset in range(frametop - framelink, 0, -1):
+                gdb.write('{}\n'.format(dump_stack_slot(L_, framelink + offset)))
+            # Dump frame slot (2 slots in case of GC64).
+            gdb.write('{}\n'.format(dump_framelink(L_, framelink)))
+
+class LJDumpStack2(LJBase):
+    def invoke(self, arg, from_tty):
+        print_stack_slots(L(parse_arg(arg)))
 
 
 class LJState(LJBase):
@@ -877,6 +1003,7 @@ def load(event=None):
         'lj-str':   LJDumpString,
         'lj-tab':   LJDumpTable,
         'lj-stack': LJDumpStack,
+        'lj-stack2': LJDumpStack2,
         'lj-state': LJState,
         'lj-gc':    LJGC,
     })
