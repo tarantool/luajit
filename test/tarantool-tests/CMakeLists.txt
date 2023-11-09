@@ -10,9 +10,13 @@ if(NOT PROVE)
   return()
 endif()
 
+add_custom_target(tarantool-tests
+  DEPENDS ${LUAJIT_TEST_BINARY}
+)
+
 macro(BuildTestCLib lib sources)
   AddTestLib(${lib} ${sources})
-  set(TESTLIBS "${TESTLIBS}" PARENT_SCOPE)
+  add_dependencies(tarantool-tests ${lib})
   # Add the directory where the lib is built to the list with
   # entries for LUA_CPATH environment variable, so LuaJIT can find
   # and load it. See the comment about extending the list in the
@@ -105,11 +109,8 @@ else()
   list(APPEND LUA_TEST_ENV_MORE LD_LIBRARY_PATH=${LD_LIBRARY_PATH})
 endif()
 
-# LUA_CPATH and LD_LIBRARY_PATH variables and also TESTLIBS list
-# with dependencies are set in scope of BuildTestLib macro.
-add_custom_target(tarantool-tests
-  DEPENDS ${LUAJIT_TEST_BINARY} ${TESTLIBS}
-)
+# LUA_CPATH and LD_LIBRARY_PATH variables and also dependencies
+# list with libraries are set in scope of BuildTestLib macro.
 add_custom_command(TARGET tarantool-tests
   COMMENT "Running Tarantool tests"
   COMMAND
