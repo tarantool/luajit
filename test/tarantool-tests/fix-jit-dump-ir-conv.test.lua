@@ -44,19 +44,19 @@ local function trace(step)
   end
 end
 
--- XXX: Reset hotcounters and traces.
+-- XXX: Reset hotcounters and traces. Use `hotloop=2` to avoid
+-- penalty for the outer trace.
 jit.flush()
-jit.opt.start('hotloop=1')
+jit.opt.start('hotloop=2')
 
 jparse.start('i')
 -- Compile the inner trace first.
 trace(1)
+trace(1)
 -- Compile the big trace with the first trace inlined.
 -- Needs narrowing optimization enabled.
--- XXX: Reset hotcounters and call the function 3 times to
--- compile. Needed to avoid hotcount collisions.
+-- XXX: Reset hotcounters. Needed to avoid hotcount collisions.
 jit.opt.start('hotloop=1')
-trace(1)
 trace(1)
 trace(1)
 
