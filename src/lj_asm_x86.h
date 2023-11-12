@@ -794,6 +794,7 @@ static void asm_tointg(ASMState *as, IRIns *ir, Reg left)
   emit_rr(as, XO_UCOMISD, left, tmp);
   emit_rr(as, XO_CVTSI2SD, tmp, dest);
   emit_rr(as, XO_XORPS, tmp, tmp);  /* Avoid partial register stall. */
+  checkmclim(as);
   emit_rr(as, XO_CVTTSD2SI, dest, left);
   /* Can't fuse since left is needed twice. */
 }
@@ -836,6 +837,7 @@ static void asm_conv(ASMState *as, IRIns *ir)
       emit_rr(as, XO_SUBSD, dest, bias);  /* Subtract 2^52+2^51 bias. */
       emit_rr(as, XO_XORPS, dest, bias);  /* Merge bias and integer. */
       emit_rma(as, XO_MOVSD, bias, k);
+      checkmclim(as);
       emit_mrm(as, XO_MOVD, dest, asm_fuseload(as, lref, RSET_GPR));
       return;
     } else {  /* Integer to FP conversion. */
@@ -1151,6 +1153,7 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
     asm_guardcc(as, CC_E);
   else
     emit_sjcc(as, CC_E, l_end);
+  checkmclim(as);
   if (irt_isnum(kt)) {
     if (isk) {
       /* Assumes -0.0 is already canonicalized to +0.0. */
@@ -1210,7 +1213,6 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
 #endif
   }
   emit_sfixup(as, l_loop);
-  checkmclim(as);
 #if LJ_GC64
   if (!isk && irt_isaddr(kt)) {
     emit_rr(as, XO_OR, tmp|REX_64, key);
@@ -1237,6 +1239,7 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
       emit_rr(as, XO_ARITH(XOg_SUB), dest, tmp);
       emit_shifti(as, XOg_ROL, tmp, HASH_ROT3);
       emit_rr(as, XO_ARITH(XOg_XOR), dest, tmp);
+      checkmclim(as);
       emit_shifti(as, XOg_ROL, dest, HASH_ROT2);
       emit_rr(as, XO_ARITH(XOg_SUB), tmp, dest);
       emit_shifti(as, XOg_ROL, dest, HASH_ROT1);
@@ -1254,7 +1257,6 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
       } else {
 	emit_rr(as, XO_MOV, tmp, key);
 #if LJ_GC64
-	checkmclim(as);
 	emit_gri(as, XG_ARITHi(XOg_XOR), dest, irt_toitype(kt) << 15);
 	if ((as->flags & JIT_F_BMI2)) {
 	  emit_i8(as, 32);
@@ -1525,6 +1527,7 @@ static void asm_ahuvload(ASMState *as, IRIns *ir)
   if (irt_islightud(ir->t)) {
     Reg dest = asm_load_lightud64(as, ir, 1);
     if (ra_hasreg(dest)) {
+      checkmclim(as);
       asm_fuseahuref(as, ir->op1, RSET_GPR);
       emit_mrm(as, XO_MOV, dest|REX_64, RID_MRM);
     }
@@ -1569,6 +1572,7 @@ static void asm_ahuvload(ASMState *as, IRIns *ir)
   if (LJ_64 && irt_type(ir->t) >= IRT_NUM) {
     lj_assertA(irt_isinteger(ir->t) || irt_isnum(ir->t),
 	       "bad load type %d", irt_type(ir->t));
+    checkmclim(as);
 #if LJ_GC64
     emit_u32(as, LJ_TISNUM << 15);
 #else
