@@ -5,7 +5,7 @@ local tap = require('tap')
 -- See also https://github.com/LuaJIT/LuaJIT/issues/1048.
 local test = tap.test('lj-1048-fix-stack-checks-vararg-calls')
 
-test:plan(2)
+test:plan(5)
 
 -- The test case demonstrates a segmentation fault due to stack
 -- overflow by recursive calling `pcall()`. The functions are
@@ -49,5 +49,47 @@ end
 pcall(coroutine.wrap(looper), prober_2, 0)
 
 test:ok(true, 'no stack overflow with metamethod')
+
+-- The testcases demonstrates a stack overflow in
+-- `pcall()`/xpcall()` triggered using metamethod `__call`.
+
+t = setmetatable({}, { __call = pcall })
+coroutine.wrap(function() t() end)()
+
+test:ok(true, 'no stack overflow with metamethod __call with pcall()')
+
+t = {}
+local function xpcall_wrapper()
+  return xpcall(unpack(t))
+end
+
+-- The problems are only reproduced on LuaJIT GC64 and is better
+-- reproduced under Valgrind than AddressSanitizer. The chosen
+-- value was found experimentally and always results in an attempt
+-- to write beyond the allocated memory.
+local N_ITERATIONS = 200
+
+for i = 1, N_ITERATIONS do
+  t[i], t[i + 1], t[i + 2] = xpcall, type, {}
+  coroutine.wrap(xpcall_wrapper)()
+end
+
+test:ok(true, 'no stack overflow with metamethod __call with xpcall()')
+
+-- The testcase demonstrates a stack overflow in
+-- `pcall()`/`xpcall()` similar to the first testcase, but it is
+-- triggered using `unpack()`.
+
+t = {}
+local function pcall_wrapper()
+  return pcall(unpack(t))
+end
+
+for i = 1, N_ITERATIONS do
+  t[i], t[i + 1], t[i + 2] = pcall, type, {}
+  coroutine.wrap(pcall_wrapper)()
+end
+
+test:ok(true, 'no stack overflow with unpacked pcalls')
 
 test:done(true)
