@@ -3,6 +3,8 @@ local test = tap.test('gh-8594-sysprof-ffunc-crash'):skipcond({
   ['Sysprof is implemented for x86_64 only'] = jit.arch ~= 'x86' and
                                                jit.arch ~= 'x64',
   ['Sysprof is implemented for Linux only'] = jit.os ~= 'Linux',
+  -- luacheck: no global
+  ['Prevent hanging Tarantool CI due to #9387'] = _TARANTOOL,
 })
 
 test:plan(1)
