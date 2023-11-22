@@ -22,6 +22,12 @@ local match, gmatch = string.match, string.gmatch
 -- Program options.
 local opt_map = {}
 
+-- Default config for the memprof parser.
+local config = {
+  leak_only = false,
+  human_readable = false,
+}
+
 function opt_map.help()
   stdout:write [[
 luajit-parse-memprof - parser of the memory usage profile collected
@@ -34,14 +40,18 @@ luajit-parse-memprof [options] memprof.bin
 Supported options are:
 
   --help                            Show this help and exit
+  --human-readable                  Use KiB/MiB/GiB notation instead of bytes
   --leak-only                       Report only leaks information
 ]]
   os.exit(0)
 end
 
-local leak_only = false
 opt_map["leak-only"] = function()
-  leak_only = true
+  config.leak_only = true
+end
+
+opt_map["human-readable"] = function()
+  config.human_readable = true
 end
 
 -- Print error and exit with error status.
@@ -101,11 +111,11 @@ local function dump(inputfile)
   local reader = bufread.new(inputfile)
   local symbols = symtab.parse(reader)
   local events = memprof.parse(reader, symbols)
-  if not leak_only then
-    view.profile_info(events)
+  if not config.leak_only then
+    view.profile_info(events, config)
   end
   local dheap = process.form_heap_delta(events)
-  view.leak_info(dheap)
+  view.leak_info(dheap, config)
   view.aliases(symbols)
   -- XXX: The second argument is required to properly close Lua
   -- universe (i.e. invoke <lua_close> before exiting).
