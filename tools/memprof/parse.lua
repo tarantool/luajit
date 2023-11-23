@@ -206,12 +206,13 @@ function M.parse(reader, symbols)
   local _ = reader:read_octets(3)
 
   if magic ~= LJM_MAGIC then
-    error("Bad LJM format prologue: "..magic)
+    error("Bad memprof event format prologue: "..magic)
   end
 
   if string.byte(version) ~= LJM_CURRENT_VERSION then
     error(string_format(
-      "LJM format version mismatch: the tool expects %d, but your data is %d",
+      "Memprof event format version mismatch:"..
+      " the tool expects %d, but your data is %d",
       LJM_CURRENT_VERSION,
       string.byte(version)
     ))

@@ -237,12 +237,13 @@ function M.parse(reader, symbols)
   local _ = reader:read_octets(3)
 
   if magic ~= LJP_MAGIC then
-    error("Bad LJP format prologue: "..magic)
+    error("Bad sysprof event format prologue: " .. tostring(magic))
   end
 
   if string.byte(version) ~= LJP_CURRENT_VERSION then
     error(string_format(
-      "LJP format version mismatch: the tool expects %d, but your data is %d",
+      "Sysprof event format version mismatch:"..
+      " the tool expects %d, but your data is %d",
       LJP_CURRENT_VERSION,
       string.byte(version)
     ))

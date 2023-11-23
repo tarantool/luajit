@@ -1,6 +1,5 @@
-local bufread = require "utils.bufread"
+local evread = require "utils.evread"
 local sysprof = require "sysprof.parse"
-local symtab = require "utils.symtab"
 
 local stdout, stderr = io.stdout, io.stderr
 local match, gmatch = string.match, string.gmatch
@@ -78,9 +77,10 @@ local function parseargs(args)
 end
 
 local function dump(inputfile)
-  local reader = bufread.new(inputfile)
-  local symbols = symtab.parse(reader)
-  local events = sysprof.parse(reader, symbols)
+  -- XXX: This function exits with a non-zero exit code and
+  -- prints an error message if it encounters any failure during
+  -- the process of parsing.
+  local events = evread(sysprof.parse, inputfile)
 
   for stack, count in pairs(events) do
     print(stack, count)

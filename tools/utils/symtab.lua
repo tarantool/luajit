@@ -95,12 +95,12 @@ function M.parse(reader)
   local _ = reader:read_octets(3)
 
   if magic ~= LJS_MAGIC then
-    error("Bad LJS format prologue: "..magic)
+    error("Bad LuaJIT symbol table format prologue: " .. tostring(magic))
   end
 
   if string.byte(version) ~= LJS_CURRENT_VERSION then
     error(string_format(
-         "LJS format version mismatch:"..
+         "LuaJIT symbol table format version mismatch: "..
          "the tool expects %d, but your data is %d",
          LJS_CURRENT_VERSION,
          string.byte(version)
