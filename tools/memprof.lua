@@ -10,10 +10,9 @@
 -- Major portions taken verbatim or adapted from the LuaVela.
 -- Copyright (C) 2015-2019 IPONWEB Ltd.
 
-local bufread = require "utils.bufread"
 local memprof = require "memprof.parse"
 local process = require "memprof.process"
-local symtab = require "utils.symtab"
+local evread = require "utils.evread"
 local view = require "memprof.humanize"
 
 local stdout, stderr = io.stdout, io.stderr
@@ -108,9 +107,11 @@ local function parseargs(args)
 end
 
 local function dump(inputfile)
-  local reader = bufread.new(inputfile)
-  local symbols = symtab.parse(reader)
-  local events = memprof.parse(reader, symbols)
+  -- XXX: This function exits with a non-zero exit code and
+  -- prints an error message if it encounters any failure during
+  -- the process of parsing.
+  local events, symbols = evread(memprof.parse, inputfile)
+
   if not config.leak_only then
     view.profile_info(events, config)
   end

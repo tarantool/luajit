@@ -42,7 +42,7 @@ local SMOKE_CMD_SET = {
 local MEMPROF_CMD_SET = {
   {
     cmd = MEMPROF_PARSER .. BAD_PATH,
-    like = 'fopen, errno: 2',
+    like = 'Failed to open.*fopen, errno: 2',
   },
   {
     cmd = MEMPROF_PARSER .. TMP_BINFILE_MEMPROF,
@@ -61,7 +61,7 @@ local MEMPROF_CMD_SET = {
 local SYSPROF_CMD_SET = {
   {
     cmd = SYSPROF_PARSER .. BAD_PATH,
-    like = 'fopen, errno: 2',
+    like = 'Failed to open.*fopen, errno: 2',
   },
   {
     cmd = SYSPROF_PARSER .. TMP_BINFILE_SYSPROF,
