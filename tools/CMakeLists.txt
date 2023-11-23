@@ -18,6 +18,7 @@ else()
     memprof.lua
     utils/avl.lua
     utils/bufread.lua
+    utils/evread.lua
     utils/symtab.lua
   )
   list(APPEND LUAJIT_TOOLS_DEPS tools-parse-memprof)
@@ -36,6 +37,7 @@ else()
   install(FILES
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/avl.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/bufread.lua
+      ${CMAKE_CURRENT_SOURCE_DIR}/utils/evread.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/symtab.lua
     DESTINATION ${LUAJIT_DATAROOTDIR}/utils
     PERMISSIONS
@@ -65,6 +67,7 @@ else()
     sysprof.lua
     utils/avl.lua
     utils/bufread.lua
+    utils/evread.lua
     utils/symtab.lua
   )
   list(APPEND LUAJIT_TOOLS_DEPS tools-parse-sysprof)
@@ -81,6 +84,7 @@ else()
   install(FILES
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/avl.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/bufread.lua
+      ${CMAKE_CURRENT_SOURCE_DIR}/utils/evread.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/symtab.lua
     DESTINATION ${LUAJIT_DATAROOTDIR}/utils
     PERMISSIONS
