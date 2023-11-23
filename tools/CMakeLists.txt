@@ -14,6 +14,7 @@ else()
   add_custom_target(tools-parse-memprof EXCLUDE_FROM_ALL DEPENDS
     memprof/humanize.lua
     memprof/parse.lua
+    memprof/process.lua
     memprof.lua
     utils/avl.lua
     utils/bufread.lua
@@ -24,6 +25,7 @@ else()
   install(FILES
       ${CMAKE_CURRENT_SOURCE_DIR}/memprof/humanize.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/memprof/parse.lua
+      ${CMAKE_CURRENT_SOURCE_DIR}/memprof/process.lua
     DESTINATION ${LUAJIT_DATAROOTDIR}/memprof
     PERMISSIONS
       OWNER_READ OWNER_WRITE
@@ -61,6 +63,7 @@ else()
   add_custom_target(tools-parse-sysprof EXCLUDE_FROM_ALL DEPENDS
     sysprof/parse.lua
     sysprof.lua
+    utils/avl.lua
     utils/bufread.lua
     utils/symtab.lua
   )
@@ -76,6 +79,7 @@ else()
     COMPONENT tools-parse-sysprof
   )
   install(FILES
+      ${CMAKE_CURRENT_SOURCE_DIR}/utils/avl.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/bufread.lua
       ${CMAKE_CURRENT_SOURCE_DIR}/utils/symtab.lua
     DESTINATION ${LUAJIT_DATAROOTDIR}/utils

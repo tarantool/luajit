@@ -40,6 +40,7 @@ INSTALL_JITLIB= $(INSTALL_LJLIBD)/jit
 INSTALL_TOOLSLIB= $(INSTALL_LJLIBD)
 INSTALL_UTILSLIB= $(INSTALL_TOOLSLIB)/utils
 INSTALL_MEMPROFLIB= $(INSTALL_TOOLSLIB)/memprof
+INSTALL_SYSPROFLIB= $(INSTALL_TOOLSLIB)/sysprof
 INSTALL_LMODD= $(INSTALL_SHARE)/lua
 INSTALL_LMOD= $(INSTALL_LMODD)/$(ABIVER)
 INSTALL_CMODD= $(INSTALL_LIB)/lua
@@ -68,10 +69,12 @@ INSTALL_PC= $(INSTALL_PKGCONFIG)/$(INSTALL_PCNAME)
 
 INSTALL_DIRS= $(INSTALL_BIN) $(INSTALL_LIB) $(INSTALL_INC) $(INSTALL_MAN) \
   $(INSTALL_PKGCONFIG) $(INSTALL_JITLIB) $(INSTALL_LMOD) $(INSTALL_CMOD) \
-  $(INSTALL_UTILSLIB) $(INSTALL_MEMPROFLIB) $(INSTALL_TOOLSLIB)
+  $(INSTALL_UTILSLIB) $(INSTALL_MEMPROFLIB) $(INSTALL_SYSPROFLIB) \
+  $(INSTALL_TOOLSLIB)
 UNINSTALL_DIRS= $(INSTALL_JITLIB) $(INSTALL_LJLIBD) $(INSTALL_INC) \
   $(INSTALL_LMOD) $(INSTALL_LMODD) $(INSTALL_CMOD) $(INSTALL_CMODD) \
-  $(INSTALL_UTILSLIB) $(INSTALL_MEMPROFLIB) $(INSTALL_TOOLSLIB)
+  $(INSTALL_UTILSLIB) $(INSTALL_MEMPROFLIB) $(INSTALL_SYSPROFLIB) \
+  $(INSTALL_TOOLSLIB)
 
 RM= rm -f
 MKDIR= mkdir -p
@@ -95,8 +98,9 @@ FILES_JITLIB= bc.lua bcsave.lua dump.lua p.lua v.lua zone.lua \
 	      dis_arm64be.lua dis_ppc.lua dis_mips.lua dis_mipsel.lua \
 	      dis_mips64.lua dis_mips64el.lua vmdef.lua
 FILES_UTILSLIB= avl.lua bufread.lua symtab.lua
-FILES_MEMPROFLIB= parse.lua humanize.lua
-FILES_TOOLSLIB= memprof.lua
+FILES_MEMPROFLIB= humanize.lua parse.lua process.lua
+FILES_SYSPROFLIB= parse.lua
+FILES_TOOLSLIB= memprof.lua sysprof.lua
 
 ifeq (,$(findstring Windows,$(OS)))
   HOST_SYS:= $(shell uname -s)
@@ -140,6 +144,7 @@ install: $(INSTALL_DEP)
 	cd src/jit && $(INSTALL_F) $(FILES_JITLIB) $(INSTALL_JITLIB)
 	cd tools/utils && $(INSTALL_F) $(FILES_UTILSLIB) $(INSTALL_UTILSLIB)
 	cd tools/memprof && $(INSTALL_F) $(FILES_MEMPROFLIB) $(INSTALL_MEMPROFLIB)
+	cd tools/sysprof && $(INSTALL_F) $(FILES_SYSPROFLIB) $(INSTALL_SYSPROFLIB)
 	cd tools && $(INSTALL_F) $(FILES_TOOLSLIB) $(INSTALL_TOOLSLIB)
 	@echo "==== Successfully installed LuaJIT $(VERSION) to $(PREFIX) ===="
 	@echo ""
@@ -161,6 +166,9 @@ uninstall:
 	  done
 	for file in $(FILES_MEMPROFLIB); do \
 	  $(UNINSTALL) $(INSTALL_MEMPROFLIB)/$$file; \
+	  done
+	for file in $(FILES_SYSPROFLIB); do \
+	  $(UNINSTALL) $(INSTALL_SYSPROFLIB)/$$file; \
 	  done
 	for file in $(FILES_TOOLSLIB); do \
 	  $(UNINSTALL) $(INSTALL_TOOLSLIB)/$$file; \
