@@ -113,7 +113,6 @@ static void test_finish(size_t planned, size_t failed)
 	if (failed > 0)
 		test_comment("Failed %lu %s out of %lu",
 		     failed, t_type, planned);
-	fflush(stdout);
 }
 
 void test_set_skip_reason(const char *reason)
@@ -228,6 +227,12 @@ static int test_run(const struct test_unit *test, size_t test_number,
 int _test_run_group(const char *group_name, const struct test_unit tests[],
 		    size_t n_tests, void *test_state)
 {
+	/*
+	 * XXX: Disable buffering for stdout to not mess with the
+	 * output in case there are forking tests in the group.
+	 */
+	setvbuf(stdout, NULL, _IONBF, 0);
+
 	test_start_comment(group_name);
 
 	level++;
