@@ -69,8 +69,12 @@ static CTypeID ffi_checkctype(lua_State *L, CTState *cts, TValue *param)
 static GCcdata *ffi_checkcdata(lua_State *L, int narg)
 {
   TValue *o = L->base + narg-1;
-  if (!(o < L->top && tviscdata(o)))
+  if (!(o < L->top && tviscdata(o))) {
+    global_State * g = G(L);
+    if (g->hookmask & HOOK_GC)
+      abort();
     lj_err_argt(L, narg, LUA_TCDATA);
+  }
   return cdataV(o);
 }
 
