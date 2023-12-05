@@ -264,6 +264,15 @@ set_property(TARGET vm_static vm_shared APPEND PROPERTY
   COMPILE_FLAGS "${TARGET_VM_FLAGS}"
 )
 
+add_library(stack_collector OBJECT EXCLUDE_FROM_ALL lj_stack_collector.c)
+set_property(TARGET stack_collector APPEND PROPERTY
+  COMPILE_FLAGS "${TARGET_C_FLAGS}"
+)
+set_property(TARGET stack_collector APPEND PROPERTY
+  POSITION_INDEPENDENT_CODE ON
+)
+target_link_libraries(stack_collector PRIVATE ${LIBUNWIND_LIBRARIES})
+
 # Platform core.
 add_library(core_static OBJECT EXCLUDE_FROM_ALL ${SOURCES_CORE})
 add_library(core_shared OBJECT EXCLUDE_FROM_ALL ${SOURCES_CORE})
@@ -283,10 +292,6 @@ add_dependencies(core_shared buildvm_output)
 # Compiling and linking library binaries (static, shared).
 
 list(APPEND TARGET_LIBS m)
-
-if(NOT LUAJIT_DISABLE_SYSPROF)
-  list(APPEND TARGET_LIBS ${LIBUNWIND_LIBRARIES})
-endif()
 
 set(LIB_OBJECTS_STATIC
   $<TARGET_OBJECTS:vm_static>
@@ -344,7 +349,7 @@ set_target_properties(${LUAJIT_BIN} PROPERTIES
 target_include_directories(${LUAJIT_BIN} PRIVATE
   ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(${LUAJIT_BIN} ${LUAJIT_LIB} ${TARGET_LIBS})
+target_link_libraries(${LUAJIT_BIN} ${LUAJIT_LIB} ${TARGET_LIBS} stack_collector)
 
 # XXX: The variable is used in testing, so PARENT_SCOPE option
 # is obligatory.
