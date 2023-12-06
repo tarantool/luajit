@@ -1,3 +1,0 @@
--- FIXME: This file is not deleted only for the sake of
--- integrational testing. It should be deleted in the
--- next series.

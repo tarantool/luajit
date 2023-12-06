@@ -60,9 +60,6 @@ if(LUAJIT_DISABLE_SYSPROF)
 else()
   add_custom_target(tools-parse-sysprof EXCLUDE_FROM_ALL DEPENDS
     sysprof/parse.lua
-    # TODO: This line is not deleted only for the sake of integrational
-    # testing. It should be deleted in the next series.
-    sysprof/collapse.lua
     sysprof.lua
     utils/bufread.lua
     utils/symtab.lua
@@ -71,9 +68,6 @@ else()
 
   install(FILES
       ${CMAKE_CURRENT_SOURCE_DIR}/sysprof/parse.lua
-      # TODO: This line is not deleted only for the sake of integrational
-      # testing. It should be deleted in the next series.
-      ${CMAKE_CURRENT_SOURCE_DIR}/sysprof/collapse.lua
     DESTINATION ${LUAJIT_DATAROOTDIR}/sysprof
     PERMISSIONS
       OWNER_READ OWNER_WRITE
