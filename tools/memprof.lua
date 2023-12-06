@@ -102,9 +102,9 @@ local function dump(inputfile)
   local symbols = symtab.parse(reader)
   local events = memprof.parse(reader, symbols)
   if not leak_only then
-    view.profile_info(events, symbols)
+    view.profile_info(events)
   end
-  local dheap = process.form_heap_delta(events, symbols)
+  local dheap = process.form_heap_delta(events)
   view.leak_info(dheap)
   view.aliases(symbols)
   -- XXX: The second argument is required to properly close Lua
