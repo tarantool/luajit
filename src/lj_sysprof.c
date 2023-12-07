@@ -75,7 +75,6 @@ struct sysprof {
   luam_Sysprof_backtracer backtracer; /* Backtracing function for the host stack. */
   lj_profile_timer timer; /* Profiling timer. */
   int saved_errno; /* Saved errno when profiler failed. */
-  uint32_t lib_adds; /* Number of libs loaded. Monotonic. */
 };
 /*
 ** XXX: Only one VM can be profiled at a time.
@@ -100,7 +99,11 @@ static int is_unconfigured(struct sysprof *sp)
 
 static void stream_prologue(struct sysprof *sp)
 {
-  lj_symtab_dump(&sp->out, sp->g, &sp->lib_adds);
+  /*
+  ** XXX: Must be zero for the symtab module to dump all loaded libraries.
+  */
+  uint32_t unused_lib_adds = 0;
+  lj_symtab_dump(&sp->out, sp->g, &unused_lib_adds);
   lj_wbuf_addn(&sp->out, ljp_header, sizeof(ljp_header));
 }
 
@@ -256,8 +259,6 @@ static void stream_guest(struct sysprof *sp, uint32_t vmstate)
 
 static void stream_host(struct sysprof *sp, uint32_t vmstate)
 {
-  struct lua_State *L = gco2th(gcref(sp->g->cur_L));
-  lj_symtab_dump_newc(&sp->lib_adds, &sp->out, LJP_SYMTAB_CFUNC_EVENT, L);
   lj_wbuf_addbyte(&sp->out, (uint8_t)vmstate);
   stream_backtrace_host(sp);
 }
