@@ -1,3 +1,11 @@
+# XXX: A single call tree for reusable workflows can't exceed the
+# total of 20 workflows, as stated in the documentation [1].
+# Some other jobs are started in separate workflow files to
+# overcome the limitation. The jobs are Tarantool ecosystem
+# integration testing (tarantool-ecosystem.yml) and exotic
+# Tarantool builds (tarantool-exotic.yml).
+#
+# [1]: https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations
 name: Testing
 
 on:
@@ -108,6 +116,7 @@ jobs:
       ${{ matrix.BUILDTYPE }}
       GC64:${{ matrix.GC64 }}
     needs: test-luajit
+    # XXX: Only LuaJIT-tests are running in this workflow.
     uses: tarantool/tarantool/.github/workflows/luajit-integration.yml@master
     with:
       CMAKE_EXTRA_PARAMS: >
