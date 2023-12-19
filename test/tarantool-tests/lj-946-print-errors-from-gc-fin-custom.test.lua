@@ -23,7 +23,7 @@ local function test_f()
   collectgarbage('setstepmul', 400)
   -- The number of iterations is empirical, just big enough for
   -- the issue to strike.
-  for _ = 1, 4000 do
+  for _ = 1, 10000 do
     new_bad_cdata()
   end
 end
