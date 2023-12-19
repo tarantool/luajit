@@ -199,7 +199,7 @@ return complex
     f:write [[?syntax error?]]
     f:close()
     error_matches(function () require('syntax') end,
-            "^error loading module 'syntax' from file '%.[/\\]syntax%.lua':",
+            "error loading module 'syntax' from file '.+[/\\]syntax%.lua':",
             "function require (syntax error)")
     os.remove('syntax.lua') -- clean up
 
