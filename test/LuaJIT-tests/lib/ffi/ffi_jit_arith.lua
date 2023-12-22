@@ -1,6 +1,6 @@
 local ffi = require("ffi")
 
-do
+do --- int64_t arithmetic
   local a = ffi.new("int64_t[?]", 101)
   for i=1,100 do a[i] = -2 end
   for i=1,100 do a[i] = i end
@@ -29,7 +29,7 @@ do
   assert(w == 5050)
 end
 
-do
+do --- uint64_t arithmetic
   local a = ffi.new("uint64_t[?]", 101)
   for i=1,100 do a[i] = i end
   local x, y, m = 0ull, 0ull, 0ull
@@ -48,32 +48,32 @@ do
   assert(z == 0x123456789abcdef0ull % 100)
 end
 
-do
+do --- bit operations LL
   local x = 0ll
   for i=1,100 do x = x + (-2ll) ^ (bit.band(i, 15)+1ll) end
   assert(x == 262120)
 end
 
-do
+do --- bit operations LL, non-const base on trace
   local x, a = 0ll, -2ll
   for i=1,100 do x = x + a ^ (bit.band(i, 15)+1ll) end
   assert(x == 262120)
 end
 
-do
+do --- bit operations ULL
   local x = 0ull
   for i=1,100 do x = x + (-2ll) ^ (bit.band(i, 15)+1ull) end
   assert(x == 262120)
 end
 
-do
+do --- number vs. cdata interoperability
   for i=1,200 do local j = bit.band(i, 7); assert((j == 0ll) == (j == 0)) end
   for i=1,200 do assert((i < 100ll) == (i < 100)) end
   for i=1,200 do assert((i <= 100ll) == (i <= 100)) end
   for i=-100,100 do assert((i > 100ull) == (i < 0)) end
 end
 
-do
+do --- comparisons checksum
   local a = ffi.new("int64_t[?]", 100)
   for i=0,99 do
     a[i] = math.random(0, 2^32)*0x100000000LL + math.random(0, 2^32)
@@ -121,13 +121,13 @@ do
   end
 end
 
-do
+do --- pointer subtraction
   local a, b = ffi.new("char *"), ffi.new("char *")
   local z
   for i=1,100 do z = a-b end
 end
 
-do
+do --- char and 0LL base comparisons
   local x = true
   local abc = ffi.cast("const char *", "abc")
   for i=1,100 do x = abc == "abc" end
@@ -142,8 +142,8 @@ do
   assert(x == false)
 end
 
--- ra_destpair
-do
+
+do --- destination register pair (ra_destpair)
   local x, y = 0, 0
   for i=1,100 do
     x = x + i/3LL
