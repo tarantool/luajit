@@ -35,33 +35,37 @@ double __stdcall stdcall_dd(double a, double b);
 float __stdcall stdcall_ff(float a, float b);
 ]]
 
-local lib = ffi.load("../clib/ctest")
+local lib = ffi.load("ctest")
 
-do
-  local x
-  for i=1,100 do
-    x = lib.call_10i(-42, 17, 12345, 9987, -100, 11, 51, 0x12345678, 338, -78901234)
+do --- 10 int args
+  if not (jit.os == "OSX" and jit.arch == "arm64") then -- NYI
+    local x
+    for i=1,100 do
+      x = lib.call_10i(-42, 17, 12345, 9987, -100, 11, 51, 0x12345678, 338, -78901234)
+    end
+    assert(x == -42 + 17 + 12345 + 9987 - 100 + 11 + 51 + 0x12345678 + 338 - 78901234)
   end
-  assert(x == -42+17+12345+9987-100+11+51+0x12345678+338-78901234)
 end
 
-do
+do --- 17 double args
   for i=1,100 do
     pcall(lib.call_max, i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i)
   end
 end
 
-if ffi.abi("64bit") then
-  local y = ffi.cast("void *", 0x123456789abcdefLL)
-  local x
-  for i=1,100 do
-    lib.call_10j_p(0,0,0,0,0,0,0,0,0, y)
-    x = lib.call_10j_p(0,0,0,0,0,0,0,0,0, nil)
+do --- 10 ints 1 pointer args +abi64
+  if not (jit.os == "OSX" and jit.arch == "arm64") then -- NYI
+    local y = ffi.cast("void *", 0x123456789abcdefLL)
+    local x
+    for i=1,100 do
+      lib.call_10j_p(0,0,0,0,0,0,0,0,0, y)
+      x = lib.call_10j_p(0,0,0,0,0,0,0,0,0, nil)
+    end
+    assert(x == 0)
   end
-  assert(x == 0)
 end
 
-do
+do --- int, int64_t args
   local x = 0
   for i=1,100 do
     x = x + lib.call_ij(100+i, i*0x300000002LL)
@@ -69,7 +73,7 @@ do
   assert(x == 0x3b2e0000623eLL)
 end
 
-do
+do --- 10 double args
   local x
   for i=1,100 do
     x = lib.call_10d(-42.5, 17.125, 12345.5, 9987, -100.625, 11, 51, 0x12345678, 338, -78901234.75)
@@ -77,15 +81,17 @@ do
   assert(x == -42.5+17.125+12345.5+9987-100.625+11+51+0x12345678+338-78901234.75)
 end
 
-do
-  local x
-  for i=1,100 do
-    x = lib.call_10f(-42.5, 17.125, 12345.5, 9987, -100.625, 11, 51, 0x123456, 338, -789012.75)
+do --- 10 float args
+  if not (jit.os == "OSX" and jit.arch == "arm64") then -- NYI
+    local x
+    for i=1,100 do
+      x = lib.call_10f(-42.5, 17.125, 12345.5, 9987, -100.625, 11, 51, 0x123456, 338, -789012.75)
+    end
+    assert(x == -42.5+17.125+12345.5+9987-100.625+11+51+0x123456+338-789012.75)
   end
-  assert(x == -42.5+17.125+12345.5+9987-100.625+11+51+0x123456+338-789012.75)
 end
 
-do
+do --- boolean result
   local x
   for i=-100,100 do
     if not lib.call_b(i) then x = i end
@@ -100,14 +106,14 @@ do
   assert(x == 90)
 end
 
-do
+do --- boolean result, tail call
   local function tail(x)
     return lib.call_b(x)
   end
   for i=1,100 do local a,b,c = tail(1), tail(1), tail(1) end
 end
 
-do
+do --- int8_t, uint8_t, int16_t, uint16_t args and results
   local x = 0
   for i=0x01010080,0x010100ff do x = x + lib.call_i_i8(i) end
   assert(x == -8128)
@@ -135,7 +141,7 @@ do
 end
 
 -- target-specific
-if jit.arch == "x86" then
+do --- fastcall +x86
   for i=1,100 do assert(lib.fastcall_i(-42) == -41) end
   for i=1,100 do assert(lib.fastcall_ii(-42, 17) == -42+17) end
   for i=1,100 do assert(lib.fastcall_iii(-42, 17, 139) == -42+17+139) end
@@ -143,12 +149,12 @@ if jit.arch == "x86" then
   for i=1,100 do assert(lib.fastcall_dd(12.5, -3.25) == 12.5-3.25) end
   local x = lib.fastcall_ji
   for i=1,100 do assert(x(0x123456789LL, -17) == 0x123456789LL-17) end
+end
 
-  if jit.os == "Windows" then
-    for i=1,100 do assert(lib.stdcall_i(-42) == -41) end
-    for i=1,100 do assert(lib.stdcall_ii(-42, 17) == -42+17) end
-    for i=1,100 do assert(lib.stdcall_dd(12.5, -3.25) == 12.5-3.25) end
-    for i=1,100 do assert(lib.stdcall_ff(12.5, -3.25) == 12.5-3.25) end
-  end
+do --- stdcall +x86 +windows
+  for i=1,100 do assert(lib.stdcall_i(-42) == -41) end
+  for i=1,100 do assert(lib.stdcall_ii(-42, 17) == -42+17) end
+  for i=1,100 do assert(lib.stdcall_dd(12.5, -3.25) == 12.5-3.25) end
+  for i=1,100 do assert(lib.stdcall_ff(12.5, -3.25) == 12.5-3.25) end
 end
 
