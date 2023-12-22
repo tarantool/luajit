@@ -6,7 +6,7 @@ void qsort(void *base, size_t nmemb, size_t size,
 	   int (*compar)(const uint8_t *, const uint8_t *));
 ]]
 
-do
+do --- blacklisted callback
   local cb = ffi.cast("int (*)(int, int, int)", function(a, b, c)
     return a+b+c
   end)
@@ -19,11 +19,11 @@ do
   end
 end
 
-do
+do --- cast to function
   assert(ffi.cast("int64_t (*)(int64_t, int64_t, int64_t)", function(a, b, c)
       return a+b+c
-    end)(12345678901234567LL, 70000000000000001LL, 10000000909090904LL) ==
-    12345678901234567LL+70000000000000001LL+10000000909090904LL)
+    end)(12345678901234567LL,  70000000000000001LL,  10000000909090904LL) ==
+         12345678901234567LL + 70000000000000001LL + 10000000909090904LL)
 
   assert(ffi.cast("double (*)(double, float, double)", function(a, b, c)
       return a+b+c
@@ -37,21 +37,23 @@ do
       return a+b+c
     end)(7.125, -123.25, 9999.33) == 9883.205078125)
 
-  assert(ffi.cast("int (*)(int, int, int, int, int, int, int, int, int, int)",
-    function(a, b, c, d, e, f, g, h, i, j)
-      return a+b+c+d+e+f+g+h+i+j
-    end)(-42, 17, 12345, 9987, -100, 11, 51, 0x12345678, 338, -78901234) ==
-    -42+17+12345+9987-100+11+51+0x12345678+338-78901234)
+  if not (jit.os == "OSX" and jit.arch == "arm64") then -- NYI
+    assert(ffi.cast("int (*)(int, int, int, int, int, int, int, int, int, int)",
+      function(a, b, c, d, e, f, g, h, i, j)
+        return a+b+c+d+e+f+g+h+i+j
+      end)(-42,  17,  12345,  9987, -100,  11,  51,  0x12345678,  338, -78901234) ==
+           -42 + 17 + 12345 + 9987 - 100 + 11 + 51 + 0x12345678 + 338 - 78901234)
+  end
 
   assert(ffi.cast("double (*)(double, double, double, double, double, double, double, double, double, double)",
     function(a, b, c, d, e, f, g, h, i, j)
       return a+b+c+d+e+f+g+h+i+j
-    end)(-42.5, 17.125, 12345.5, 9987, -100.625, 11, 51, 0x12345678, 338, -78901234.75) ==
-    -42.5+17.125+12345.5+9987-100.625+11+51+0x12345678+338-78901234.75)
+    end)(-42.5,  17.125,  12345.5,  9987, -100.625,  11,  51,  0x12345678,  338, -78901234.75) ==
+         -42.5 + 17.125 + 12345.5 + 9987 - 100.625 + 11 + 51 + 0x12345678 + 338 - 78901234.75)
 end
 
 -- Target-specific tests.
-if jit.arch == "x86" then
+do --- cast with fastcall attribute +x86
   assert(ffi.cast("__fastcall int (*)(int, int, int)", function(a, b, c)
       return a+b+c
     end)(10, 99, 13) == 122)
@@ -63,12 +65,11 @@ if jit.arch == "x86" then
   -- Test reordering.
   assert(ffi.cast("int64_t __fastcall (*)(int64_t, int, int)", function(a, b, c)
       return a+b+c
-    end)(12345678901234567LL, 12345, 989797123) ==
-    12345678901234567LL+12345+989797123)
+    end)(12345678901234567LL,  12345,  989797123) ==
+         12345678901234567LL + 12345 + 989797123)
 end
 
--- Error handling.
-do
+do --- error handling
   local function f()
     return
   end -- Error for result conversion triggered here.
@@ -84,7 +85,7 @@ do
   assert(pcall(ffi.cast("int (*)(int,int,int,int, int,int,int,int, int)", function() error("test") end), 1,1,1,1, 1,1,1,1, 1) == false)
 end
 
-do
+do --- qsort
   local function cmp(pa, pb)
     local a, b = pa[0], pb[0]
     if a < b then
@@ -102,7 +103,7 @@ do
   for i=0,254 do assert(arr[i] <= arr[i+1]) end
 end
 
-if ffi.abi"win" then
+do --- EnumWindows +windows
   ffi.cdef[[
   typedef int (__stdcall *WNDENUMPROC)(void *hwnd, intptr_t l);
   int EnumWindows(WNDENUMPROC func, intptr_t l);
@@ -123,7 +124,7 @@ if ffi.abi"win" then
   assert(count > 10)
 end
 
-do
+do --- callback free, callback set
   local cb = ffi.cast("int(*)(void)", function() return 1 end)
   assert(cb() == 1)
   cb:free()
@@ -136,7 +137,7 @@ do
   assert(cb() == 3)
 end
 
-do
+do --- compiled free of function
   local ft = ffi.typeof("void(*)(void)")
   local function f() end
   local t = {}
@@ -146,11 +147,11 @@ do
   end
 end
 
-do
+do --- fast function cast string.byte
   assert(ffi.cast("int (*)()", function() return string.byte"A" end)() == 65)
 end
 
-do
+do --- debug.traceback cast
   local f = ffi.cast("void (*)(void)", function() debug.traceback() end)
   debug.sethook(function() debug.sethook(nil, "", 0); f() end, "", 1)
   local x
