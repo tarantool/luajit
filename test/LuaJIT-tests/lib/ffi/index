@@ -9,6 +9,7 @@ ffi_callback.lua
 ffi_const.lua
 ffi_convert.lua
 ffi_enum.lua
+ffi_gcstep_recursive.lua
 istype.lua
 jit_array.lua
 jit_complex.lua
