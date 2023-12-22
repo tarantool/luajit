@@ -7,6 +7,7 @@ ffi_bitfield.lua
 ffi_call.lua
 ffi_callback.lua
 ffi_const.lua
+ffi_convert.lua
 istype.lua
 jit_array.lua
 jit_complex.lua
