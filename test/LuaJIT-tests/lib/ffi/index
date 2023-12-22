@@ -18,6 +18,7 @@ ffi_metatype.lua
 ffi_new.lua
 ffi_parse_array.lua
 ffi_parse_basic.lua
+ffi_parse_cdef.lua
 istype.lua
 jit_array.lua
 jit_complex.lua
