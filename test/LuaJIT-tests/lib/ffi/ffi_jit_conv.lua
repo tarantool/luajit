@@ -1,8 +1,8 @@
 local ffi = require("ffi")
 
-local ctest = require("ctest")
+local ctest = require("libctest")
 
-do
+do --- int32_t, narrowed
   local s = ffi.new("struct { int32_t x; }")
   s.x = -0x12345678
   for i=1,100 do
@@ -11,7 +11,7 @@ do
   assert(s.x == -0x12345678+100)
 end
 
-do
+do --- uint32_t, CONV num.u32 u32.num
   local s = ffi.new("struct { uint32_t x; }")
   s.x = 0x81234567
   for i=1,100 do
@@ -20,7 +20,7 @@ do
   assert(s.x == 0x81234567+100)
 end
 
-do
+do --- int8_t, CONV.int.i8 forwarding
   local s = ffi.new("struct { int8_t x; }")
   s.x = 42
   for i=1,100 do
@@ -30,7 +30,7 @@ do
   assert(s.x == 142-256)
 end
 
-do
+do --- uint8_t, CONV.int.u8 forwarding
   local s = ffi.new("struct { uint8_t x; }")
   s.x = 200
   for i=1,100 do
@@ -40,7 +40,7 @@ do
   assert(s.x == 300-256)
 end
 
-do
+do --- int16_t, CONV.int.i16 forwarding
   local s = ffi.new("struct { int16_t x; }")
   s.x = 32700
   for i=1,100 do
@@ -50,7 +50,7 @@ do
   assert(s.x == 32800-65536)
 end
 
-do
+do --- uint16_t, CONV.int.u16 forwarding
   local s = ffi.new("struct { uint16_t x; }")
   s.x = 65450
   for i=1,100 do
@@ -60,7 +60,7 @@ do
   assert(s.x == 65550-65536)
 end
 
-do
+do --- union i32 u32, forwarding num.int num.u32
   local s = ffi.new("union { int32_t x; uint32_t y; }")
   s.x = 0x7fffffff - 60
   local x,y = 0,0
@@ -75,7 +75,7 @@ do
   assert(x == y - 40*2^32)
 end
 
-do
+do --- union i32 u32, forwarding CONV.int.u32
   local s = ffi.new("union { int32_t x; uint32_t y; }")
   local x, z = 0, 2^31 + 42
   for i=1,100 do
@@ -85,7 +85,7 @@ do
   assert(x == 100*(-2^31 + 42))
 end
 
-do
+do --- union i8 u8, forwarding CONV.int.i8 CONV.num.int
   local s = ffi.new("union { int8_t x; uint8_t y; }")
   s.x = 42
   local x,y = 0,0
@@ -100,7 +100,7 @@ do
   assert(x == y - (100-(127-42))*256)
 end
 
-do
+do --- tobit + CONV.num.u32, 1
   local a = ffi.new("uint32_t[?]", 101)
   for i=1,100 do a[i] = 0x80000000+i end
   local x = 0
@@ -110,7 +110,7 @@ do
   assert(x == 100)
 end
 
-do
+do --- tobit + CONV.num.u32, 2
   local a = ffi.new("uint32_t[?]", 101)
   for i=1,100 do a[i] = 0x80000000+i end
   local x = 0
@@ -120,7 +120,7 @@ do
   assert(x == -0x80000000+100)
 end
 
-do
+do --- CONV.num.flt
   local v = ffi.new("float", 12.5)
   local x = 0
   for i=1,100 do
@@ -129,7 +129,7 @@ do
   assert(x == 100*12.5)
 end
 
-do
+do --- CONV.num.u32
   local v = ffi.new("uint32_t", 0x80000000)
   local x = 0
   for i=1,100 do
@@ -138,7 +138,7 @@ do
   assert(x == 100*0x80000000)
 end
 
-do
+do --- CONV.num.i64
   local v = ffi.new("int64_t", 0x1234567800000000ll)
   local x = 0
   for i=1,100 do
@@ -147,7 +147,7 @@ do
   assert(x == 100*0x12345678*2^32)
 end
 
-do
+do --- CONV.num.u64
   local v = ffi.new("uint64_t", 0x89abcdef00000000ull)
   local x = 0
   for i=1,100 do
@@ -156,7 +156,7 @@ do
   assert(x == 100*0x89abcdef*2^32)
 end
 
-do
+do --- CONV.num.i64, overflow
   local a = ffi.new("int64_t[?]", 101)
   for i=1,100 do a[i] = -i end
   local x = 0
@@ -166,7 +166,7 @@ do
   assert(x == -5050)
 end
 
-do
+do --- CONV.num.u64, overflow
   local a = ffi.new("uint64_t[?]", 101)
   for i=1,100 do a[i] = 2^63+2^32*i end
   local x = 0
@@ -176,7 +176,7 @@ do
   assert(x == 2^63*100+2^32*5050)
 end
 
-do
+do --- tonumber(complex)
   local v = ffi.new("complex", 12.5, -3.25)
   local x = 0
   for i=1,100 do
@@ -185,7 +185,7 @@ do
   assert(x == 100*12.5)
 end
 
-do
+do --- const on trace i64
   local s = ffi.new("struct { int64_t x;}")
   for i=1,100 do
     s.x = 0x123456789abcdef0LL
@@ -193,7 +193,7 @@ do
   assert(tonumber(s.x) == tonumber(0x123456789abcdef0LL))
 end
 
-do
+do --- const on trace u64
   local s = ffi.new("struct { uint64_t x;}")
   for i=1,100 do
     s.x = 0x823456789abcdef0ULL
@@ -201,27 +201,27 @@ do
   assert(tonumber(s.x) == tonumber(0x823456789abcdef0ULL))
 end
 
-do
+do --- enum recording
   ffi.cdef[[
-  typedef enum { AA, BB, CC = -42 } foo_i;
-  typedef enum { DD, EE, FF = 0x80000000u } foo_u;
+  typedef enum { AAA, BBB, CCC = -42 } foo_i;
+  typedef enum { DDD, EEE, FFF = 0x80000000u } foo_u;
   ]]
   local s = ffi.new("struct { foo_i x; foo_u y;}")
   for i=1,100 do
-    s.x = "CC"
+    s.x = "CCC"
     assert(s.x == -42)
-    s.x = "BB"
+    s.x = "BBB"
     assert(s.x == 1)
-    s.y = "FF"
+    s.y = "FFF"
     assert(s.y == 0x80000000)
   end
   local st = ffi.typeof(s)
   for i=1,100 do s = st() end
   assert(s.x == 0 and s.y == 0)
-  for i=1,100 do s = st("CC", "EE") end
+  for i=1,100 do s = st("CCC", "EEE") end
   assert(s.x == -42 and s.y == 1)
-  local ei = ffi.new("foo_i", "CC")
-  local eu = ffi.new("foo_u", "EE")
+  local ei = ffi.new("foo_i", "CCC")
+  local eu = ffi.new("foo_u", "EEE")
   for i=1,100 do s = st(ei, eu) end
   assert(s.x == -42 and s.y == 1)
   local x
@@ -229,7 +229,7 @@ do
   assert(x == -42)
 end
 
-do
+do --- const char* recording
   local s = ffi.new("struct { const char *x; const char *y;}")
   local a, tmp = "abcd", "ab"
   for i=1,100 do
@@ -240,7 +240,7 @@ do
   assert(ffi.string(s.y) == "ab")
 end
 
-do
+do --- bool int double recording
   local s = ffi.new("struct { bool b[200]; int i[200]; double d[200];}")
   for i=0,199 do s.i[i] = i-100; s.d[i] = i-100 end
   for i=0,99 do s.b[i] = 0 end
@@ -253,13 +253,13 @@ do
   for i=0,199 do assert(s.b[i] == (i ~= 100)) end
 end
 
-do
+do --- int16_t array arithmetic
   local a = ffi.new("int16_t[100]", 1)
   for i=1,99 do a[i] = a[i] + a[i-1] end
   assert(a[99] == 100)
 end
 
-do
+do --- lightuserdata to pointer
   local ud = ctest.lightud(12345678)
   local s = ffi.new("struct { void *p; }")
   for i=1,100 do
@@ -269,7 +269,7 @@ do
   assert(ffi.cast("uintptr_t", s.p) == 12345678)
 end
 
-do
+do --- reference type initialization
   local x = ffi.new("struct { int & x;}", ffi.new("int[1]", 42))
   local z
   for i=1,100 do z = x.x end
