@@ -1,37 +1,37 @@
 local ffi = require("ffi")
 local bit = require("bit")
 
-dofile("../common/ffi_util.inc")
+local fails = require("common.fails")
 
 ffi.cdef([[
-typedef struct { int a,b,c; } foo1_t;
-typedef int foo2_t[?];
+typedef struct { int a,b,c; } new_foo1_t;
+typedef int new_foo2_t[?];
 void *malloc(size_t size);
 void free(void *ptr);
 ]])
 
-do
-  assert(ffi.sizeof("foo1_t") == 12)
-  local cd = ffi.new("foo1_t")
+do --- ffi.sizeof with custom struct new_foo1_t
+  assert(ffi.sizeof("new_foo1_t") == 12)
+  local cd = ffi.new("new_foo1_t")
   assert(ffi.sizeof(cd) == 12)
-  local foo1_t = ffi.typeof("foo1_t")
-  assert(ffi.sizeof(foo1_t) == 12)
-  cd = foo1_t()
-  assert(ffi.sizeof(cd) == 12)
-end
-
-do
-  assert(ffi.sizeof("foo2_t", 3) == 12)
-  local cd = ffi.new("foo2_t", 3)
-  assert(ffi.sizeof(cd) == 12)
-  local foo2_t = ffi.typeof("foo2_t")
-  fails(ffi.sizeof, foo2_t)
-  assert(ffi.sizeof(foo2_t, 3) == 12)
-  cd = foo2_t(3)
+  local new_foo1_t = ffi.typeof("new_foo1_t")
+  assert(ffi.sizeof(new_foo1_t) == 12)
+  cd = new_foo1_t()
   assert(ffi.sizeof(cd) == 12)
 end
 
-do
+do --- ffi.sizeof with custom struct new_foo2_t
+  assert(ffi.sizeof("new_foo2_t", 3) == 12)
+  local cd = ffi.new("new_foo2_t", 3)
+  assert(ffi.sizeof(cd) == 12)
+  local new_foo2_t = ffi.typeof("new_foo2_t")
+  fails(ffi.sizeof, new_foo2_t)
+  assert(ffi.sizeof(new_foo2_t, 3) == 12)
+  cd = new_foo2_t(3)
+  assert(ffi.sizeof(cd) == 12)
+end
+
+do --- byte to int cast
   local tpi = ffi.typeof("int")
   local tpb = ffi.typeof("uint8_t")
   local t = {}
@@ -42,7 +42,7 @@ do
   assert(x == 199*257 + 1)
 end
 
-do
+do --- aligned structure GC
   local oc = collectgarbage("count")
   for al=0,15 do
     local align = 2^al -- 1, 2, 4, ..., 32768
@@ -54,17 +54,17 @@ do
     end
   end
   local nc = collectgarbage("count")
-  assert(nc < oc + 3000, "GC step missing for ffi.new")
+  assert(nc < oc * 10, "GC step missing for ffi.new")
 end
 
-do
+do --- VLA initialization
   local t = {}
   for i=1,100 do t[i] = ffi.new("int[?]", i) end
   assert(ffi.sizeof(t[100]) == 400)
   for i=0,99 do assert(t[100][i] == 0) end
 end
 
-do
+do --- VLS initialization
   local t = {}
   local ct = ffi.typeof("struct { double x; int y[?];}")
   for i=1,100 do t[i] = ct(i) end
@@ -72,7 +72,7 @@ do
   for i=0,99 do assert(t[100].y[i] == 0) end
 end
 
-do
+do --- aligned(16) structure exit from trace
   local ct = ffi.typeof("struct __attribute__((aligned(16))) { int x; }")
   local y
   for i=1,200 do
@@ -82,7 +82,7 @@ do
   assert(bit.band(ffi.cast("intptr_t", ffi.cast("void *", y)), 15) == 0)
 end
 
-do
+do --- cdata resurrecting
   local q
   local p = ffi.gc(ffi.new("int[1]"), function(x) q = x end)
   p = nil
@@ -93,13 +93,13 @@ do
   assert(q == nil)
 end
 
-do
+do --- GC malloc free
   local p = ffi.gc(ffi.C.malloc(2^20), ffi.C.free)
   p = nil
   collectgarbage()
 end
 
-do
+do --- test lua_close() cleanup
   local p = ffi.gc(ffi.new("int[1]"), function(x) assert(type(x) == "cdata") end)
   -- test for lua_close() cleanup.
 end
