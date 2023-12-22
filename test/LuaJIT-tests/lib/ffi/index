@@ -14,6 +14,7 @@ ffi_jit_arith.lua
 ffi_jit_call.lua
 ffi_jit_conv.lua
 ffi_lex_number.lua
+ffi_metatype.lua
 istype.lua
 jit_array.lua
 jit_complex.lua
