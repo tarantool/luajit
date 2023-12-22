@@ -1,6 +1,6 @@
 local ffi = require("ffi")
 
-dofile("../common/ffi_util.inc")
+local fails = require("common.fails")
 
 ffi.cdef[[
 typedef struct s_t {
@@ -41,27 +41,29 @@ typedef struct foo_t {
 } foo_t;
 ]]
 
-do
-  local foo_t = ffi.typeof("foo_t")
-  local x = foo_t()
+local foo_t = ffi.typeof("foo_t")
+local x = foo_t()
 
-  -- constval
+do --- constval
   assert(x.cc == 17)
   fails(function(x) x.cc = 1 end, x)
   assert(x.CC == -37)
   fails(function(x) x.CC = 1 end, x)
+end
 
-  -- fields
+do --- fields
   x.i = 1
   fails(function(x) x.ci = 1 end, x)
   x.e = 1
   fails(function(x) x.ce = 1 end, x)
+end
 
-  -- bitfields
+do --- bitfields
   x.bi = 1
   fails(function(x) x.cbi = 1 end, x)
+end
 
-  -- arrays
+do --- arrays
   do
     local a = ffi.new("int[10]")
     a[0] = 1
@@ -74,8 +76,9 @@ do
   fails(function(x) x.ca = x.a end, x)
   fails(function(x) x.ca = {} end, x)
   fails(function(x) x.cac = "abc" end, x)
+end
 
-  -- structs
+do --- structs
   do
     local s = ffi.new("s_t")
     s.v = 1
@@ -87,18 +90,21 @@ do
   x.s = x.cs
   fails(function(x) x.cs = x.s end, x)
   fails(function(x) x.cs = {} end, x)
+end
 
-  -- pseudo-const structs
+do --- pseudo-const structs
   x.pcs1.v = 1
   fails(function(x) x.pcs1.w = 1 end, x)
   fails(function(x) x.pcs1 = x.pcs2 end, x)
   fails(function(x) x.pcs1 = {} end, x)
+end
 
-  -- transparent structs
+do --- transparent structs
   local y = x.ni
   fails(function(x) x.ni = 1 end, x)
+end
 
-  -- complex subtype is implicitly const and doesn't inherit const attribute
+do --- complex subtype is implicitly const and doesn't inherit const attribute
   x.cx = 1
   fails(function(x) x.ccx = 1 end, x)
   do
@@ -110,4 +116,3 @@ do
     x.ccp = ccxa
   end
 end
-
