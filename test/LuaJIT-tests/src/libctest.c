@@ -332,8 +332,8 @@ static luaL_Reg ct_funcs[] = {
   {NULL, NULL}
 };
 
-LUA_API int luaopen_ctest(lua_State *L)
+LUA_API int luaopen_libctest(lua_State *L)
 {
-  luaL_register(L, "ctest", ct_funcs);
+  luaL_register(L, "libctest", ct_funcs);
   return 1;
 }

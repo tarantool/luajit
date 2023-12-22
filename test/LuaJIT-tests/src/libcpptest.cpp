@@ -121,9 +121,9 @@ static luaL_Reg ct_funcs[] = {
 };
 
 extern "C" {
-LUA_API int luaopen_cpptest(lua_State *L)
+LUA_API int luaopen_libcpptest(lua_State *L)
 {
-  luaL_register(L, "cpptest", ct_funcs);
+  luaL_register(L, "libcpptest", ct_funcs);
   return 1;
 }
 }
