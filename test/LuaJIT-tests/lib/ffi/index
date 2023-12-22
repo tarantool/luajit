@@ -8,6 +8,7 @@ ffi_call.lua
 ffi_callback.lua
 ffi_const.lua
 ffi_convert.lua
+ffi_enum.lua
 istype.lua
 jit_array.lua
 jit_complex.lua
