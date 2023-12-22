@@ -4,6 +4,7 @@ copy_fill.lua
 err.lua
 ffi_arith_ptr.lua
 ffi_bitfield.lua
+ffi_call.lua
 istype.lua
 jit_array.lua
 jit_complex.lua
