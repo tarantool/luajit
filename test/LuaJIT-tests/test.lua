@@ -297,8 +297,11 @@ local function append_tree_to_plan(test_tree, opts, plan, prefix)
 end
 
 local function seal_globals()
-  local sealed_mt = {__newindex = function()
-    error("Tests should not mutate global state", 3)
+  local sealed_mt = {__newindex = function(_, key)
+    -- Allow to load C/C++ libraries for the test.
+    if key ~= "libctest" and key ~= "libcpptest" then
+      error("Tests should not mutate global state", 3)
+    end
   end}
   local function seal(t)
     if getmetatable(t) then return end
