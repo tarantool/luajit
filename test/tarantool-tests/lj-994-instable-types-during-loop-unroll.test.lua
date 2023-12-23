@@ -10,7 +10,7 @@ local test = tap.test('lj-994-instable-types-during-loop-unroll'):skipcond({
 
 -- TODO: test that compiled traces don't always exit by the type
 -- guard. See also the comment for the TDUP test chunk.
-test:plan(2)
+test:plan(3)
 
 -- TNEW.
 local result
@@ -45,5 +45,18 @@ for _ = 1, 5 do
   slot = _ % 2 ~= 0 and stored_tab or {true}
 end
 test:is(result, true, 'TDUP load forwarding was successful')
+
+-- TDUP, primitive types.
+for i = 1, 5 do
+  local t = slot
+  -- Now use constant key slot to get necessary branch.
+  -- LJ_TRERR_GFAIL isn't triggered here.
+  -- See `fwd_ahload()` in <src/lj_opt_mem.c> for details.
+  result = t[1]
+  -- The constant tables should contain different booleans
+  -- (primitive types).
+  slot = i % 2 ~= 0 and {false} or {true}
+end
+test:is(result, true, 'TDUP load forwarding (primitive types) was successful')
 
 test:done(true)
