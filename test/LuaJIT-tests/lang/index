@@ -5,6 +5,7 @@ compare_nan.lua
 constant
 for.lua
 length.lua
+lightud.lua
 modulo.lua
 concat.lua
 self.lua
