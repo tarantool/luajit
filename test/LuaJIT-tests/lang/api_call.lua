@@ -1,4 +1,4 @@
-local ctest = require("ctest")
+local ctest = require("libctest")
 
 local function ret0() end
 local function ret1() return 1 end
@@ -57,18 +57,9 @@ local function test_adjust_results(testfunc)
   ck(cc(-1, retva, 1, 2), 1, 2)
 end
 
-test_adjust_results(ctest.call)
-test_adjust_results(ctest.pcall_err)
-
-
 local function gcshrink()
   for i=1,10 do collectgarbage() end
 end
-
-assert(select('#', ctest.call(2000, gcshrink)) == 2000)
-gcshrink()
-assert(select('#', ctest.call(7000, gcshrink)) == 7000)
-gcshrink()
 
 local function test_yield(resume, yield)
   local function inpcall()
@@ -91,8 +82,21 @@ local function test_yield(resume, yield)
   assert(resume(co) == false)
 end
 
-test_yield(coroutine.resume, coroutine.yield)
-test_yield(ctest.resume, coroutine.yield)
-test_yield(coroutine.resume, ctest.yield)
-test_yield(ctest.resume, ctest.yield)
+do --- adjust results
+  test_adjust_results(ctest.call)
+  test_adjust_results(ctest.pcall_err)
+end
 
+do --- GC shrink
+  assert(select('#', ctest.call(2000, gcshrink)) == 2000)
+  gcshrink()
+  assert(select('#', ctest.call(7000, gcshrink)) == 7000)
+  gcshrink()
+end
+
+do --- yield
+  test_yield(coroutine.resume, coroutine.yield)
+  test_yield(ctest.resume, coroutine.yield)
+  test_yield(coroutine.resume, ctest.yield)
+  test_yield(ctest.resume, ctest.yield)
+end
