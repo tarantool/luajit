@@ -57,12 +57,19 @@ if(LUAJIT_USE_ASAN)
   endif()
 endif()
 
+if(LUAJIT_NO_UNWIND)
+  # Test <catch_cpp.lua> verifies the interoperability with C++
+  # ABI exceptions, so it requires external unwinding enabled.
+  # Hence, skip them otherwise.
+  set(LUAJIT_TEST_TAGS_EXTRA +internal_unwinder)
+endif()
+
 add_custom_command(TARGET LuaJIT-tests
   COMMENT "Running LuaJIT-tests"
   COMMAND
     env
       ${LUAJIT_TESTS_ENV}
       ${LUAJIT_TEST_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/test.lua
-      +slow +ffi +bit +jit
+      +slow +ffi +bit +jit ${LUAJIT_TEST_TAGS_EXTRA}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )

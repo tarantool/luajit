@@ -1,30 +1,30 @@
+local cp = require("libcpptest")
 
-local cp = require("cpptest")
+local unwind
 
-do
+do --- catch, no error
   local a, b = pcall(cp.catch, function() return "x" end)
   assert(a == true and b == "x")
 end
 
-do
+do --- pcall throw
   local a, b = pcall(function() cp.throw("foo") end)
   assert(a == false and b == "C++ exception")
 end
 
-local unwind
-do
+do --- catch throw
   local a, b = pcall(cp.catch, function() cp.throw("foo") end)
   unwind = a
   assert((a == false and b == "C++ exception") or (a == true and b == "foo"))
 end
 
-do
+do --- alloc, no error
   local st = cp.alloc(function() return cp.isalloc() end)
   assert(st == true)
   assert(cp.isalloc() == false)
 end
 
-do
+do --- throw in alloc
   local a, b = pcall(cp.alloc, function()
     assert(cp.isalloc() == true)
     return "foo", cp.throw
@@ -33,21 +33,23 @@ do
   assert(cp.isalloc() == false)
 end
 
-if unwind then
-  local a, b = pcall(cp.alloc, function()
-    assert(cp.isalloc() == true)
-    return "foo", error
-  end)
-  assert(a == false and b == "foo")
-  assert(cp.isalloc() == false)
+do --- error in alloc
+  if unwind then
+    local a, b = pcall(cp.alloc, function()
+      assert(cp.isalloc() == true)
+      return "foo", error
+    end)
+    assert(a == false and b == "foo")
+    assert(cp.isalloc() == false)
+  end
 end
 
-do
+do --- usereg nop
   local a,b,c,d,e,f = cp.usereg(100, 50, function() end, false)
   assert(a==164 and b==312 and c==428 and d==3696 and e==404 and f==404)
 end
 
-do
+do --- usereg error
   local function test()
     cp.usereg(100, 40, error, "foo")
   end
@@ -55,7 +57,7 @@ do
   assert(a==164 and b==312 and c==428 and d==3696 and e==404 and f==404)
 end
 
-do
+do --- usereg trace with self table lookup
   local t = {};
   t.t = t;
   local function foo()
