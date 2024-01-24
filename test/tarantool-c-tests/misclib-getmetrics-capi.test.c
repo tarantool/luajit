@@ -210,7 +210,7 @@ static void check_snap_restores(lua_State *L)
 	luaM_metrics(L, &newm);
 	/*
 	 * Remove `snap_restores` from stack.
-	 * Must be done before potiential assert and exit from
+	 * Must be done before potential assert and exit from
 	 * the test.
 	 */
 	lua_pop(L, 1);
