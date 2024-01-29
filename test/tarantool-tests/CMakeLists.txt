@@ -11,38 +11,8 @@ if(NOT PROVE)
 endif()
 
 macro(BuildTestCLib lib sources)
-  add_library(${lib} SHARED EXCLUDE_FROM_ALL ${sources})
-  target_include_directories(${lib} PRIVATE
-    ${LUAJIT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-  )
-  set_target_properties(${lib} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    PREFIX ""
-  )
-
-  # XXX: This change affects the current cmake variable scope and
-  # so a user should care to don't use it in a top level scope.
-  # The dynamic libraries are loaded with LuaJIT binary and use
-  # symbols from it. So it is totally OK to have unresolved
-  # symbols at build time.
-  if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set_target_properties(${lib} PROPERTIES
-      LINK_FLAGS "-undefined dynamic_lookup"
-    )
-  else()
-    # FIXME: Unfortunately, there is no another way to suppress
-    # this linker option, so just strip it out from the flags.
-    string(REPLACE "-Wl,--no-undefined" ""
-      CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}"
-    )
-  endif()
-  # XXX: Append the lib to be built to the dependency list.
-  # Unfortunately, there is no convenient way in CMake to extend
-  # the list in parent scope other than join two strings with
-  # semicolon. If one finds the normal way to make it work, feel
-  # free to reach me.
-  set(TESTLIBS "${lib};${TESTLIBS}" PARENT_SCOPE)
+  AddTestLib(${lib} ${sources})
+  set(TESTLIBS "${TESTLIBS}" PARENT_SCOPE)
   # Add the directory where the lib is built to the list with
   # entries for LUA_CPATH environment variable, so LuaJIT can find
   # and load it. See the comment about extending the list in the

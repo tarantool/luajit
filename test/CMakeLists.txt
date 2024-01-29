@@ -74,6 +74,9 @@ add_custom_target(${PROJECT_NAME}-lint DEPENDS
 set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")
 separate_arguments(LUAJIT_TEST_COMMAND)
 
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(AddTestLib)
+
 add_subdirectory(LuaJIT-tests)
 add_subdirectory(PUC-Rio-Lua-5.1-tests)
 add_subdirectory(lua-Harness-tests)
