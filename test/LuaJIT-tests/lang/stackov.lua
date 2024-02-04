@@ -31,13 +31,17 @@ end
 do --- Base test.
   local err, s = xpcall(f, debug.traceback)
   assert(err == false)
-  test_error_msg(f, s)
+  -- There is no place on the stack to invoke the handler.
+  -- Just test the error reason.
+  assert(string.match(s, "stack overflow"))
 end
 
 do --- Stack overflow with non-empty arg list.
   local err, s = xpcall(g, debug.traceback, 1)
   assert(err == false)
-  test_error_msg(g, s)
+  -- There is no place on the stack to invoke the handler.
+  -- Just test the error reason.
+  assert(string.match(s, "stack overflow"))
 end
 
 do --- Vararg tail call with non-empty arg list. +slow
