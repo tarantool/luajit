@@ -1,4 +1,5 @@
 list(APPEND tests
+  lj-1152-stack-buffer-overflow-on-error.test.lua
   lj-1166-error-stitch-oom-ir-buff.test.lua
   lj-1166-error-stitch-oom-snap-buff.test.lua
   lj-1247-fin-tab-rehashing-on-trace.test.lua
