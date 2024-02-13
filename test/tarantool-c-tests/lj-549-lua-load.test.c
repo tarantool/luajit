@@ -6,6 +6,25 @@
 #define UNUSED(x) ((void)(x))
 
 /*
+ * XXX: In C language, objects with static storage duration have
+ * to be initialized with constant expressions or with aggregate
+ * initializers containing constant expressions.
+ *
+ * Moreover, in C language, the term "constant" refers to literal
+ * constants (like 1, 'a', 0xFF, and so on), enum members, and the
+ * results of such operators as sizeof. Const-qualified objects
+ * (of any type) are not constants in C language terminology. They
+ * cannot be used in initializers of objects with the static
+ * storage duration, regardless of their type.
+ *
+ * That's why the first one byte from the Lua bytecode signature
+ * is defined explicitly below with the static assertion to
+ * prevent the source code discrepancy.
+ */
+#define LUA_BC_HEADER '\033'
+LJ_STATIC_ASSERT(LUA_SIGNATURE[0] == LUA_BC_HEADER);
+
+/*
  * Function generates a huge chunk of "bytecode" with a size
  * bigger than LJ_MAX_BUF. The generated chunk must enable
  * endmark in a Lex state.
@@ -66,7 +85,7 @@ bc_reader_with_eof(lua_State *L, void *data, size_t *size)
 	 * Put `LUA_SIGNATURE[0]` at the beginning of the allocated
 	 * null-terminated region.
 	 */
-	static const char bc_chunk[] = {LUA_SIGNATURE[0], 0};
+	static const char bc_chunk[] = {LUA_BC_HEADER, 0};
 	*size = sizeof(bc_chunk);
 	*state = EMIT_EOF;
 
