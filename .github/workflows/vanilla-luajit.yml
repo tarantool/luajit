@@ -1,0 +1,102 @@
+name: "Vanilla LuaJIT test"
+
+on: push
+
+jobs:
+  test-default-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        ARCH: [ARM64, x86_64]
+        BUILDTYPE: [Debug, Release]
+        GC64: [ON, OFF]
+        OS: [Linux, macOS]
+        include:
+          - BUILDTYPE: Debug
+            MAKEBUILDFLAGS: -DLUA_USE_ASSERT -DLUA_USE_APICHECK
+            # Use `CFLAGS`, because it's the last entry in
+            # `CCOPTIONS`, so we can sure that these flags are not
+            # overwritten.
+            CFLAGS: -g -O0
+          - GC64: ON
+            MAKEGC64FLAGS: -DLUAJIT_ENABLE_GC64
+        exclude:
+          - ARCH: ARM64
+            GC64: OFF
+          - OS: macOS
+            GC64: OFF
+    runs-on: [self-hosted, regular, '${{ matrix.OS }}', '${{ matrix.ARCH }}']
+    name: >
+      Vanilla LuaJIT
+      (${{ matrix.OS }}/${{ matrix.ARCH }})
+      ${{ matrix.BUILDTYPE }}
+      GC64:${{ matrix.GC64 }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: tarantool/master
+          path: ./tarantool-luajit-${{ github.run_id }}
+          sparse-checkout: .github
+      - name: setup Linux
+        uses: ./.github/actions/setup-linux
+        if: ${{ matrix.OS == 'Linux' }}
+        working-directory: ./tarantool-luajit-${{ github.run_id }}
+      - name: setup macOS
+        uses: ./.github/actions/setup-macos
+        if: ${{ matrix.OS == 'macOS' }}
+        working-directory: ./tarantool-luajit-${{ github.run_id }}
+      - uses: actions/checkout@v3
+        with:
+          repository: LuaJIT/LuaJIT
+          ref: v2.1
+          path: ./luajit
+        working-directory: ./tarantool-luajit-${{ github.run_id }}
+      - name: build
+        run: >
+          make -f Makefile -j
+          CFLAGS='${{ matrix.CFLAGS }}'
+          XCFLAGS='${{ matrix.MAKEBUILDFLAGS }} ${{ matrix.MAKEGC64FLAGS }}'
+        working-directory: ./tarantool-luajit-${{ github.run_id }}/luajit
+      - name: smoke-test
+        run: ./src/luajit -v -e 'print("LuaJIT build succeeded")'
+        working-directory: ./tarantool-luajit-${{ github.run_id }}/luajit
+
+  test-arm64e:
+    strategy:
+      fail-fast: false
+      matrix:
+        BUILDTYPE: [Debug, Release]
+        include:
+          - BUILDTYPE: Debug
+            MAKEBUILDFLAGS: -DLUA_USE_ASSERT -DLUA_USE_APICHECK
+            # Use `CFLAGS`, because it's the last entry in
+            # `CCOPTIONS`, so we can sure that these flags are not
+            # overwritten.
+            CFLAGS: -g -O0
+    runs-on: [self-hosted, regular, macOS, ARM64]
+    name: >
+      Vanilla LuaJIT macOS/ARM64E
+      ${{ matrix.BUILDTYPE }}
+      GC64:ON
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: tarantool/master
+          path: tarantool-luajit
+          sparse-checkout: .github
+      - name: setup macOS
+        uses: ./tarantool-luajit/.github/actions/setup-macos
+      - uses: actions/checkout@v3
+        with:
+          repository: LuaJIT/LuaJIT
+          ref: v2.1
+          path: tarantool-luajit/luajit
+      - name: build
+        run: >
+          make -f Makefile -j
+          CFLAGS='${{ matrix.CFLAGS }}'
+          XCFLAGS='${{ matrix.MAKEBUILDFLAGS }}'
+        working-directory: tarantool-luajit/luajit
+      - name: smoke-test
+        run: ./src/luajit -v -e 'print("LuaJIT build succeeded")'
+        working-directory: tarantool-luajit/luajit
