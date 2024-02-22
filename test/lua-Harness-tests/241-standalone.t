@@ -29,7 +29,7 @@ L<https://www.lua.org/manual/5.4/manual.html#7>
 --]]
 
 require'test_assertion'
-local has_bytecode = not ujit and not ravi and not _TARANTOOL
+local has_bytecode = not ujit and not ravi
 local has_error52 = _VERSION >= 'Lua 5.2'
 local has_error53 = _VERSION >= 'Lua 5.3'
 local has_opt_E = _VERSION >= 'Lua 5.2' or (jit and not _TARANTOOL)
