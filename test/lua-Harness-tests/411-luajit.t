@@ -27,7 +27,7 @@ See L<https://luajit.org/running.html>
 require'test_assertion'
 local profile = require'profile'
 
-if not jit or ujit or _TARANTOOL then
+if not jit or ujit then
     skip_all("only with LuaJIT")
 end
 
@@ -176,7 +176,9 @@ f = io.popen(cmd)
 matches(f:read'*l', errbuild("unknown luaJIT command or jit%.%* modules not installed"), "-j bad")
 f:close()
 
-if compiled_with_jit then
+if _TARANTOOL then
+    skip("-O is not yet implemented in Tarantool")
+elseif compiled_with_jit then
     cmd = lua .. " -O hello-411.lua"
     f = io.popen(cmd)
     equals(f:read'*l', 'Hello World', "-O")
