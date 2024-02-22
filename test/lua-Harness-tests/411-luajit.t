@@ -31,6 +31,15 @@ if not jit or ujit or _TARANTOOL then
     skip_all("only with LuaJIT")
 end
 
+-- XXX: Unfortunately, Lua patterns do not support optional
+-- capture groups, so the helper below implements poor man's
+-- optional capture groups for the patterns matching LuaJIT CLI
+-- error messages.
+local function errbuild(message)
+    local errprefix = _TARANTOOL and "" or "[^:]+: "
+    return table.concat({"^", errprefix, message})
+end
+
 local lua = _retrieve_progname()
 
 if not pcall(io.popen, lua .. [[ -e "a=1"]]) then
@@ -158,13 +167,13 @@ f = io.popen(cmd)
 if compiled_with_jit then
     equals(f:read'*l', 'Hello World', "-jon")
 else
-    matches(f:read'*l', "^[^:]+: JIT compiler permanently disabled by build option", "no jit")
+    matches(f:read'*l', errbuild("JIT compiler permanently disabled by build option"), "no jit")
 end
 f:close()
 
 cmd = lua .. " -j bad hello-411.lua 2>&1"
 f = io.popen(cmd)
-matches(f:read'*l', "^[^:]+: unknown luaJIT command or jit%.%* modules not installed", "-j bad")
+matches(f:read'*l', errbuild("unknown luaJIT command or jit%.%* modules not installed"), "-j bad")
 f:close()
 
 if compiled_with_jit then
@@ -190,12 +199,12 @@ if compiled_with_jit then
 
     cmd = lua .. " -O+bad hello-411.lua 2>&1"
     f = io.popen(cmd)
-    matches(f:read'*l', "^[^:]+: unknown or malformed optimization flag '%+bad'", "-O+bad")
+    matches(f:read'*l', errbuild("unknown or malformed optimization flag '%+bad'"), "-O+bad")
     f:close()
 else
     cmd = lua .. " -O0 hello-411.lua 2>&1"
     f = io.popen(cmd)
-    matches(f:read'*l', "^[^:]+: attempt to index a nil value")
+    matches(f:read'*l', errbuild("attempt to index a nil value"))
     f:close()
 end
 
