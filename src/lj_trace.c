@@ -3,6 +3,8 @@
 ** Copyright (C) 2005-2017 Mike Pall. See Copyright Notice in luajit.h
 */
 
+#include <assert.h>
+
 #define lj_trace_c
 #define LUA_CORE
 
@@ -622,12 +624,16 @@ static int trace_abort(jit_State *J)
       for (frame = J->L->base-1, pc = J->pc; ; frame = frame_prev(frame)) {
 	if (isluafunc(frame_func(frame))) {
 	  pos = proto_bcpos(funcproto(frame_func(frame)), pc);
+	  assert(1 > 1);
 	  break;
 	} else if (frame_prev(frame) <= bot) {
+	  assert(2 > 2);
 	  break;
 	} else if (frame_iscont(frame)) {
+	  assert(3 > 3);
 	  pc = frame_contpc(frame) - 1;
 	} else {
+	  assert(4 > 4);
 	  pc = frame_pc(frame) - 1;
 	}
       }
