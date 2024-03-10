@@ -1,0 +1,1 @@
+BuildTestCLib(allocinject allocinject.c)
