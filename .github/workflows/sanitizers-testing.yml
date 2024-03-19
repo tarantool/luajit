@@ -33,6 +33,7 @@ jobs:
       matrix:
         # XXX: Let's start with only Linux/x86_64
         BUILDTYPE: [Debug, Release]
+        CC: [gcc-10, clang-11]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -42,6 +43,7 @@ jobs:
     name: >
       LuaJIT with ASan (Linux/x86_64)
       ${{ matrix.BUILDTYPE }}
+      CC:${{ matrix.CC }}
       GC64:ON SYSMALLOC:ON
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +52,8 @@ jobs:
           submodules: recursive
       - name: setup Linux for sanitizers
         uses: ./.github/actions/setup-sanitizers
+        with:
+          cc_name: ${{ matrix.CC }}
       - name: configure
         # XXX: LuaJIT configuration requires a couple of tweaks:
         # LUAJIT_USE_SYSMALLOC=ON: Unfortunately, internal LuaJIT
