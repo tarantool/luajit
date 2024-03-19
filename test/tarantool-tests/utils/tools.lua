@@ -12,4 +12,13 @@ function M.profilename(name)
   return (arg[0]:gsub('^(.+)/([^/]+)%.test%.lua$', replacepattern))
 end
 
+-- Reads a file located at a specified path and returns its
+-- content.
+function M.read_file(path)
+  local file = assert(io.open(path), 'cannot open a file')
+  local content = file:read('*a')
+  file:close()
+  return content
+end
+
 return M
