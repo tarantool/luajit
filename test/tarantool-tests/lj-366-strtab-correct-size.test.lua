@@ -9,6 +9,7 @@ local test = tap.test('lj-366-strtab-correct-size'):skipcond({
 })
 
 local ffi = require 'ffi'
+local utils = require('utils')
 
 -- Command below exports bytecode as an object file in ELF format:
 -- $ luajit -b -n 'lango_team' -e 'print()' xxx.obj
@@ -130,20 +131,12 @@ local is64 = is64_arch[jit.arch]
 local function create_obj_file(name)
   local elf_filename = os.tmpname() .. '.obj'
   local lua_path = os.getenv('LUA_PATH')
-  local lua_bin = require('utils').exec.luacmd(arg):match('%S+')
+  local lua_bin = utils.exec.luacmd(arg):match('%S+')
   local cmd_fmt = 'LUA_PATH="%s" %s -b -n "%s" -e "print()" %s'
   local cmd = (cmd_fmt):format(lua_path, lua_bin, name, elf_filename)
   local ret = os.execute(cmd)
   assert(ret == 0, 'create an object file')
   return elf_filename
-end
-
--- Reads a file located in a specified path and returns its content.
-local function read_file(path)
-  local file = assert(io.open(path), 'cannot open an object file')
-  local content = file:read('*a')
-  file:close()
-  return content
 end
 
 -- Parses a buffer in an ELF format and returns an offset and a size of strtab
@@ -172,7 +165,7 @@ end
 test:plan(3)
 
 local elf_filename = create_obj_file(MODULE_NAME)
-local elf_content = read_file(elf_filename)
+local elf_content = utils.tools.read_file(elf_filename)
 assert(#elf_content ~= 0, 'cannot read an object file')
 
 local strtab, symtab = read_elf(elf_content)
