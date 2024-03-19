@@ -1,5 +1,10 @@
 name: Setup CI environment for testing with sanitizers on Linux
 description: Common part to tweak Linux CI runner environment for sanitizers
+inputs:
+  cc_name:
+    description: C compiler name (for example, gcc-12)
+    required: false
+    default: clang-11
 runs:
   using: composite
   steps:
@@ -15,9 +20,13 @@ runs:
     - name: Install build and test dependencies
       run: |
         apt -y update
-        apt -y install clang-11 cmake ninja-build make perl
+        apt -y install ${CC_NAME} libstdc++-10-dev cmake ninja-build make perl
       shell: bash
-    - name: Set Clang as a default toolchain
+      env:
+        CC_NAME: ${{ inputs.cc_name }}
+    - name: Set specific C compiler as a default toolchain
       run: |
-        echo CC=clang-11 | tee -a $GITHUB_ENV
+        echo CC=${CC_NAME} | tee -a $GITHUB_ENV
       shell: bash
+      env:
+        CC_NAME: ${{ inputs.cc_name }}

@@ -114,7 +114,7 @@ endif()
 # <lj-802-panic-at-mcode-protfail.test.lua> overwrites
 # `mprotect()`. When compiling with ASan support under GCC, it is
 # required that the ASan library go first in the `LD_PRELOAD`
-# list. Set it manually, test will append it to the executed
+# list. Set it manually. The test will append it to the executed
 # process.
 if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
   # FIXME: We should set this environment variable only
