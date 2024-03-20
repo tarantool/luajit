@@ -289,6 +289,23 @@ if(LUAJIT_ENABLE_COVERAGE)
   include(CodeCoverage)
 endif()
 
+# Enable table bump optimization. This optimization patches the
+# bytecode with a table allocation on the trace recording if the
+# recorded trace exceeds the size of the allocated table.
+# This optimization still has some bugs, so it is disabled by
+# default. See also: https://github.com/LuaJIT/LuaJIT/issues/606.
+option(LUAJIT_ENABLE_TABLE_BUMP "Enable table bump optimization" OFF)
+if(LUAJIT_ENABLE_TABLE_BUMP)
+  # With table bump optimization enabled (and due to our
+  # modification related to metrics), some offsets in `GG_State`
+  # stop fitting in 12bit immediate. Hence, the build failed due
+  # to the DASM error (`DASM_S_RANGE_I`).
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    message(FATAL_ERROR "Table bump optimization is unsupported for aarch64")
+  endif()
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_TABLE_BUMP)
+endif()
+
 # --- Main source tree ---------------------------------------------------------
 
 add_subdirectory(src)
