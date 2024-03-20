@@ -2,7 +2,7 @@ local tap = require('tap')
 
 -- Test file to demonstrate the JIT misbehaviour, when the side
 -- trace is compiled after `jit.off()`.
--- See also: https://github.com/LuaJIT/LuaJIT/issue/1134.
+-- See also: https://github.com/LuaJIT/LuaJIT/issues/1134.
 
 local test = tap.test('lj-1134-hotside-jit-off'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
