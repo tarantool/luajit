@@ -8,7 +8,16 @@
 # --- Initial setup ------------------------------------------------------------
 
 # See the rationale below (near LUAJIT_TEST_BINARY variable).
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
+# <policy_max> is set to 3.18 because compatibility with versions
+# of CMake older than 2.8.12 is deprecated. Calls to
+# cmake_minimum_required(VERSION) that do not specify at
+# least 2.8.12 as their policy version (optionally via ...<max>)
+# will produce a deprecation warning in CMake 3.19 and above [1].
+# Compatibility with 2.8.12 is needed for CMP0002 [2].
+#
+# [1] https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-settings
+# [2] https://cmake.org/cmake/help/latest/policy/CMP0002.html
+cmake_minimum_required(VERSION 3.1...3.18 FATAL_ERROR)
 project(LuaJIT C)
 
 # XXX: Originally CMake machinery is introduced to make LuaJIT
