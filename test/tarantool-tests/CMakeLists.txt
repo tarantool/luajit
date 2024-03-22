@@ -110,6 +110,21 @@ else()
   list(APPEND LUA_TEST_ENV_MORE LD_LIBRARY_PATH=${LD_LIBRARY_PATH})
 endif()
 
+# Some tests use `LD_PRELOAD` to mock system calls (like
+# <lj-802-panic-at-mcode-protfail.test.lua> overwrites
+# `mprotect()`. When compiling with ASan support under GCC, it is
+# required that the ASan library go first in the `LD_PRELOAD`
+# list. Set it manually, test will append it to the executed
+# process.
+if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  # FIXME: We should set this environment variable only
+  # for the corresponding tests to avoid warnings from
+  # the GNU libc and other libc implementations.
+  # See https://github.com/tarantool/tarantool/issues/9898.
+  LibRealPath(LIB_ASAN libasan.so)
+  list(APPEND LUA_TEST_ENV_MORE LD_PRELOAD=${LIB_ASAN})
+endif()
+
 # LUA_CPATH and LD_LIBRARY_PATH variables and also dependencies
 # list with libraries are set in scope of BuildTestLib macro.
 add_custom_command(TARGET tarantool-tests
