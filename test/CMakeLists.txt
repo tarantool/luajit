@@ -76,6 +76,7 @@ separate_arguments(LUAJIT_TEST_COMMAND)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(AddTestLib)
+include(LibRealPath)
 
 add_subdirectory(LuaJIT-tests)
 add_subdirectory(PUC-Rio-Lua-5.1-tests)
