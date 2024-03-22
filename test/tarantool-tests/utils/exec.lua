@@ -24,6 +24,20 @@ local function makeenv(tabenv)
   if tabenv == nil then return '' end
   local flatenv = {}
   for var, value in pairs(tabenv) do
+    if var == 'LD_PRELOAD' then
+      -- XXX: For ASan used by GCC, the ASan library should go
+      -- first in the `LD_PRELOAD` list, or we get the error:
+      -- "ASan runtime does not come first in initial library
+      -- list;".
+      -- See https://github.com/tarantool/tarantool/issues/9656
+      -- for details.
+      -- So, prepend the given library from `LD_PRELOAD` to the
+      -- start of the list. The separator may be ':' or ' ', see
+      -- man ld.so(8).so. Use ':' as the most robust.
+      local ld_preload = os.getenv('LD_PRELOAD')
+      local ld_preload_prefix = ld_preload and ld_preload .. ':' or ''
+      value = ld_preload_prefix .. value
+    end
     table.insert(flatenv, ('%s=%s'):format(var, value))
   end
   return table.concat(flatenv, ' ')
