@@ -22,6 +22,7 @@ local function trace_new(n)
     parent = nil,
     parent_exitno = nil,
     is_stitched = false,
+    abort_reason = nil,
     start_loc = nil,
     bc = {},
     ir = {},
@@ -87,9 +88,19 @@ local header_handlers = {
     ctx.parsing_trace = nil
     ctx.parsing = nil
   end,
-  abort = function(ctx, trace_num)
+  abort = function(ctx, trace_num, line)
     local traces = ctx.traces
     assert(ctx.parsing_trace == trace_num)
+
+    local aborted_traces = ctx.aborted_traces
+    if not aborted_traces[trace_num] then
+      aborted_traces[trace_num] = {}
+    end
+    -- The reason is mentioned after "-- " at the end of the
+    -- string.
+    traces[trace_num].abort_reason = line:match('-- (.+)$')
+    table.insert(aborted_traces[trace_num], traces[trace_num])
+
     ctx.parsing_trace = nil
     ctx.parsing = nil
     traces[trace_num] = nil
@@ -137,11 +148,14 @@ end
 local JDUMP_FILE
 
 local function parse_jit_dump()
-  local ctx = {traces = {}}
+  local ctx = {
+    aborted_traces = {},
+    traces = {},
+  }
   for line in io.lines(JDUMP_FILE) do
     parse_line(ctx, line)
   end
-  return ctx.traces
+  return ctx.traces, ctx.aborted_traces
 end
 
 -- Start `jit.dump()` utility with the given flags, saving the
@@ -167,10 +181,10 @@ M.finish = function()
   -- Enable traces compilation for `jit.dump` back.
   jit.on(jdump.on, true)
   jit.on(jdump.off, true)
-  local traces = parse_jit_dump()
+  local traces, aborted_traces = parse_jit_dump()
   os.remove(JDUMP_FILE)
   JDUMP_FILE = nil
-  return traces
+  return traces, aborted_traces
 end
 
 -- Turn off compilation for the module to avoid side effects.
