@@ -1,9 +1,6 @@
 # Test suite that has been added from PUC-Rio Lua 5.1 test archive
 # in scope of https://github.com/tarantool/tarantool/issues/5845.
 
-# See the rationale in the root CMakeLists.txt.
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-
 # XXX: There are two ways to set up the proper environment
 # described in the suite's README:
 # * set LUA_PATH to "?;./?.lua"
