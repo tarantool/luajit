@@ -1,9 +1,6 @@
 # Test suite that has been moved from Tarantool repository in
 # scope of https://github.com/tarantool/tarantool/issues/4478.
 
-# See the rationale in the root CMakeLists.txt.
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-
 add_custom_target(tarantool-tests-libs
   DEPENDS libluajit
 )

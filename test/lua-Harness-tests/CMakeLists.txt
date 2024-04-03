@@ -1,9 +1,6 @@
 # Test suite that has been added from lua-Harness test suite
 # in scope of https://github.com/tarantool/tarantool/issues/5844.
 
-# See the rationale in the root CMakeLists.txt
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-
 # Tests create temporary files (see 303-package.t and 411-luajit.t
 # for example) to be required. Also, they require some files from
 # the original test source directory.

@@ -1,6 +1,3 @@
-# See the rationale in the root CMakeLists.txt.
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-
 # Use `lib` prefix for loading via FFI and `require()`.
 AddTestLib(libctest libctest.c)
 enable_language(CXX)

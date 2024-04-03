@@ -338,8 +338,6 @@ option(LUAJIT_USE_TEST "Generate <test> target" ON)
 # As a result the minimal required CMake version is set to 3.1.
 # For more info, see CMake Release notes for 3.1 version.
 # https://cmake.org/cmake/help/latest/release/3.1.html#commands
-# XXX: This option is moved below source tree processing since
-# the default binary target need to be generated.
 set(LUAJIT_TEST_BINARY ${LUAJIT_BINARY} CACHE STRING
   "Lua implementation to be used for tests. Default is 'luajit'."
 )

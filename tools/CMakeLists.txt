@@ -3,9 +3,6 @@
 # Copyright (C) 2020-2021 LuaVela Authors.
 # Copyright (C) 2015-2020 IPONWEB Ltd.
 
-# See the rationale in the root CMakeLists.txt.
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-
 set(LUAJIT_TOOLS_DEPS)
 
 if(LUAJIT_DISABLE_MEMPROF)
