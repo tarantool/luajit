@@ -1,8 +1,5 @@
 # Running various test suites against LuaJIT.
 
-# See the rationale in the root CMakeLists.txt.
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-
 include(MakeLuaPath)
 
 find_program(LUACHECK luacheck)
