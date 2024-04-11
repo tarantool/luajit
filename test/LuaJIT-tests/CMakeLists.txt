@@ -49,6 +49,15 @@ if(LUAJIT_NO_UNWIND)
   set(LUAJIT_TEST_TAGS_EXTRA +internal_unwinder)
 endif()
 
+if(CMAKE_C_FLAGS MATCHES "-march=skylake-avx512")
+  # FIXME: Test <bit64.lua> verifies bitwise operations on
+  # numbers. There is a known issue - bitop doesn't work in LuaJIT
+  # built with the enabled AVX512 instruction set, see
+  # https://github.com/tarantool/tarantool/issues/6787.
+  # Hence, skip this when "skylake-avx512" is passed.
+  set(LUAJIT_TEST_TAGS_EXTRA +avx512)
+endif()
+
 set(TEST_SUITE_NAME "LuaJIT-tests")
 
 # XXX: The call produces both test and target <LuaJIT-tests-deps>
