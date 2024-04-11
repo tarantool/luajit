@@ -41,7 +41,7 @@ do --- tobit/band assorted C types
   end
 end
 
-do --- tobit/band negative unsigned enum
+do --- tobit/band negative unsigned enum -avx512
   local x = ffi.new("uenum_t", -10)
   local y = tobit(x)
   local z = band(x)
