@@ -10,9 +10,17 @@ local test = tap.test('lj-1166-error-stitch-oom-ir-buff'):skipcond({
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
 })
 
-test:plan(1)
-
+local jparse = require('utils').jit.parse
 local allocinject = require('allocinject')
+
+local IS_DUALNUM = tostring(tonumber('-0')) ~= tostring(-0)
+
+-- XXX: Avoid other traces compilation due to hotcount collisions
+-- for predictable results.
+jit.off()
+jit.flush()
+
+test:plan(2)
 
 -- Generate the following Lua chunk:
 -- local s1
@@ -43,6 +51,10 @@ end
 -- XXX: amount of slots is empirical.
 local tracef = assert(loadstring(create_chunk(175)))
 
+-- We only need the abort reason in the test.
+jparse.start('t')
+
+jit.on()
 jit.opt.start('hotloop=1', '-loop', '-fold')
 
 allocinject.enable()
@@ -51,6 +63,30 @@ tracef()
 
 allocinject.disable()
 
+local _, aborted_traces = jparse.finish()
+
+jit.off()
+
 test:ok(true, 'stack is balanced')
+
+-- Tarantool may compile traces on the startup. These traces
+-- already exceed the maximum IR amount before the trace in this
+-- test is compiled. Hence, there is no need to reallocate the IR
+-- buffer, so the check for the IR size is not triggered.
+test:skipcond({
+  ['Impossible to predict the number of IRs for Tarantool'] = _TARANTOOL,
+  -- The amount of IR for traces is different for non x86/x64
+  -- arches and DUALNUM mode.
+  ['Disabled for non-x86_64 arches'] = jit.arch ~= 'x64' and jit.arch ~= 'x86',
+  ['Disabled for DUALNUM mode'] = IS_DUALNUM,
+})
+
+assert(aborted_traces and aborted_traces[1], 'aborted trace is persisted')
+
+-- We tried to compile only one trace.
+local reason = aborted_traces[1][1].abort_reason
+
+test:like(reason, 'error thrown or hook called during recording',
+          'abort reason is correct')
 
 test:done(true)
