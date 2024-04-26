@@ -136,5 +136,16 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL ${CMAKE_HOST_SYSTEM_NAME})
   endif()
 endif()
 
+if(LUAJIT_USE_UBSAN)
+  # XXX: Skip checks for now to avoid build failures due to
+  # sanitizer errors.
+  # Need to backport commits that fix the following issues first:
+  # https://github.com/LuaJIT/LuaJIT/pull/969,
+  # https://github.com/LuaJIT/LuaJIT/pull/970,
+  # https://github.com/LuaJIT/LuaJIT/issues/1041,
+  # https://github.com/LuaJIT/LuaJIT/pull/1044.
+  AppendFlags(HOST_C_FLAGS -fno-sanitize=undefined)
+endif()
+
 unset(LUAJIT_ARCH)
 unset(TESTARCH)

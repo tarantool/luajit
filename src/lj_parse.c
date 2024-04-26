@@ -939,6 +939,11 @@ static void bcemit_binop(FuncState *fs, BinOpr op, ExpDesc *e1, ExpDesc *e2)
 }
 
 /* Emit unary operator. */
+#if LUAJIT_USE_UBSAN
+/* See https://github.com/LuaJIT/LuaJIT/issues/928. */
+static void bcemit_unop(FuncState *fs, BCOp op, ExpDesc *e)
+  __attribute__((no_sanitize("signed-integer-overflow")));
+#endif
 static void bcemit_unop(FuncState *fs, BCOp op, ExpDesc *e)
 {
   if (op == BC_NOT) {

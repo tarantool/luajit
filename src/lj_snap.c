@@ -756,6 +756,13 @@ static void snap_restoreval(jit_State *J, GCtrace *T, ExitState *ex,
 }
 
 #if LJ_HASFFI
+# if LUAJIT_USE_UBSAN
+/* See https://github.com/LuaJIT/LuaJIT/issues/1193. */
+static void snap_restoredata(jit_State *J, GCtrace *T, ExitState *ex,
+			     SnapNo snapno, BloomFilter rfilt,
+			     IRRef ref, void *dst, CTSize sz)
+  __attribute__((no_sanitize("bounds")));
+# endif
 /* Restore raw data from the trace exit state. */
 static void snap_restoredata(jit_State *J, GCtrace *T, ExitState *ex,
 			     SnapNo snapno, BloomFilter rfilt,
