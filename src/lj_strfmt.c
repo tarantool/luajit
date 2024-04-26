@@ -93,6 +93,11 @@ retlit:
   { uint32_t d = (x*(((1<<sh)+sc-1)/sc))>>sh; x -= d*sc; *p++ = (char)('0'+d); }
 
 /* Write integer to buffer. */
+#if LUAJIT_USE_UBSAN
+/* See https://github.com/LuaJIT/LuaJIT/issues/928. */
+char * LJ_FASTCALL lj_strfmt_wint(char *p, int32_t k)
+  __attribute__((no_sanitize("signed-integer-overflow")));
+#endif
 char * LJ_FASTCALL lj_strfmt_wint(char *p, int32_t k)
 {
   uint32_t u = (uint32_t)k;

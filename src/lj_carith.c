@@ -159,6 +159,11 @@ static int carith_ptr(lua_State *L, CTState *cts, CDArith *ca, MMS mm)
 }
 
 /* 64 bit integer arithmetic. */
+#if LUAJIT_USE_UBSAN
+/* See https://github.com/LuaJIT/LuaJIT/issues/928. */
+static int carith_int64(lua_State *L, CTState *cts, CDArith *ca, MMS mm)
+  __attribute__((no_sanitize("signed-integer-overflow")));
+#endif
 static int carith_int64(lua_State *L, CTState *cts, CDArith *ca, MMS mm)
 {
   if (ctype_isnum(ca->ct[0]->info) && ca->ct[0]->size <= 8 &&

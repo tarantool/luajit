@@ -260,6 +260,11 @@ LJFOLDF(kfold_numcomp)
 
 /* -- Constant folding for 32 bit integers -------------------------------- */
 
+#if LUAJIT_USE_UBSAN
+/* Cdata arithmetic depends on the interger overflow. */
+static int32_t kfold_intop(int32_t k1, int32_t k2, IROp op)
+  __attribute__((no_sanitize("signed-integer-overflow")));
+#endif
 static int32_t kfold_intop(int32_t k1, int32_t k2, IROp op)
 {
   switch (op) {
