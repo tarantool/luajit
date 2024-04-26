@@ -70,6 +70,13 @@ LJ_FUNC SBuf *lj_buf_putmem(SBuf *sb, const void *q, MSize len);
 LJ_FUNC SBuf * LJ_FASTCALL lj_buf_putchar(SBuf *sb, int c);
 LJ_FUNC SBuf * LJ_FASTCALL lj_buf_putstr(SBuf *sb, GCstr *s);
 
+#if LUAJIT_USE_UBSAN
+/* The `NULL` argument with the zero length, like in the case:
+** | luajit -e 'error("x", 3)'
+*/
+static LJ_AINLINE char *lj_buf_wmem(char *p, const void *q, MSize len)
+  __attribute__((no_sanitize("nonnull-attribute")));
+#endif
 static LJ_AINLINE char *lj_buf_wmem(char *p, const void *q, MSize len)
 {
   return (char *)memcpy(p, q, len) + len;

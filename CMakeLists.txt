@@ -291,6 +291,55 @@ if(LUAJIT_USE_ASAN)
   )
 endif()
 
+option(LUAJIT_USE_UBSAN "Build LuaJIT with UndefinedBehaviorSanitizer" OFF)
+if(LUAJIT_USE_UBSAN)
+  # Use all needed checks from the UndefinedBehaviorSanitizer
+  # documentation:
+  # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html.
+  string(JOIN "," UBSAN_IGNORE_OPTIONS
+    # Misaligned pseudo-pointers are used to determine internal
+    # variable names inside the `for` cycle.
+    alignment
+    # Not interested in float cast overflow errors. These
+    # overflows are handled by special checks after
+    # `lj_num2int()`, etc.
+    float-cast-overflow
+    # NULL checking is disabled because this is not a UB and
+    # raises lots of false-positive fails.
+    null
+    # Not interested in checking arithmetic with NULL.
+    pointer-overflow
+    # Shifts of negative numbers are widely used in parsing ULEB,
+    # cdata arithmetic, vmevent hash calculation, etc.
+    shift-base
+  )
+  # GCC has no "function" UB check. See details here:
+  # https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fsanitize_003dundefined
+  if(NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    string(JOIN "," UBSAN_IGNORE_OPTIONS
+      ${UBSAN_IGNORE_OPTIONS}
+      # Not interested in function type mismatch errors.
+      function
+    )
+  endif()
+  AppendFlags(CMAKE_C_FLAGS
+    # Enable hints for UndefinedBehaviorSanitizer.
+    -DLUAJIT_USE_UBSAN
+    # XXX: To get nicer stack traces in error messages.
+    -fno-omit-frame-pointer
+    # Enable UndefinedBehaviorSanitizer support.
+    # This flag enables all supported options (the documentation
+    # on site is not correct about that moment, unfortunately)
+    # except float-divide-by-zero. Floating point division by zero
+    # behaviour is defined without -ffast-math and uses the
+    # IEEE 754 standard on which all NaN tagging is based.
+    -fsanitize=undefined
+    -fno-sanitize=${UBSAN_IGNORE_OPTIONS}
+    # Print a verbose error report and exit the program.
+    -fno-sanitize-recover=undefined
+  )
+endif()
+
 # Enable code coverage support.
 option(LUAJIT_ENABLE_COVERAGE "Enable code coverage support (gcovr)" OFF)
 if(LUAJIT_ENABLE_COVERAGE)
