@@ -960,6 +960,7 @@ static void LJ_FASTCALL recff_string_format(jit_State *J, RecordFFData *rd)
   TRef hdr, tr;
   FormatState fs;
   SFormat sf;
+  int nfmt = 0;
   /* Specialize to the format string. */
   emitir(IRTG(IR_EQ, IRT_STR), trfmt, lj_ir_kstr(J, fmt));
   tr = hdr = recff_bufhdr(J);
@@ -1029,6 +1030,7 @@ static void LJ_FASTCALL recff_string_format(jit_State *J, RecordFFData *rd)
       recff_nyiu(J, rd);
       return;
     }
+    if (++nfmt > 100) lj_trace_err(J, LJ_TRERR_TRACEOV);
   }
   J->base[0] = emitir(IRT(IR_BUFSTR, IRT_STR), tr, hdr);
 }
