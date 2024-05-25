@@ -755,13 +755,6 @@ static void snap_restoreval(jit_State *J, GCtrace *T, ExitState *ex,
 }
 
 #if LJ_HASFFI
-# if LUAJIT_USE_UBSAN
-/* See https://github.com/LuaJIT/LuaJIT/issues/1193. */
-static void snap_restoredata(jit_State *J, GCtrace *T, ExitState *ex,
-			     SnapNo snapno, BloomFilter rfilt,
-			     IRRef ref, void *dst, CTSize sz)
-  __attribute__((no_sanitize("bounds")));
-# endif
 /* Restore raw data from the trace exit state. */
 static void snap_restoredata(jit_State *J, GCtrace *T, ExitState *ex,
 			     SnapNo snapno, BloomFilter rfilt,
@@ -800,7 +793,6 @@ static void snap_restoredata(jit_State *J, GCtrace *T, ExitState *ex,
 	*(lua_Number *)dst = (lua_Number)*(int32_t *)dst;
 	return;
       }
-      src = (int32_t *)&ex->gpr[r-RID_MIN_GPR];
 #if !LJ_SOFTFP
       if (r >= RID_MAX_GPR) {
 	src = (int32_t *)&ex->fpr[r-RID_MIN_FPR];
@@ -814,7 +806,10 @@ static void snap_restoredata(jit_State *J, GCtrace *T, ExitState *ex,
 #endif
       } else
 #endif
-      if (LJ_64 && LJ_BE && sz == 4) src++;
+      {
+	src = (int32_t *)&ex->gpr[r-RID_MIN_GPR];
+	if (LJ_64 && LJ_BE && sz == 4) src++;
+      }
     }
   }
   lj_assertJ(sz == 1 || sz == 2 || sz == 4 || sz == 8,
