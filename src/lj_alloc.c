@@ -233,6 +233,86 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 #include <fcntl.h>
 #include <unistd.h>
 
+#if LUAJIT_USE_ASAN
+
+/*
+** The work of asan (AddressSanitizer) is to detect memory errors during program execution.
+** One way to achieve this is by adding redzones around memory allocations. The redzone is a
+** specially allocated area of memory before and after the allocated block, which is filled
+** with a unique value. If the program tries to access memory outside of the allocation,
+** asan detects this attempt and generates an error message, allowing the developer to
+** detect and fix the issue early.
+**
+** - Original paper: https://www.usenix.org/system/files/conference/atc12/atc12-final39.pdf
+**
+** LuaJIT ASAN instrumentation (mmap and others):
+**
+** - Memory map around allocation:
+** -------------------------------------------------------------------------------------
+** .. .. | [f7]    ...    [f7] | [00]     ...     [0(0-7)] | [f7]    ...    [f7] | .. ..
+**       |    left redzone     |           data            |    right redzone    |
+**       |  REDZONE_SIZE bytes |          N bytes          |  REDZONE_SIZE bytes |
+** ------------------------------------------------------------------------------------- 
+**
+** left redzone: 
+**  The first SIZE_T_SIZE bytes of the redzone contain the data size N, the next SIZE_T_SIZE bytes 
+**  of the redzone contain the full size of the allocation, including the alignment of the size N 
+**  and the size of the redzones themselves.
+*/
+
+#include <sanitizer/asan_interface.h>
+
+/* Recommended redzone size from 16 to 2048 bytes (must be a a power of two) 
+** https://github.com/google/sanitizers/wiki/AddressSanitizerFlags
+*/
+#define REDZONE_SIZE FOUR_SIZE_T_SIZES
+
+/* Total redzone size around allocation */
+#define TOTAL_REDZONE_SIZE (REDZONE_SIZE << 1)
+
+/* Multiple of the allocated memory size */
+#define SIZE_ALIGNMENT MALLOC_ALIGNMENT
+
+/* Multiple of the allocated memory address */
+#define ADDR_ALIGNMENT MALLOC_ALIGNMENT
+
+/* Casting to the nearest multiple of alignment from above */
+void *align_up(void *ptr, size_t alignment)
+{
+  uintptr_t p = (uintptr_t)ptr;
+  return (void *)((p + alignment - 1) & ~(alignment - 1));
+}
+
+void *mark_memory_region(void *ptr, size_t mem_size, size_t poison_size)
+{
+  if (ptr == NULL)
+    return NULL;
+  size_t *sptr = (size_t *)ptr;
+  ASAN_UNPOISON_MEMORY_REGION(ptr, TWO_SIZE_T_SIZES);
+  sptr[0] = mem_size;
+  sptr[1] = poison_size;
+  ASAN_POISON_MEMORY_REGION(ptr, poison_size);
+  ptr += REDZONE_SIZE;
+  ASAN_UNPOISON_MEMORY_REGION(ptr, mem_size);
+  return ptr;
+}
+
+typedef enum {
+  MEM_SIZE,
+  POISON_SIZE
+} SizeType;
+
+size_t asan_get_size(void *ptr, SizeType type)
+{
+  size_t offset = (type == MEM_SIZE) ? 0 : SIZE_T_SIZE;
+  ASAN_UNPOISON_MEMORY_REGION(ptr - REDZONE_SIZE + offset, SIZE_T_SIZE);
+  size_t size = *((size_t *)(ptr - REDZONE_SIZE + offset));
+  ASAN_POISON_MEMORY_REGION(ptr - REDZONE_SIZE + offset, SIZE_T_SIZE);
+  return size;
+}
+
+#endif
+
 static uintptr_t mmap_probe_seed(void)
 {
   uintptr_t val;
@@ -252,6 +332,10 @@ static void *mmap_probe(size_t size)
   static uintptr_t hint_prng = 0;
   int olderr = errno;
   int retry;
+#if LUAJIT_USE_ASAN
+  size_t mem_size = size;
+  size = (size_t)align_up((void *)size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+#endif
   for (retry = 0; retry < LJ_ALLOC_MMAP_PROBE_MAX; retry++) {
     void *p = mmap((void *)hint_addr, size, MMAP_PROT, MMAP_FLAGS_PROBE, -1, 0);
     uintptr_t addr = (uintptr_t)p;
@@ -260,6 +344,9 @@ static void *mmap_probe(size_t size)
       /* We got a suitable address. Bump the hint address. */
       hint_addr = addr + size;
       errno = olderr;
+#if LUAJIT_USE_ASAN
+      p = mark_memory_region(p, mem_size, size);
+#endif
       return p;
     }
     if (p != MFAIL) {
@@ -315,7 +402,17 @@ static void *mmap_map32(size_t size)
 #endif
   {
     int olderr = errno;
+#if LUAJIT_USE_ASAN
+    size_t mem_size = size;
+    size = (size_t)align_up((void *)size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+#endif
     void *ptr = mmap((void *)LJ_ALLOC_MMAP32_START, size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
+#if LUAJIT_USE_ASAN
+    if (ptr != MFAIL)
+      ptr = mark_memory_region(ptr, mem_size, size);
+
+    size = mem_size;
+#endif
     errno = olderr;
     /* This only allows 1GB on Linux. So fallback to probing to get 2GB. */
 #if LJ_ALLOC_MMAP_PROBE
@@ -338,8 +435,15 @@ static void *mmap_map32(size_t size)
 static void *CALL_MMAP(size_t size)
 {
   int olderr = errno;
+#if LUAJIT_USE_ASAN
+  size_t mem_size = size;
+  size = (size_t)align_up((void *)size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+#endif
   void *ptr = mmap(NULL, size, MMAP_PROT, MMAP_FLAGS, -1, 0);
   errno = olderr;
+#if LUAJIT_USE_ASAN
+  ptr = mark_memory_region(ptr, mem_size, size);
+#endif
   return ptr;
 }
 #endif
@@ -361,7 +465,17 @@ static void init_mmap(void)
 static int CALL_MUNMAP(void *ptr, size_t size)
 {
   int olderr = errno;
+#if LUAJIT_USE_ASAN
+  memmove(ptr, ptr, size); /* check that memory is not poisoned */
+  size = asan_get_size(ptr, POISON_SIZE);
+  ptr -= REDZONE_SIZE;
+#endif
   int ret = munmap(ptr, size);
+#if LUAJIT_USE_ASAN
+  if (ret == 0) {
+    ASAN_POISON_MEMORY_REGION(ptr, size);
+  }
+#endif
   errno = olderr;
   return ret;
 }
@@ -371,7 +485,21 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 static void *CALL_MREMAP_(void *ptr, size_t osz, size_t nsz, int flags)
 {
   int olderr = errno;
+#if LUAJIT_USE_ASAN
+  void *old_ptr = ptr;
+  size_t nms = nsz; /* new memory size */
+  osz = asan_get_size(old_ptr, POISON_SIZE);
+  nsz = (size_t)align_up((void *)nsz, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+  ptr -= REDZONE_SIZE;
+#endif
   ptr = mremap(ptr, osz, nsz, flags);
+#if LUAJIT_USE_ASAN
+  if (ptr != MFAIL) { 
+    /* can return a pointer to the same memory */
+    ASAN_POISON_MEMORY_REGION(old_ptr, osz);
+    ptr = mark_memory_region(ptr, nms, nsz);
+  }
+#endif
   errno = olderr;
   return ptr;
 }
