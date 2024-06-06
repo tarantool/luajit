@@ -2,7 +2,6 @@ local tap = require('tap')
 local ffi = require('ffi')
 local test = tap.test('lj-920-fix-dangling-reference-to-ctype'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
-  -- luacheck: no global
   ['Impossible to predict the value of cts->top'] = _TARANTOOL,
 })
 

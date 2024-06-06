@@ -44,7 +44,6 @@ test:skipcond({
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
   -- XXX: The different amount of stack slots is in-use for
   -- Tarantool at start, so just skip test for it.
-  -- luacheck: no global
   ['Disable test for Tarantool'] = _TARANTOOL,
   ['Stack overflow is now handled differently'] = true,
 })

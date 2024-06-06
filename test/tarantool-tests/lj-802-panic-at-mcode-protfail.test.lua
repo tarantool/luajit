@@ -7,7 +7,6 @@ local test = tap.test('lj-flush-on-trace'):skipcond({
   -- purpose. However, <mprotect> is widely used in Tarantool
   -- to play with fiber stacks, so overriding <mprotect> is not
   -- suitable to test this feature in Tarantool.
-  -- luacheck: no global
   ['<mprotect> overriding can break Tarantool'] = _TARANTOOL,
   -- XXX: Unfortunately, it's too hard to overload (or even
   -- impossible, who knows, since Cupertino fellows do not
