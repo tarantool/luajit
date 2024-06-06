@@ -3,7 +3,6 @@ local test = tap.test('lj-549-bytecode-loader'):skipcond({
   -- XXX: Tarantool doesn't use default LuaJIT loaders, and Lua
   -- bytecode can't be loaded from the shared library. For more
   -- info: https://github.com/tarantool/tarantool/issues/9671.
-  -- luacheck: no global
   ['Test uses exotic type of loaders (see #9671)'] = _TARANTOOL,
 })
 

@@ -4,7 +4,6 @@ local test = tap.test('gh-9217-profile-parsers-error-handling'):skipcond({
                                                       jit.arch ~= 'x64',
   ['Profile tools are implemented for Linux only'] = jit.os ~= 'Linux',
   -- XXX: Tarantool integration is required to run this test properly.
-  -- luacheck: no global
   ['No profile tools CLI option integration'] = _TARANTOOL,
 })
 
