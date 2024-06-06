@@ -2,7 +2,6 @@ local tap = require('tap')
 local ffi = require('ffi')
 
 local test = tap.test('OOM on trace'):skipcond({
-  -- luacheck: no global
   ['Broken unwiding in tarantool_panic_handler'] = _TARANTOOL and
                                                    (jit.os == 'OSX'),
   ['Disabled on MacOS due to #8652'] = jit.os == 'OSX',

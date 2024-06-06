@@ -1,7 +1,6 @@
 local tap = require('tap')
 local ffi = require('ffi')
 local test = tap.test('lj-1108-fix-dangling-reference-to-ctype'):skipcond({
-  -- luacheck: no global
   ['Impossible to predict the value of cts->top'] = _TARANTOOL,
 })
 
