@@ -2,15 +2,16 @@
 #include "test.h"
 #include "utils.h"
 #include "lj_alloc.c"
-#include <sanitizer/asan_interface.h>
 #include "lj_gc.h"
+
+#if LUAJIT_USE_ASAN
+#include <sanitizer/asan_interface.h>
 
 #define MALLOC(size) mmap_probe(size)
 #define FREE(ptr, size) CALL_MUNMAP(ptr, size)
 #define REALLOC(ptr, osz, nsz) CALL_MREMAP_(ptr, osz, nsz, CALL_MREMAP_NOMOVE)
 #define IS_POISONED(ptr) __asan_address_is_poisoned(ptr)
 
-static lua_State *main_LS = NULL;
 
 int IS_POISONED_REGION(void *ptr, size_t size)
 {
@@ -21,9 +22,16 @@ int IS_POISONED_REGION(void *ptr, size_t size)
 	} while (res == 1 && ++i < size);
 	return res;
 }
+#endif
+
+static lua_State *main_LS = NULL;
 
 static int mmap_probe_test(void *test_state)
 {
+#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+    UNUSED(test_state);
+    return skip("Requires build with ASAN");
+#else
 	size_t size = DEFAULT_GRANULARITY - TOTAL_REDZONE_SIZE;
 	void *p = MALLOC(size);
 	size_t algn = (size_t)align_up((void *)size, SIZE_ALIGNMENT) - size;
@@ -40,10 +48,15 @@ static int mmap_probe_test(void *test_state)
 
 	perror("Not correct poison and unpoison areas");
 	return TEST_EXIT_FAILURE;
+#endif
 }
 
 static int munmap_test(void *test_state)
 {
+#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+    UNUSED(test_state);
+    return skip("Requires build with ASAN");
+#else
 	size_t size = DEFAULT_GRANULARITY - TOTAL_REDZONE_SIZE;
 	size_t algn = (size_t)align_up((void *)size, SIZE_ALIGNMENT) - size;
 	void *p = MALLOC(size);
@@ -59,12 +72,17 @@ static int munmap_test(void *test_state)
 
 	perror("Not correct poison and unpoison areas");
 	return TEST_EXIT_FAILURE;
+#endif
 }
 
 static int mremap_test(void *test_state)
 {
-	size_t size = DEFAULT_GRANULARITY - TOTAL_REDZONE_SIZE;
-	size_t new_size = (DEFAULT_GRANULARITY << 1) - TOTAL_REDZONE_SIZE;
+#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+    UNUSED(test_state);
+    return skip("Requires build with ASAN");
+#else
+	size_t size = (DEFAULT_GRANULARITY >> 1) - TOTAL_REDZONE_SIZE;
+	size_t new_size = (DEFAULT_GRANULARITY) - TOTAL_REDZONE_SIZE;
 	size_t new_algn = (size_t)align_up((void *)new_size, SIZE_ALIGNMENT) - new_size;
 	void *p = MALLOC(size);
 
@@ -86,6 +104,7 @@ static int mremap_test(void *test_state)
 
 	perror("Not correct poison and unpoison areas");
 	return TEST_EXIT_FAILURE;
+#endif
 }
 
 int main(void)
