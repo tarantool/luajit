@@ -560,9 +560,15 @@ typedef unsigned int flag_t;           /* The type of various bit flag sets */
 #define MIN_CHUNK_SIZE\
   ((MCHUNK_SIZE + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
 
+#if LUAJIT_USE_ASAN
+/* conversion from malloc headers to user pointers, and back */
+#define chunk2mem(p)		((void *)((char *)(p) + TWO_SIZE_T_SIZES + REDZONE_SIZE))
+#define mem2chunk(mem)		((mchunkptr)((char *)(mem) - TWO_SIZE_T_SIZES - REDZONE_SIZE))
+#else
 /* conversion from malloc headers to user pointers, and back */
 #define chunk2mem(p)		((void *)((char *)(p) + TWO_SIZE_T_SIZES))
 #define mem2chunk(mem)		((mchunkptr)((char *)(mem) - TWO_SIZE_T_SIZES))
+#endif
 /* chunk associated with aligned address A */
 #define align_as_chunk(A)	(mchunkptr)((A) + align_offset(chunk2mem(A)))
 
@@ -1015,7 +1021,12 @@ static mchunkptr direct_resize(mchunkptr oldp, size_t nb)
 static void init_top(mstate m, mchunkptr p, size_t psize)
 {
   /* Ensure alignment */
-  size_t offset = align_offset(chunk2mem(p));
+  void *t = chunk2mem(p);
+#if LUAJIT_USE_ASAN
+  t -= REDZONE_SIZE;
+#endif
+  size_t offset = align_offset(t);
+
   p = (mchunkptr)((char *)p + offset);
   psize -= offset;
 
@@ -1077,6 +1088,9 @@ static void add_segment(mstate m, char *tbase, size_t tsize)
   /* Determine locations and sizes of segment, fenceposts, old top */
   char *old_top = (char *)m->top;
   msegmentptr oldsp = segment_holding(m, old_top);
+#if LUAJIT_USE_ASAN
+  ASAN_UNPOISON_MEMORY_REGION(oldsp, sizeof(struct malloc_segment));
+#endif
   char *old_end = oldsp->base + oldsp->size;
   size_t ssize = pad_request(sizeof(struct malloc_segment));
   char *rawsp = old_end - (ssize + FOUR_SIZE_T_SIZES + CHUNK_ALIGN_MASK);
@@ -1085,6 +1099,9 @@ static void add_segment(mstate m, char *tbase, size_t tsize)
   char *csp = (asp < (old_top + MIN_CHUNK_SIZE))? old_top : asp;
   mchunkptr sp = (mchunkptr)csp;
   msegmentptr ss = (msegmentptr)(chunk2mem(sp));
+#if LUAJIT_USE_ASAN
+  ss = (msegmentptr)((void *)ss - REDZONE_SIZE);
+#endif
   mchunkptr tnext = chunk_plus_offset(sp, ssize);
   mchunkptr p = tnext;
 
@@ -1366,21 +1383,33 @@ static void *tmalloc_small(mstate m, size_t nb)
 void *lj_alloc_create(void)
 {
   size_t tsize = DEFAULT_GRANULARITY;
+#if LUAJIT_USE_ASAN
+  tsize -= TOTAL_REDZONE_SIZE;
+#endif
   char *tbase;
   INIT_MMAP();
   tbase = (char *)(CALL_MMAP(tsize));
   if (tbase != CMFAIL) {
     size_t msize = pad_request(sizeof(struct malloc_state));
     mchunkptr mn;
+#if LUAJIT_USE_ASAN
+    mchunkptr msp = (mchunkptr)(tbase + align_offset(chunk2mem(tbase) - REDZONE_SIZE));
+    mstate m = (mstate)(chunk2mem(msp) - REDZONE_SIZE);
+#else
     mchunkptr msp = align_as_chunk(tbase);
     mstate m = (mstate)(chunk2mem(msp));
+#endif
     memset(m, 0, msize);
     msp->head = (msize|PINUSE_BIT|CINUSE_BIT);
     m->seg.base = tbase;
     m->seg.size = tsize;
     m->release_checks = MAX_RELEASE_CHECK_RATE;
     init_bins(m);
+#if LUAJIT_USE_ASAN
+    mn = next_chunk((mchunkptr)((char *)(m) - TWO_SIZE_T_SIZES));
+#else
     mn = next_chunk(mem2chunk(m));
+#endif
     init_top(m, mn, (size_t)((tbase + tsize) - (char *)mn) - TOP_FOOT_SIZE);
     return m;
   }
@@ -1395,12 +1424,20 @@ void lj_alloc_destroy(void *msp)
     char *base = sp->base;
     size_t size = sp->size;
     sp = sp->next;
+#if LUAJIT_USE_ASAN
+    ASAN_UNPOISON_MEMORY_REGION(base, size);
+#endif
     CALL_MUNMAP(base, size);
   }
 }
 
 static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 {
+#if LUAJIT_USE_ASAN
+  size_t mem_size = nsize;
+  size_t poison_size = (size_t)align_up((void *)nsize, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+  nsize = poison_size;
+#endif
   mstate ms = (mstate)msp;
   void *mem;
   size_t nb;
@@ -1419,6 +1456,9 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
       unlink_first_small_chunk(ms, b, p, idx);
       set_inuse_and_pinuse(ms, p, small_index2size(idx));
       mem = chunk2mem(p);
+#if LUAJIT_USE_ASAN
+      mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
+#endif
       return mem;
     } else if (nb > ms->dvsize) {
       if (smallbits != 0) { /* Use chunk in next nonempty smallbin */
@@ -1440,8 +1480,14 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 	  replace_dv(ms, r, rsize);
 	}
 	mem = chunk2mem(p);
+#if LUAJIT_USE_ASAN
+  mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
+#endif
 	return mem;
       } else if (ms->treemap != 0 && (mem = tmalloc_small(ms, nb)) != 0) {
+#if LUAJIT_USE_ASAN
+  mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
+#endif
 	return mem;
       }
     }
@@ -1450,6 +1496,9 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
   } else {
     nb = pad_request(nsize);
     if (ms->treemap != 0 && (mem = tmalloc_large(ms, nb)) != 0) {
+#if LUAJIT_USE_ASAN
+      mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
+#endif
       return mem;
     }
   }
@@ -1469,6 +1518,9 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
       set_inuse_and_pinuse(ms, p, dvs);
     }
     mem = chunk2mem(p);
+#if LUAJIT_USE_ASAN
+    mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
+#endif
     return mem;
   } else if (nb < ms->topsize) { /* Split top */
     size_t rsize = ms->topsize -= nb;
@@ -1477,13 +1529,30 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
     r->head = rsize | PINUSE_BIT;
     set_size_and_pinuse_of_inuse_chunk(ms, p, nb);
     mem = chunk2mem(p);
+#if LUAJIT_USE_ASAN
+    mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
+#endif
     return mem;
   }
+#if LUAJIT_USE_ASAN
+  return mark_memory_region(alloc_sys(ms, nb) - REDZONE_SIZE, mem_size, poison_size);
+#else
   return alloc_sys(ms, nb);
+#endif
 }
 
 static LJ_NOINLINE void *lj_alloc_free(void *msp, void *ptr)
 {
+#if LUAJIT_USE_ASAN
+  if (ptr != 0) {    
+    size_t mem_size = asan_get_size(ptr, MEM_SIZE);
+    size_t poison_size = asan_get_size(ptr, POISON_SIZE);
+
+    memmove(ptr, ptr, mem_size);
+    ASAN_POISON_MEMORY_REGION(ptr - REDZONE_SIZE, poison_size);
+  }
+  return NULL;
+#else
   if (ptr != 0) {
     mchunkptr p = mem2chunk(ptr);
     mstate fm = (mstate)msp;
@@ -1551,10 +1620,29 @@ static LJ_NOINLINE void *lj_alloc_free(void *msp, void *ptr)
     }
   }
   return NULL;
+#endif
 }
 
 static LJ_NOINLINE void *lj_alloc_realloc(void *msp, void *ptr, size_t nsize)
 {
+#if LUAJIT_USE_ASAN
+  if (nsize >= MAX_REQUEST)
+    return NULL;
+
+  mstate m = (mstate)msp;
+
+  size_t mem_size = asan_get_size(ptr, MEM_SIZE);
+  size_t poison_size = asan_get_size(ptr, POISON_SIZE);
+
+  void *newmem = lj_alloc_malloc(m, nsize);
+
+  if (newmem == NULL)
+    return NULL;
+
+  memcpy(newmem, ptr, nsize > mem_size ? mem_size : nsize);
+  ASAN_POISON_MEMORY_REGION(ptr - REDZONE_SIZE, poison_size);
+  return newmem;
+#else
   if (nsize >= MAX_REQUEST) {
     return NULL;
   } else {
@@ -1601,6 +1689,7 @@ static LJ_NOINLINE void *lj_alloc_realloc(void *msp, void *ptr, size_t nsize)
       return newmem;
     }
   }
+#endif
 }
 
 void *lj_alloc_f(void *msp, void *ptr, size_t osize, size_t nsize)

@@ -34,6 +34,7 @@ jobs:
         # XXX: Let's start with only Linux/x86_64
         BUILDTYPE: [Debug, Release]
         CC: [gcc-10, clang-11]
+        SYSMALLOC: [ON, OFF]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -44,7 +45,7 @@ jobs:
       LuaJIT with ASan (Linux/x86_64)
       ${{ matrix.BUILDTYPE }}
       CC:${{ matrix.CC }}
-      GC64:ON SYSMALLOC:ON
+      GC64:ON SYSMALLOC:${{ matrix.SYSMALLOC }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +72,7 @@ jobs:
           -G Ninja
           ${{ matrix.CMAKEFLAGS }}
           -DLUAJIT_USE_ASAN=ON
-          -DLUAJIT_USE_SYSMALLOC=ON
+          -DLUAJIT_USE_SYSMALLOC=${{ matrix.SYSMALLOC }}
           -DLUAJIT_ENABLE_GC64=ON
       - name: build
         run: cmake --build . --parallel
