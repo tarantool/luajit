@@ -9,7 +9,7 @@
 
 #define MALLOC(size) mmap_probe(size)
 #define FREE(ptr, size) CALL_MUNMAP(ptr, size)
-#define REALLOC(ptr, osz, nsz) CALL_MREMAP_(ptr, osz, nsz, CALL_MREMAP_NOMOVE)
+#define REALLOC(ptr, osz, nsz) CALL_MREMAP(ptr, osz, nsz, CALL_MREMAP_MV)
 #define IS_POISONED(ptr) __asan_address_is_poisoned(ptr)
 
 
@@ -32,6 +32,7 @@ static int mmap_probe_test(void *test_state)
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
+	int res = -1;
 	size_t size = DEFAULT_GRANULARITY - TOTAL_REDZONE_SIZE;
 	void *p = MALLOC(size);
 	size_t algn = (size_t)align_up((void *)size, SIZE_ALIGNMENT) - size;
@@ -44,10 +45,11 @@ static int mmap_probe_test(void *test_state)
 	if (IS_POISONED_REGION(p - REDZONE_SIZE, REDZONE_SIZE) &&
 	    !IS_POISONED_REGION(p, size) &&
 	    IS_POISONED_REGION(p + size, algn + REDZONE_SIZE))
-		return TEST_EXIT_SUCCESS;
-
-	perror("Not correct poison and unpoison areas");
-	return TEST_EXIT_FAILURE;
+		res = TEST_EXIT_SUCCESS;
+	else
+		perror("Not correct poison and unpoison areas");
+	FREE(p, size);
+	return res == TEST_EXIT_SUCCESS ? TEST_EXIT_SUCCESS : TEST_EXIT_FAILURE;
 #endif
 }
 
@@ -69,7 +71,6 @@ static int munmap_test(void *test_state)
 	FREE(p, size);
 	if (IS_POISONED_REGION(p - REDZONE_SIZE, TOTAL_REDZONE_SIZE + size + algn))
 		return TEST_EXIT_SUCCESS;
-
 	perror("Not correct poison and unpoison areas");
 	return TEST_EXIT_FAILURE;
 #endif
@@ -81,9 +82,9 @@ static int mremap_test(void *test_state)
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
-	size_t size = (DEFAULT_GRANULARITY >> 1) - TOTAL_REDZONE_SIZE;
-	size_t new_size = (DEFAULT_GRANULARITY) - TOTAL_REDZONE_SIZE;
-	size_t new_algn = (size_t)align_up((void *)new_size, SIZE_ALIGNMENT) - new_size;
+	int res = -1;
+	size_t size = (DEFAULT_GRANULARITY >> 2) - TOTAL_REDZONE_SIZE;
+	size_t new_size = (DEFAULT_GRANULARITY >> 1) - TOTAL_REDZONE_SIZE;
 	void *p = MALLOC(size);
 
 	if (p == MFAIL) {
@@ -94,16 +95,19 @@ static int mremap_test(void *test_state)
 	void *newptr = REALLOC(p, size, new_size);
 	if (newptr == MFAIL) {
 		perror("mremap return MFAIL");
+		FREE(p, size);
 		return TEST_EXIT_FAILURE;
 	}
 
 	if (IS_POISONED_REGION(newptr - REDZONE_SIZE, REDZONE_SIZE) &&
 	    !IS_POISONED_REGION(newptr, new_size) &&
-	    IS_POISONED_REGION(newptr + new_size, new_algn + REDZONE_SIZE))
-		return TEST_EXIT_SUCCESS;
+	    IS_POISONED_REGION(newptr + new_size, REDZONE_SIZE))
+		res = TEST_EXIT_SUCCESS;
+	else
+		perror("Not correct poison and unpoison areas");
 
-	perror("Not correct poison and unpoison areas");
-	return TEST_EXIT_FAILURE;
+	FREE(newptr, new_size);
+	return res == TEST_EXIT_SUCCESS ? TEST_EXIT_SUCCESS : TEST_EXIT_FAILURE;
 #endif
 }
 

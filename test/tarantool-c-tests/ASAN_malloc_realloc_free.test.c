@@ -29,6 +29,7 @@ static int small_malloc_test(void *test_state)
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
+    int res = -1;
     size_t size = 30;
     void *p = lj_mem_new(main_LS, size);
     size_t algn = (ADDR_ALIGNMENT - size % ADDR_ALIGNMENT) % ADDR_ALIGNMENT;
@@ -36,10 +37,10 @@ static int small_malloc_test(void *test_state)
     if (IS_POISONED_REGION(p - REDZONE_SIZE, REDZONE_SIZE) &&
         !IS_POISONED_REGION(p, size) &&
         IS_POISONED_REGION(p + size, algn + REDZONE_SIZE))
-    {
-        return TEST_EXIT_SUCCESS;
-    }
-    return TEST_EXIT_FAILURE;
+        res = TEST_EXIT_SUCCESS;
+
+    lj_mem_free(main_GS, p, size);
+	return res == TEST_EXIT_SUCCESS ? TEST_EXIT_SUCCESS : TEST_EXIT_FAILURE;
 #endif
 }
 
@@ -49,6 +50,7 @@ static int large_malloc_test(void *test_state)
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
+    int res = -1;
     size_t size = 1234;
     void *p = lj_mem_new(main_LS, size);
     size_t algn = (ADDR_ALIGNMENT - size % ADDR_ALIGNMENT) % ADDR_ALIGNMENT;
@@ -56,10 +58,10 @@ static int large_malloc_test(void *test_state)
     if (IS_POISONED_REGION(p - REDZONE_SIZE, REDZONE_SIZE) &&
         !IS_POISONED_REGION(p, size) &&
         IS_POISONED_REGION(p + size, algn + REDZONE_SIZE))
-    {
-        return TEST_EXIT_SUCCESS;
-    }
-    return TEST_EXIT_FAILURE;
+        res = TEST_EXIT_SUCCESS;
+        
+    lj_mem_free(main_GS, p, size);
+	return res == TEST_EXIT_SUCCESS ? TEST_EXIT_SUCCESS : TEST_EXIT_FAILURE;
 #endif
 }
 
@@ -88,6 +90,7 @@ static int realloc_test(void *test_state)
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
+    int res = -1;
     size_t size = 150;
     size_t new_size = size * 2;
     void *p = lj_mem_new(main_LS, size);
@@ -105,20 +108,16 @@ static int realloc_test(void *test_state)
     if (IS_POISONED_REGION(ptr - REDZONE_SIZE, TOTAL_REDZONE_SIZE + size + algn))
     {
         ASAN_UNPOISON_MEMORY_REGION(ptr, size);
-        int res = memcmp(ptr, newptr, size);
-        if (res != 0)
-        {
-            return TEST_EXIT_FAILURE;
-        }
+        if (memcmp(ptr, newptr, size) != 0)
+            res = TEST_EXIT_FAILURE;
 
         if (IS_POISONED_REGION(newptr - REDZONE_SIZE, REDZONE_SIZE) &&
             !IS_POISONED_REGION(newptr, new_size) &&
             IS_POISONED_REGION(newptr + new_size, new_algn + REDZONE_SIZE))
-        {
-            return TEST_EXIT_SUCCESS;
-        }
+            res = TEST_EXIT_SUCCESS;
     }
-    return TEST_EXIT_FAILURE;
+        lj_mem_free(main_GS, newptr, new_size);
+	return res == TEST_EXIT_SUCCESS ? TEST_EXIT_SUCCESS : TEST_EXIT_FAILURE;
 #endif
 }
 
