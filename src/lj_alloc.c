@@ -276,12 +276,17 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 /* Multiple of the allocated memory address */
 #define ADDR_ALIGNMENT MALLOC_ALIGNMENT
 
-/* Casting to the nearest multiple of alignment from above */
-void *align_up(void *ptr, size_t alignment)
+static inline uintptr_t asan_lower_address()
 {
-  uintptr_t p = (uintptr_t)ptr;
-  return (void *)((p + alignment - 1) & ~(alignment - 1));
+  size_t shadow_scale;
+  size_t shadow_offset;
+  __asan_get_shadow_mapping(&shadow_scale, &shadow_offset);
+  return (uintptr_t)(shadow_offset + (1ULL << (LJ_ALLOC_MBITS - shadow_scale)));
 }
+
+/* Casting to the nearest multiple of alignment from above */
+#define align_up_ptr(ptr, alignment)  ((void *)(((uintptr_t)(ptr) + (alignment) - 1) & ~((alignment) - 1)))
+#define align_up_size(ptr, alignment)  ((size_t)(align_up_ptr(ptr, alignment)))
 
 void *mark_memory_region(void *ptr, size_t mem_size, size_t poison_size)
 {
@@ -334,13 +339,18 @@ static void *mmap_probe(size_t size)
   int retry;
 #if LUAJIT_USE_ASAN
   size_t mem_size = size;
-  size = (size_t)align_up((void *)size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+  size = align_up_size(size + TOTAL_REDZONE_SIZE, DEFAULT_GRANULARITY);
 #endif
   for (retry = 0; retry < LJ_ALLOC_MMAP_PROBE_MAX; retry++) {
     void *p = mmap((void *)hint_addr, size, MMAP_PROT, MMAP_FLAGS_PROBE, -1, 0);
     uintptr_t addr = (uintptr_t)p;
+#if LUAJIT_USE_ASAN
+    if ((addr >> LJ_ALLOC_MBITS) == 0 && addr >= asan_lower_address() &&
+	((addr + size) >> LJ_ALLOC_MBITS) == 0) {
+#else
     if ((addr >> LJ_ALLOC_MBITS) == 0 && addr >= LJ_ALLOC_MMAP_PROBE_LOWER &&
 	((addr + size) >> LJ_ALLOC_MBITS) == 0) {
+#endif
       /* We got a suitable address. Bump the hint address. */
       hint_addr = addr + size;
       errno = olderr;
@@ -404,9 +414,12 @@ static void *mmap_map32(size_t size)
     int olderr = errno;
 #if LUAJIT_USE_ASAN
     size_t mem_size = size;
-    size = (size_t)align_up((void *)size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
-#endif
+    size = align_up_size(size + TOTAL_REDZONE_SIZE, SIZE_ALIGNMENT);
+    void *ptr = mmap((void *)asan_lower_address(), size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
+#else
     void *ptr = mmap((void *)LJ_ALLOC_MMAP32_START, size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
+#endif
+
 #if LUAJIT_USE_ASAN
     if (ptr != MFAIL)
       ptr = mark_memory_region(ptr, mem_size, size);
@@ -437,9 +450,11 @@ static void *CALL_MMAP(size_t size)
   int olderr = errno;
 #if LUAJIT_USE_ASAN
   size_t mem_size = size;
-  size = (size_t)align_up((void *)size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
-#endif
+  size = align_up_size(size + TOTAL_REDZONE_SIZE, DEFAULT_GRANULARITY);
+  void *ptr = mmap((void *)asan_lower_address(), size, MMAP_PROT, MMAP_FLAGS, -1, 0);
+#else
   void *ptr = mmap(NULL, size, MMAP_PROT, MMAP_FLAGS, -1, 0);
+#endif 
   errno = olderr;
 #if LUAJIT_USE_ASAN
   ptr = mark_memory_region(ptr, mem_size, size);
@@ -485,20 +500,31 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 static void *CALL_MREMAP_(void *ptr, size_t osz, size_t nsz, int flags)
 {
   int olderr = errno;
+#if LUAJIT_USE_ASAN && !(LJ_64 && (!LJ_GC64 || LJ_TARGET_ARM64))
+  void *new_ptr = mmap_probe(nsz);
+  if (new_ptr != MFAIL) {
+    size_t oms = asan_get_size(ptr, MEM_SIZE);
+    memcpy(new_ptr, ptr, oms);
+    munmap(ptr, osz);
+    ptr = new_ptr;
+  }
+#else
+
 #if LUAJIT_USE_ASAN
   void *old_ptr = ptr;
   size_t nms = nsz; /* new memory size */
   osz = asan_get_size(old_ptr, POISON_SIZE);
-  nsz = (size_t)align_up((void *)nsz, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+  nsz = align_up_size(nsz, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
   ptr -= REDZONE_SIZE;
 #endif
   ptr = mremap(ptr, osz, nsz, flags);
 #if LUAJIT_USE_ASAN
   if (ptr != MFAIL) { 
     /* can return a pointer to the same memory */
-    ASAN_POISON_MEMORY_REGION(old_ptr, osz);
+    ASAN_POISON_MEMORY_REGION(old_ptr - REDZONE_SIZE, osz);
     ptr = mark_memory_region(ptr, nms, nsz);
   }
+#endif
 #endif
   errno = olderr;
   return ptr;
@@ -1435,7 +1461,7 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 {
 #if LUAJIT_USE_ASAN
   size_t mem_size = nsize;
-  size_t poison_size = (size_t)align_up((void *)nsize, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+  size_t poison_size = align_up_size(nsize, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
   nsize = poison_size;
 #endif
   mstate ms = (mstate)msp;
