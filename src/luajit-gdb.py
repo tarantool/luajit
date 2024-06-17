@@ -884,6 +884,23 @@ error message occurs.
         tv = cast('TValue *', parse_arg(arg))
         gdb.write('{}\n'.format(dump_tvalue(tv)))
 
+class LJDumpGCo(LJBase):
+    '''
+lj-gco <TValue *>
+
+The command receives a pointer to <gc> (GCobj address) and dumps
+the type and some info related to it.
+
+
+Whether the type of the given address differs from the listed above, then
+error message occurs.
+    '''
+
+    def invoke(self, arg, from_tty):
+        gco = cast('GCobj *', parse_arg(arg))
+        gdb.write('{}\n'.format(dump_gcobj(gco)))
+
+
 class LJDumpString(LJBase):
     '''
 lj-str <GCstr *>
@@ -1133,6 +1150,7 @@ def load(event=None):
         'lj-stack': LJDumpStack,
         'lj-state': LJState,
         'lj-gc': LJGC,
+        'lj-gco': LJDumpGCo,
         'lj-bc': LJDumpBC,
         'lj-proto': LJDumpProto,
         'lj-func': LJDumpFunc,
