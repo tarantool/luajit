@@ -279,7 +279,7 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 static inline uintptr_t asan_lower_address()
 {
   size_t shadow_scale;
-  size_t shadow_offset;
+  size_t shadow_offset; 
   __asan_get_shadow_mapping(&shadow_scale, &shadow_offset);
   return (uintptr_t)(shadow_offset + (1ULL << (LJ_ALLOC_MBITS - shadow_scale)));
 }
@@ -339,7 +339,7 @@ static void *mmap_probe(size_t size)
   int retry;
 #if LUAJIT_USE_ASAN
   size_t mem_size = size;
-  size = align_up_size(size + TOTAL_REDZONE_SIZE, DEFAULT_GRANULARITY);
+  size = align_up_size(size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
 #endif
   for (retry = 0; retry < LJ_ALLOC_MMAP_PROBE_MAX; retry++) {
     void *p = mmap((void *)hint_addr, size, MMAP_PROT, MMAP_FLAGS_PROBE, -1, 0);
@@ -414,12 +414,9 @@ static void *mmap_map32(size_t size)
     int olderr = errno;
 #if LUAJIT_USE_ASAN
     size_t mem_size = size;
-    size = align_up_size(size + TOTAL_REDZONE_SIZE, SIZE_ALIGNMENT);
-    void *ptr = mmap((void *)asan_lower_address(), size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
-#else
-    void *ptr = mmap((void *)LJ_ALLOC_MMAP32_START, size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
+    size = align_up_size(size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
 #endif
-
+    void *ptr = mmap((void *)LJ_ALLOC_MMAP32_START, size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
 #if LUAJIT_USE_ASAN
     if (ptr != MFAIL)
       ptr = mark_memory_region(ptr, mem_size, size);
@@ -450,11 +447,13 @@ static void *CALL_MMAP(size_t size)
   int olderr = errno;
 #if LUAJIT_USE_ASAN
   size_t mem_size = size;
-  size = align_up_size(size + TOTAL_REDZONE_SIZE, DEFAULT_GRANULARITY);
+  size = align_up_size(size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
+#endif
+#if LUAJIT_USE_ASAN
   void *ptr = mmap((void *)asan_lower_address(), size, MMAP_PROT, MMAP_FLAGS, -1, 0);
 #else
   void *ptr = mmap(NULL, size, MMAP_PROT, MMAP_FLAGS, -1, 0);
-#endif 
+#endif
   errno = olderr;
 #if LUAJIT_USE_ASAN
   ptr = mark_memory_region(ptr, mem_size, size);

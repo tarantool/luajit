@@ -298,7 +298,9 @@ if(LUAJIT_USE_ASAN)
     )
   endif()
   # Limit only GC64, since there are no Tarantool with non-GC64 LuaJIT
-  AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_GC64)
+  if (NOT LUAJIT_ENABLE_GC64)
+    AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_GC64)
+  endif()
   # Use all recommendations described in AddressSanitize docs:
   # https://clang.llvm.org/docs/AddressSanitizer.html.
   AppendFlags(CMAKE_C_FLAGS
