@@ -289,17 +289,10 @@ endif()
 # ASan enabled.
 option(LUAJIT_USE_ASAN "Build LuaJIT with AddressSanitizer" OFF)
 if(LUAJIT_USE_ASAN)
-  if(NOT LUAJIT_USE_SYSMALLOC)
-    message(WARNING
-      "Unfortunately, internal LuaJIT memory allocator is not instrumented yet,"
-      " so to find any memory errors it's better to build LuaJIT with system"
-      " provided memory allocator (i.e. run CMake configuration phase with"
-      " -DLUAJIT_USE_SYSMALLOC=ON)."
+  if(NOT LUAJIT_ENABLE_GC64)
+    message(FATAL_ERROR
+      "ASAN only with GC64"
     )
-  endif()
-  # Limit only GC64, since there are no Tarantool with non-GC64 LuaJIT
-  if (NOT LUAJIT_ENABLE_GC64)
-    AppendFlags(TARGET_C_FLAGS -DLUAJIT_ENABLE_GC64)
   endif()
   # Use all recommendations described in AddressSanitize docs:
   # https://clang.llvm.org/docs/AddressSanitizer.html.

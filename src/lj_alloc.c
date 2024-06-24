@@ -278,10 +278,14 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 
 static inline uintptr_t asan_lower_address()
 {
+#if LJ_GC64
   size_t shadow_scale;
   size_t shadow_offset; 
   __asan_get_shadow_mapping(&shadow_scale, &shadow_offset);
   return (uintptr_t)(shadow_offset + (1ULL << (LJ_ALLOC_MBITS - shadow_scale)));
+#else
+  return 0x40000000;
+#endif
 }
 
 /* Casting to the nearest multiple of alignment from above */
