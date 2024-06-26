@@ -1000,7 +1000,13 @@ static int has_segment_link(mstate m, msegmentptr ss)
 
 static void *direct_alloc(size_t nb)
 {
+#if LUAJIT_USE_ASAN
+  nb += TOTAL_REDZONE_SIZE;
+#endif
   size_t mmsize = mmap_align(nb + SIX_SIZE_T_SIZES + CHUNK_ALIGN_MASK);
+#if LUAJIT_USE_ASAN
+  mmsize -= TOTAL_REDZONE_SIZE;
+#endif
   if (LJ_LIKELY(mmsize > nb)) {     /* Check for wrap around 0 */
     char *mm = (char *)(DIRECT_MMAP(mmsize));
     if (mm != CMFAIL) {
@@ -1180,7 +1186,13 @@ static void *alloc_sys(mstate m, size_t nb)
 
   {
     size_t req = nb + TOP_FOOT_SIZE + SIZE_T_ONE;
+#if LUAJIT_USE_ASAN
+    req += TOTAL_REDZONE_SIZE;
+#endif
     size_t rsize = granularity_align(req);
+#if LUAJIT_USE_ASAN
+    rsize -= TOTAL_REDZONE_SIZE;
+#endif
     if (LJ_LIKELY(rsize > nb)) { /* Fail if wraps around zero */
       char *mp = (char *)(CALL_MMAP(rsize));
       if (mp != CMFAIL) {
@@ -1463,6 +1475,8 @@ void lj_alloc_destroy(void *msp)
 static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 {
 #if LUAJIT_USE_ASAN
+  if (nsize == 0)
+    nsize = MIN_CHUNK_SIZE;
   size_t mem_size = nsize;
   size_t poison_size = align_up_size(nsize, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
   nsize = poison_size;
