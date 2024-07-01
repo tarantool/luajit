@@ -18,6 +18,7 @@ CMakeFiles
 CTestTestfile.cmake
 Makefile
 Testing
+build
 build.ninja
 cmake_install.cmake
 cmake_uninstall.cmake
