@@ -52,10 +52,9 @@ void LJ_FASTCALL lj_buf_shrink(lua_State *L, SBuf *sb)
   char *b = sbufB(sb);
   MSize osz = (MSize)(sbufE(sb) - b);
   if (osz > 2*LJ_MIN_SBUF) {
-    MSize n = (MSize)(sbufP(sb) - b);
     b = lj_mem_realloc(L, b, osz, (osz >> 1));
     setmref(sb->b, b);
-    setmref(sb->p, b + n);
+    setmref(sb->p, b);  /* Not supposed to keep data across shrinks. */
     setmref(sb->e, b + (osz >> 1));
   }
 }
