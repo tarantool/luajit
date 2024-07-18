@@ -289,6 +289,25 @@ endif()
 # ASan enabled.
 option(LUAJIT_USE_ASAN "Build LuaJIT with AddressSanitizer" OFF)
 if(LUAJIT_USE_ASAN)
+  # if(NOT LUAJIT_ENABLE_GC64)
+  #   message(FATAL_ERROR
+  #     "ASAN only with GC64"
+  #   )
+  # endif()
+  # Use all recommendations described in AddressSanitize docs:
+  # https://clang.llvm.org/docs/AddressSanitizer.html.
+  AppendFlags(CMAKE_C_FLAGS
+    # Enable hints for AddressSanitizer (see src/lj_str.c).
+    -DLUAJIT_USE_ASAN
+    # XXX: To get nicer stack traces in error messages.
+    -fno-omit-frame-pointer
+    # Enable AddressSanitizer support.
+    -fsanitize=address
+  )
+endif()
+
+option(LUAJIT_USE_ASAN_HARDENING "Build LuaJIT with AddressSanitizer (TEST)" OFF)
+if(LUAJIT_USE_ASAN_HARDENING)
   if(NOT LUAJIT_ENABLE_GC64)
     message(FATAL_ERROR
       "ASAN only with GC64"
@@ -298,6 +317,7 @@ if(LUAJIT_USE_ASAN)
   # https://clang.llvm.org/docs/AddressSanitizer.html.
   AppendFlags(CMAKE_C_FLAGS
     # Enable hints for AddressSanitizer (see src/lj_str.c).
+    -DLUAJIT_USE_ASAN_HARDENING
     -DLUAJIT_USE_ASAN
     # XXX: To get nicer stack traces in error messages.
     -fno-omit-frame-pointer

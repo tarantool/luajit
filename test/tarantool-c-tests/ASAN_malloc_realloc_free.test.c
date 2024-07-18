@@ -4,7 +4,7 @@
 #include "lj_alloc.c"
 #include "lj_gc.h"
 
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
 #include <sanitizer/asan_interface.h>
 
 #define IS_POISONED(ptr) __asan_address_is_poisoned(ptr)
@@ -25,7 +25,7 @@ static global_State *main_GS = NULL;
 
 static int small_malloc_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
@@ -46,7 +46,7 @@ static int small_malloc_test(void *test_state)
 
 static int large_malloc_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
@@ -67,7 +67,7 @@ static int large_malloc_test(void *test_state)
 
 static int free_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
@@ -86,7 +86,7 @@ static int free_test(void *test_state)
 
 static int realloc_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else

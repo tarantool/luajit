@@ -233,7 +233,7 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 #include <fcntl.h>
 #include <unistd.h>
 
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
 
 /*
 ** The work of asan (AddressSanitizer) is to detect memory errors during program execution.
@@ -341,14 +341,14 @@ static void *mmap_probe(size_t size)
   static uintptr_t hint_prng = 0;
   int olderr = errno;
   int retry;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   size_t mem_size = size;
   size = align_up_size(size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
 #endif
   for (retry = 0; retry < LJ_ALLOC_MMAP_PROBE_MAX; retry++) {
     void *p = mmap((void *)hint_addr, size, MMAP_PROT, MMAP_FLAGS_PROBE, -1, 0);
     uintptr_t addr = (uintptr_t)p;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     if ((addr >> LJ_ALLOC_MBITS) == 0 && addr >= asan_lower_address() &&
 	((addr + size) >> LJ_ALLOC_MBITS) == 0) {
 #else
@@ -358,7 +358,7 @@ static void *mmap_probe(size_t size)
       /* We got a suitable address. Bump the hint address. */
       hint_addr = addr + size;
       errno = olderr;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
       p = mark_memory_region(p, mem_size, size);
 #endif
       return p;
@@ -416,12 +416,12 @@ static void *mmap_map32(size_t size)
 #endif
   {
     int olderr = errno;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     size_t mem_size = size;
     size = align_up_size(size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
 #endif
     void *ptr = mmap((void *)LJ_ALLOC_MMAP32_START, size, MMAP_PROT, MAP_32BIT|MMAP_FLAGS, -1, 0);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     if (ptr != MFAIL)
       ptr = mark_memory_region(ptr, mem_size, size);
 
@@ -449,17 +449,17 @@ static void *mmap_map32(size_t size)
 static void *CALL_MMAP(size_t size)
 {
   int olderr = errno;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   size_t mem_size = size;
   size = align_up_size(size, SIZE_ALIGNMENT) + TOTAL_REDZONE_SIZE;
 #endif
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   void *ptr = mmap((void *)asan_lower_address(), size, MMAP_PROT, MMAP_FLAGS, -1, 0);
 #else
   void *ptr = mmap(NULL, size, MMAP_PROT, MMAP_FLAGS, -1, 0);
 #endif
   errno = olderr;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   ptr = mark_memory_region(ptr, mem_size, size);
 #endif
   return ptr;
@@ -483,13 +483,13 @@ static void init_mmap(void)
 static int CALL_MUNMAP(void *ptr, size_t size)
 {
   int olderr = errno;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   memmove(ptr, ptr, size); /* check that memory is not poisoned */
   size = asan_get_size(ptr, POISON_SIZE);
   ptr -= REDZONE_SIZE;
 #endif
   int ret = munmap(ptr, size);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   if (ret == 0) {
     ASAN_POISON_MEMORY_REGION(ptr, size);
   }
@@ -503,7 +503,7 @@ static int CALL_MUNMAP(void *ptr, size_t size)
 static void *CALL_MREMAP_(void *ptr, size_t osz, size_t nsz, int flags)
 {
   int olderr = errno;
-#if LUAJIT_USE_ASAN && !(LJ_64 && (!LJ_GC64 || LJ_TARGET_ARM64))
+#if LUAJIT_USE_ASAN_HARDENING && !(LJ_64 && (!LJ_GC64 || LJ_TARGET_ARM64))
   void *new_ptr = mmap_probe(nsz);
   if (new_ptr != MFAIL) {
     size_t oms = asan_get_size(ptr, MEM_SIZE);
@@ -513,7 +513,7 @@ static void *CALL_MREMAP_(void *ptr, size_t osz, size_t nsz, int flags)
   }
 #else
 
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   void *old_ptr = ptr;
   size_t nms = nsz; /* new memory size */
   osz = asan_get_size(old_ptr, POISON_SIZE);
@@ -521,7 +521,7 @@ static void *CALL_MREMAP_(void *ptr, size_t osz, size_t nsz, int flags)
   ptr -= REDZONE_SIZE;
 #endif
   ptr = mremap(ptr, osz, nsz, flags);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   if (ptr != MFAIL) { 
     /* can return a pointer to the same memory */
     ASAN_POISON_MEMORY_REGION(old_ptr - REDZONE_SIZE, osz);
@@ -589,7 +589,7 @@ typedef unsigned int flag_t;           /* The type of various bit flag sets */
 #define MIN_CHUNK_SIZE\
   ((MCHUNK_SIZE + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK)
 
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
 /* conversion from malloc headers to user pointers, and back */
 #define chunk2mem(p)		((void *)((char *)(p) + TWO_SIZE_T_SIZES + REDZONE_SIZE))
 #define mem2chunk(mem)		((mchunkptr)((char *)(mem) - TWO_SIZE_T_SIZES - REDZONE_SIZE))
@@ -1000,11 +1000,11 @@ static int has_segment_link(mstate m, msegmentptr ss)
 
 static void *direct_alloc(size_t nb)
 {
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   nb += TOTAL_REDZONE_SIZE;
 #endif
   size_t mmsize = mmap_align(nb + SIX_SIZE_T_SIZES + CHUNK_ALIGN_MASK);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   mmsize -= TOTAL_REDZONE_SIZE;
 #endif
   if (LJ_LIKELY(mmsize > nb)) {     /* Check for wrap around 0 */
@@ -1057,7 +1057,7 @@ static void init_top(mstate m, mchunkptr p, size_t psize)
 {
   /* Ensure alignment */
   void *t = chunk2mem(p);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   t -= REDZONE_SIZE;
 #endif
   size_t offset = align_offset(t);
@@ -1123,7 +1123,7 @@ static void add_segment(mstate m, char *tbase, size_t tsize)
   /* Determine locations and sizes of segment, fenceposts, old top */
   char *old_top = (char *)m->top;
   msegmentptr oldsp = segment_holding(m, old_top);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   ASAN_UNPOISON_MEMORY_REGION(oldsp, sizeof(struct malloc_segment));
 #endif
   char *old_end = oldsp->base + oldsp->size;
@@ -1134,7 +1134,7 @@ static void add_segment(mstate m, char *tbase, size_t tsize)
   char *csp = (asp < (old_top + MIN_CHUNK_SIZE))? old_top : asp;
   mchunkptr sp = (mchunkptr)csp;
   msegmentptr ss = (msegmentptr)(chunk2mem(sp));
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   ss = (msegmentptr)((void *)ss - REDZONE_SIZE);
 #endif
   mchunkptr tnext = chunk_plus_offset(sp, ssize);
@@ -1186,11 +1186,11 @@ static void *alloc_sys(mstate m, size_t nb)
 
   {
     size_t req = nb + TOP_FOOT_SIZE + SIZE_T_ONE;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     req += TOTAL_REDZONE_SIZE;
 #endif
     size_t rsize = granularity_align(req);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     rsize -= TOTAL_REDZONE_SIZE;
 #endif
     if (LJ_LIKELY(rsize > nb)) { /* Fail if wraps around zero */
@@ -1424,7 +1424,7 @@ static void *tmalloc_small(mstate m, size_t nb)
 void *lj_alloc_create(void)
 {
   size_t tsize = DEFAULT_GRANULARITY;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   tsize -= TOTAL_REDZONE_SIZE;
 #endif
   char *tbase;
@@ -1433,7 +1433,7 @@ void *lj_alloc_create(void)
   if (tbase != CMFAIL) {
     size_t msize = pad_request(sizeof(struct malloc_state));
     mchunkptr mn;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     mchunkptr msp = (mchunkptr)(tbase + align_offset(chunk2mem(tbase) - REDZONE_SIZE));
     mstate m = (mstate)(chunk2mem(msp) - REDZONE_SIZE);
 #else
@@ -1446,7 +1446,7 @@ void *lj_alloc_create(void)
     m->seg.size = tsize;
     m->release_checks = MAX_RELEASE_CHECK_RATE;
     init_bins(m);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     mn = next_chunk((mchunkptr)((char *)(m) - TWO_SIZE_T_SIZES));
 #else
     mn = next_chunk(mem2chunk(m));
@@ -1465,7 +1465,7 @@ void lj_alloc_destroy(void *msp)
     char *base = sp->base;
     size_t size = sp->size;
     sp = sp->next;
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     ASAN_UNPOISON_MEMORY_REGION(base, size);
 #endif
     CALL_MUNMAP(base, size);
@@ -1474,7 +1474,7 @@ void lj_alloc_destroy(void *msp)
 
 static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 {
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   if (nsize == 0)
     nsize = MIN_CHUNK_SIZE;
   size_t mem_size = nsize;
@@ -1499,7 +1499,7 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
       unlink_first_small_chunk(ms, b, p, idx);
       set_inuse_and_pinuse(ms, p, small_index2size(idx));
       mem = chunk2mem(p);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
       mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
 #endif
       return mem;
@@ -1523,12 +1523,12 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 	  replace_dv(ms, r, rsize);
 	}
 	mem = chunk2mem(p);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
 #endif
 	return mem;
       } else if (ms->treemap != 0 && (mem = tmalloc_small(ms, nb)) != 0) {
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
 #endif
 	return mem;
@@ -1539,7 +1539,7 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
   } else {
     nb = pad_request(nsize);
     if (ms->treemap != 0 && (mem = tmalloc_large(ms, nb)) != 0) {
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
       mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
 #endif
       return mem;
@@ -1561,7 +1561,7 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
       set_inuse_and_pinuse(ms, p, dvs);
     }
     mem = chunk2mem(p);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
 #endif
     return mem;
@@ -1572,12 +1572,12 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
     r->head = rsize | PINUSE_BIT;
     set_size_and_pinuse_of_inuse_chunk(ms, p, nb);
     mem = chunk2mem(p);
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
     mem = mark_memory_region(mem - REDZONE_SIZE, mem_size, poison_size);
 #endif
     return mem;
   }
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   return mark_memory_region(alloc_sys(ms, nb) - REDZONE_SIZE, mem_size, poison_size);
 #else
   return alloc_sys(ms, nb);
@@ -1586,7 +1586,7 @@ static LJ_NOINLINE void *lj_alloc_malloc(void *msp, size_t nsize)
 
 static LJ_NOINLINE void *lj_alloc_free(void *msp, void *ptr)
 {
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   if (ptr != 0) {    
     size_t mem_size = asan_get_size(ptr, MEM_SIZE);
     size_t poison_size = asan_get_size(ptr, POISON_SIZE);
@@ -1668,7 +1668,7 @@ static LJ_NOINLINE void *lj_alloc_free(void *msp, void *ptr)
 
 static LJ_NOINLINE void *lj_alloc_realloc(void *msp, void *ptr, size_t nsize)
 {
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
   if (nsize >= MAX_REQUEST)
     return NULL;
 

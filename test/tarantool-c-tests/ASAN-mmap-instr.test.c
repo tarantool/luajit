@@ -4,7 +4,7 @@
 #include "lj_alloc.c"
 #include "lj_gc.h"
 
-#if LUAJIT_USE_ASAN
+#if LUAJIT_USE_ASAN_HARDENING
 #include <sanitizer/asan_interface.h>
 
 #define MALLOC(size) mmap_probe(size)
@@ -28,7 +28,7 @@ static lua_State *main_LS = NULL;
 
 static int mmap_probe_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
@@ -55,7 +55,7 @@ static int mmap_probe_test(void *test_state)
 
 static int munmap_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else
@@ -78,7 +78,7 @@ static int munmap_test(void *test_state)
 
 static int mremap_test(void *test_state)
 {
-#if !LUAJIT_USE_ASAN || LUAJIT_USE_SYSMALLOC
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
     UNUSED(test_state);
     return skip("Requires build with ASAN");
 #else

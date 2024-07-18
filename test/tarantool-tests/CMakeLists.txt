@@ -121,7 +121,7 @@ add_test_suite_target(tarantool-tests
 file(GLOB_RECURSE tests ${CMAKE_CURRENT_SOURCE_DIR} "*${LUA_TEST_SUFFIX}")
 foreach(test_path ${tests})
   get_filename_component(test_name ${test_path} NAME)
-  if ((NOT LUAJIT_USE_ASAN OR LUAJIT_USE_SYSMALLOC) AND test_name MATCHES "^ASAN" OR test_name MATCHES "lj-1034-tabov-error-frame")
+  if ((NOT LUAJIT_USE_ASAN_HARDENING OR LUAJIT_USE_SYSMALLOC) AND test_name MATCHES "^ASAN" OR test_name MATCHES "lj-1034-tabov-error-frame")
     continue()
   endif()
   set(test_title "test/${TEST_SUITE_NAME}/${test_name}")
