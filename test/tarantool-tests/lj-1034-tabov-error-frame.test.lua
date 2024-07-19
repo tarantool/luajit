@@ -1,9 +1,11 @@
 local tap = require('tap')
 local ffi = require('ffi')
+local asan_hardening = os.getenv("LJ_ASAN_HARDENING")
 local test = tap.test('lj-1034-tabov-error-frame'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
   ['Test requires GC64 mode enabled'] = not ffi.abi('gc64'),
   ['Disabled on MacOS due to #8652'] = jit.os == 'OSX',
+  ['Test requires ASAN-HARDENING disabled'] = asan_hardening == 'ON',
 })
 
 -- XXX: The test for the problem uses the table of GC

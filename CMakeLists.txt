@@ -284,17 +284,34 @@ if(LUA_USE_ASSERT)
   AppendFlags(TARGET_C_FLAGS -DLUA_USE_ASSERT)
 endif()
 
+option(LUAJIT_USE_ASAN "Build LuaJIT with AddressSanitizer" OFF)
+# Same as LUAJIT_USE_ASAN, but using the internal LuaJIT memory
+# allocator instrumented with ASAN.
+option(LUAJIT_USE_ASAN_HARDENING "Build LuaJIT with an internal allocator with integrated AddressSanitizer" OFF)
+if(LUAJIT_USE_ASAN_HARDENING)
+  set(LUAJIT_USE_ASAN ON)
+  if(NOT LUAJIT_ENABLE_GC64)
+    message(FATAL_ERROR
+      "ASAN only with GC64."
+    )
+  endif()
+  AppendFlags(CMAKE_C_FLAGS
+    # Enable ASAN instrumentation of internal LuaJIT memory allocator
+    # see (src/lj_alloc.c)
+    -DLUAJIT_USE_ASAN_HARDENING
+  )
+endif()
+
 # Turn on AddressSanitizer support. As a result, all artefacts
 # (i.e. buildvm, LuaJIT, testing infrastructure) are built with
 # ASan enabled.
-option(LUAJIT_USE_ASAN "Build LuaJIT with AddressSanitizer" OFF)
 if(LUAJIT_USE_ASAN)
-  if(NOT LUAJIT_USE_SYSMALLOC)
+  if(NOT (LUAJIT_USE_SYSMALLOC OR LUAJIT_USE_ASAN_HARDENING))
     message(WARNING
-      "Unfortunately, internal LuaJIT memory allocator is not instrumented yet,"
-      " so to find any memory errors it's better to build LuaJIT with system"
-      " provided memory allocator (i.e. run CMake configuration phase with"
-      " -DLUAJIT_USE_SYSMALLOC=ON)."
+      "Run CMake configuration phase with -DLUAJIT_USE_SYSMALLOC=ON "
+      "to use system memory allocator or replace -DLUAJIT_USE_ASAN=ON "
+      "to -DLUAJIT_USE_ASAN_HARDENING=ON to use internal LuaJIT memory"
+      "allocator."
     )
   endif()
   # Use all recommendations described in AddressSanitize docs:

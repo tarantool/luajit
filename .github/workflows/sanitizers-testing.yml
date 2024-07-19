@@ -34,17 +34,23 @@ jobs:
         # XXX: Let's start with only Linux/x86_64
         BUILDTYPE: [Debug, Release]
         CC: [gcc-10, clang-11]
+        ALLOCATOR: [sysmalloc, dlmalloc]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          - ALLOCATOR: sysmalloc
+            ASANFLAGS: -DLUAJIT_USE_ASAN=ON -DLUAJIT_USE_SYSMALLOC=ON
+          - ALLOCATOR: dlmalloc
+            ASANFLAGS: -DLUAJIT_USE_ASAN_HARDENING=ON
     runs-on: [self-hosted, regular, Linux, x86_64]
     name: >
       LuaJIT with ASan and UBSan (Linux/x86_64)
       ${{ matrix.BUILDTYPE }}
       CC:${{ matrix.CC }}
-      GC64:ON SYSMALLOC:ON
+      GC64:ON
+      ALLOC=${{ matrix.ALLOCATOR }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,24 +61,18 @@ jobs:
         with:
           cc_name: ${{ matrix.CC }}
       - name: configure
-        # XXX: LuaJIT configuration requires a couple of tweaks:
-        # LUAJIT_USE_SYSMALLOC=ON: Unfortunately, internal LuaJIT
-        #   memory allocator is not instrumented yet, so to find
-        #   any memory errors it's better to build LuaJIT with
-        #   system provided memory allocator (i.e. run CMake
-        #   configuration phase with -DLUAJIT_USE_SYSMALLOC=ON).
-        #   For more info, see root CMakeLists.txt.
         # LUAJIT_ENABLE_GC64=ON: LUAJIT_USE_SYSMALLOC cannot be
         #   enabled on x64 without GC64, since realloc usually
         #   doesn't return addresses in the right address range.
+        #   Additionally, the ASAN instrumentation for LuaJIT's
+        #   internal memory allocator is only available for GC64.
         #   For more info, see root CMakeLists.txt.
         run: >
           cmake -S . -B ${{ env.BUILDDIR }}
           -G Ninja
           ${{ matrix.CMAKEFLAGS }}
           -DLUAJIT_ENABLE_GC64=ON
-          -DLUAJIT_USE_ASAN=ON
-          -DLUAJIT_USE_SYSMALLOC=ON
+          ${{ matrix.ASANFLAGS }}
           -DLUAJIT_USE_UBSAN=ON
       - name: build
         run: cmake --build . --parallel
