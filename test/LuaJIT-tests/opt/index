@@ -3,4 +3,5 @@ fold +fold
 fwd +fwd
 fuse.lua +fuse
 loop +loop
+mem +cse +dse +fold +fwd
 sink +sink
