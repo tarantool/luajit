@@ -1,18 +1,23 @@
-
-if not jit or not jit.status or not jit.status() then return end
-
-collectgarbage()
-for j=1,100 do
-  loadstring("for i=1,100 do end")()
-end
 local jutil = require("jit.util")
-assert(jutil.traceinfo(90) == nil)
-collectgarbage()
-assert(jutil.traceinfo(1) == nil)
-assert(jutil.traceinfo(2) == nil)
-assert(jutil.traceinfo(3) == nil)
 
-do
+do --- Collect dead traces.
+  jit.flush()
+  collectgarbage()
+  -- Prevent the creation of side traces.
+  jit.off()
+  for j=1,100 do
+    jit.on()
+    loadstring("for i=1,100 do end")()
+    jit.off()
+  end
+  jit.on()
+  collectgarbage()
+  assert(jutil.traceinfo(1) == nil)
+  assert(jutil.traceinfo(2) == nil)
+  assert(jutil.traceinfo(3) == nil)
+end
+
+do --- Check KGC marking.
   local f
   local function reccb(tr)
     if f == nil then
@@ -34,4 +39,3 @@ do
   end
   jit.attach(reccb)
 end
-
