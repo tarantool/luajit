@@ -6,6 +6,7 @@ catch_wrap.lua
 compare.lua
 compare_nan.lua
 constant
+dualnum.lua
 for.lua
 length.lua
 lightud.lua
