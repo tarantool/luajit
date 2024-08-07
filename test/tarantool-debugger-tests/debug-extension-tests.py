@@ -326,7 +326,7 @@ GCO_ARGS = (
     'coroutine.create(function() end),\n'
     'function() end,\n'
     'require,\n'
-    'print,\n'
+    'math.min,\n'
     'ffi.new("int*"),\n'
     '{1},\n'
     'newproxy(),\n'
@@ -338,7 +338,7 @@ GCO_RX = (
     r'thread @ ' + RX_ADDR + r'\n'
     r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
     r'C function @ ' + RX_ADDR + r'\n'
-    r'fast function #[0-9]+\n'
+    r'fast function math.min \(#[0-9]+\)\n'
     r'cdata @ ' + RX_ADDR + r' \[\d+\] <int \*> 0x0\n'
     r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
     r'userdata @ ' + RX_ADDR + r'\n'
@@ -367,6 +367,7 @@ class TestLJTV(TestCaseBase):
     # Sorted in LJT order.
     lua_script = (
         'local ffi = require("ffi")\n'
+        'local math = require("math")\n'
         'print(\n'
         '  nil,\n'
         '  false,\n'
@@ -435,6 +436,7 @@ class TestLJGCo(TestCaseBase):
 
     lua_script = (
         'local ffi = require("ffi")\n'
+        'local math = require("math")\n'
         'print(\n' +
         GCO_ARGS +
         '  1\n'  # Stub for the pattern.

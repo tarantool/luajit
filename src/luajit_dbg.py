@@ -1121,6 +1121,11 @@ def frames(L):
 # LuaJIT macro implementations and structure access.
 
 
+# Get FastFunc enum members and replace any single '_' with '.'.
+FF_NAMES = EnumBasedList('FastFunc', 'FF__MAX', lambda x:
+                         re.sub('(?<!_)_(?!_)', '.', cut_prefix(x, 'FF_')))
+
+
 def mref(typename, obj):
     return dbg.cast(typename, obj['ptr64'] if LJ_GC64 else obj['ptr32'])
 
@@ -1716,7 +1721,7 @@ def dump_lj_gco_proto(gcobj):
 
 def dump_lj_gco_func(gcobj):
     func = dbg.cast('struct GCfuncC *', gcobj)
-    ffid = func['ffid']
+    ffid = int(func['ffid'])
 
     if ffid == 0:
         pt = funcproto(func)
@@ -1729,7 +1734,8 @@ def dump_lj_gco_func(gcobj):
     elif ffid == 1:
         return 'C function @ {}'.format(strx64(func['f']))
     else:
-        return 'fast function #{}'.format(int(ffid))
+        ffname = FF_NAMES[ffid] if ffid < len(FF_NAMES) else "unknown"
+        return 'fast function {} (#{})'.format(ffname, ffid)
 
 
 def dump_lj_gco_trace(gcobj):
@@ -2079,7 +2085,7 @@ def dump_proto(proto):
 
 
 def dump_func(func):
-    ffid = func['ffid']
+    ffid = int(func['ffid'])
 
     if ffid == 0:
         pt = funcproto(func)
@@ -2087,7 +2093,8 @@ def dump_func(func):
     elif ffid == 1:
         return 'C function @ {}\n'.format(strx64(func['f']))
     else:
-        return 'fast function #{}\n'.format(int(ffid))
+        ffname = FF_NAMES[ffid] if ffid < len(FF_NAMES) else "unknown"
+        return 'fast function {} (#{})\n'.format(ffname, ffid)
 
 
 # FFI dumpers.
@@ -2713,7 +2720,7 @@ the type and some info related to it.
 * LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
   <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
   <CFUNC>: C function <mcode address>
-  <FFUNC>: fast function #<ffid>
+  <FFUNC>: fast function <ffname> (#<ffid>)
 * LJ_TTRACE: trace <traceno> @ <gcr>
 * LJ_TCDATA: cdata @ <gcr>
 * LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
@@ -2932,7 +2939,7 @@ the type and some info related to it.
 * LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
   <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
   <CFUNC>: C function <mcode address>
-  <FFUNC>: fast function #<ffid>
+  <FFUNC>: fast function <ffname> (#<ffid>)
 * LJ_TTRACE: trace <traceno> @ <gcr>
 * LJ_TCDATA: cdata @ <gcr>
 * LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
