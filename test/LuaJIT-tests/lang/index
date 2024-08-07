@@ -17,6 +17,7 @@ modulo.lua
 concat.lua
 self.lua
 table.lua
+parse_comp.lua
 upvalue
 tail_recursion.lua
 vararg_jit.lua
