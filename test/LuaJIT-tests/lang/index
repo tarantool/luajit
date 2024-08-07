@@ -10,6 +10,7 @@ dualnum.lua
 for.lua
 hook_active.lua
 hook_line.lua
+hook_top.lua
 length.lua
 lightud.lua
 modulo.lua
