@@ -545,6 +545,8 @@ class _LLDBDebugger(Debugger):
         lldb.value.__ror__ = lldb__or__  # Same semantics.
         lldb.value.__str__ = lldb__str__
         lldb.value.__sub__ = lldb__sub__
+        lldb.value.cast = lldb.value.Cast
+        lldb.value.type = lldb.value.Type
 
         def lldb_major_version():
             version_string = lldb.SBDebugger.GetVersionString()
@@ -2065,7 +2067,8 @@ def dump_lj_gco_func(gcobj):
     elif ffid == 1:
         return 'C function @ {}'.format(strx64(func['f']))
     else:
-        return 'fast function #{}'.format(int(ffid))
+        enum_type = dbg.eval('FF__MAX').type
+        return 'fast function #{}({})'.format(int(ffid), ffid.cast(enum_type))
 
 
 def dump_lj_gco_trace(gcobj):
@@ -2423,7 +2426,8 @@ def dump_func(func):
     elif ffid == 1:
         return 'C function @ {}\n'.format(strx64(func['f']))
     else:
-        return 'fast function #{}\n'.format(int(ffid))
+        enum_type = dbg.eval('FF__MAX').type
+        return 'fast function #{}({})\n'.format(int(ffid), ffid.cast(enum_type))
 
 
 # FFI dumpers.
@@ -3049,7 +3053,7 @@ the type and some info related to it.
 * LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
   <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
   <CFUNC>: C function <mcode address>
-  <FFUNC>: fast function #<ffid>
+  <FFUNC>: fast function #<ffid>(<ffname>)
 * LJ_TTRACE: trace <traceno> @ <gcr>
 * LJ_TCDATA: cdata @ <gcr>
 * LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
@@ -3268,7 +3272,7 @@ the type and some info related to it.
 * LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
   <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
   <CFUNC>: C function <mcode address>
-  <FFUNC>: fast function #<ffid>
+  <FFUNC>: fast function #<ffid>(<ffname>)
 * LJ_TTRACE: trace <traceno> @ <gcr>
 * LJ_TCDATA: cdata @ <gcr>
 * LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
