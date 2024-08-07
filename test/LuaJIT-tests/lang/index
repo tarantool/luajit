@@ -19,6 +19,7 @@ self.lua
 table.lua
 parse_comp.lua
 parse_esc.lua
+parse_misc.lua
 upvalue
 tail_recursion.lua
 vararg_jit.lua
