@@ -4,6 +4,7 @@
 import re
 import gdb
 import sys
+import itertools
 
 # make script compatible with the ancient Python {{{
 
@@ -14,6 +15,7 @@ if LEGACY:
     CONNECTED = False
     int = long
     range = xrange
+    filter = itertools.ifilter
 
 
 # }}}
@@ -72,6 +74,20 @@ def i2notu32(val):
 def strx64(val):
     return re.sub('L?$', '',
                   hex(int(cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF)))
+
+
+def find(predicate, iterable, default=None):
+    return next(filter(predicate, iterable), default)
+
+
+def enumval_name(type, val, default):
+    assert type.code == gdb.TYPE_CODE_ENUM, "enumval_name expects enum type \
+        but type of code {} was given".format(type.code)
+    enumval_attr = 'enumval'
+    if not hasattr(type.fields()[0], 'enumval'):
+        enumval_attr = 'bitpos'
+    field = find(lambda x: getattr(x, enumval_attr) == val, type.fields())
+    return default if field is None else field.name
 
 
 # Types {{{
@@ -426,7 +442,7 @@ def dump_lj_tproto(tv):
 
 def dump_lj_tfunc(tv):
     func = cast('struct GCfuncC *', gcval(tv['gcr']))
-    ffid = func['ffid']
+    ffid = int(func['ffid'])
 
     if ffid == 0:
         pt = funcproto(func)
@@ -439,7 +455,9 @@ def dump_lj_tfunc(tv):
     elif ffid == 1:
         return 'C function @ {}'.format(strx64(func['f']))
     else:
-        return 'fast function #{}'.format(int(ffid))
+        ffid_enum = gdb.parse_and_eval('FF__MAX').type
+        ffid_name = enumval_name(ffid_enum, ffid, 'UNKNOWN')
+        return 'fast function #{}({})'.format(ffid, ffid_name)
 
 
 def dump_lj_ttrace(tv):
