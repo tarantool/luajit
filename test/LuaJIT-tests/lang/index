@@ -8,6 +8,7 @@ compare_nan.lua
 constant
 dualnum.lua
 for.lua
+hook_active.lua
 length.lua
 lightud.lua
 modulo.lua
