@@ -338,7 +338,7 @@ GCO_RX = (
     r'thread @ ' + RX_ADDR + r'\n'
     r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
     r'C function @ ' + RX_ADDR + r'\n'
-    r'fast function #[0-9]+\n'
+    r'fast function #[0-9]+\(\w+\)\n'
     r'cdata @ ' + RX_ADDR + r' \[\d+\] <int \*> 0x0\n'
     r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
     r'userdata @ ' + RX_ADDR + r'\n'

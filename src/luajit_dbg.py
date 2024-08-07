@@ -1682,7 +1682,10 @@ def ir_kint64(ir):
 
 # Dumpers.
 
+FF_NAMES = EnumBasedList('FastFunc', 'FF__MAX', cut_prefix, 'FF_')
+
 # GCobj dumpers.
+
 
 def dump_lj_gco_str(gcobj):
     return 'string {body} @ {address}'.format(
@@ -1705,7 +1708,7 @@ def dump_lj_gco_proto(gcobj):
 
 def dump_lj_gco_func(gcobj):
     func = dbg.cast('struct GCfuncC *', gcobj)
-    ffid = func['ffid']
+    ffid = int(func['ffid'])
 
     if ffid == 0:
         pt = funcproto(func)
@@ -1718,7 +1721,8 @@ def dump_lj_gco_func(gcobj):
     elif ffid == 1:
         return 'C function @ {}'.format(strx64(func['f']))
     else:
-        return 'fast function #{}'.format(int(ffid))
+        ffname = FF_NAMES[ffid] if ffid < len(FF_NAMES) else "unknown"
+        return 'fast function #{}({})'.format(ffid, ffname)
 
 
 def dump_lj_gco_trace(gcobj):
@@ -2068,7 +2072,7 @@ def dump_proto(proto):
 
 
 def dump_func(func):
-    ffid = func['ffid']
+    ffid = int(func['ffid'])
 
     if ffid == 0:
         pt = funcproto(func)
@@ -2076,7 +2080,8 @@ def dump_func(func):
     elif ffid == 1:
         return 'C function @ {}\n'.format(strx64(func['f']))
     else:
-        return 'fast function #{}\n'.format(int(ffid))
+        ffname = FF_NAMES[ffid] if ffid < len(FF_NAMES) else "unknown"
+        return 'fast function #{}({})\n'.format(ffid, ffname)
 
 
 # FFI dumpers.
@@ -2702,7 +2707,7 @@ the type and some info related to it.
 * LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
   <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
   <CFUNC>: C function <mcode address>
-  <FFUNC>: fast function #<ffid>
+  <FFUNC>: fast function #<ffid>(<ffname>)
 * LJ_TTRACE: trace <traceno> @ <gcr>
 * LJ_TCDATA: cdata @ <gcr>
 * LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
@@ -2921,7 +2926,7 @@ the type and some info related to it.
 * LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
   <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
   <CFUNC>: C function <mcode address>
-  <FFUNC>: fast function #<ffid>
+  <FFUNC>: fast function #<ffid>(<ffname>)
 * LJ_TTRACE: trace <traceno> @ <gcr>
 * LJ_TCDATA: cdata @ <gcr>
 * LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
