@@ -9,6 +9,7 @@ constant
 dualnum.lua
 for.lua
 hook_active.lua
+hook_line.lua
 length.lua
 lightud.lua
 modulo.lua
