@@ -92,6 +92,9 @@ if LLDB:
     SET_EXEC = 'target create ' + LUAJIT_BINARY
     SET_RUN_ARGS = 'settings set target.run-args'
 
+    def modify_obj_cmd(obj, val):
+        return 'expression {} = {}'.format(obj, val)
+
     def execute_process(cmd, timeout=TIMEOUT):
         # While executing extension commands LLDB might produce
         # errors that cannot be caught in extension. The internal
@@ -127,6 +130,9 @@ else:
     SET_EXEC = 'file ' + LUAJIT_BINARY
     SET_RUN_ARGS = 'set args'
     execute_process = execute_process_raw
+
+    def modify_obj_cmd(obj, val):
+        return 'set var {} = {}'.format(obj, val)
 
 IS_DUALNUM = execute_process([
     LUAJIT_BINARY, '-e', "print(require('ffi').abi('dualnum'))"
@@ -361,13 +367,31 @@ class TestLJStackFunc(TestCaseBase):
     pattern = STACK_RX
 
 
+FFUNC_ARGS = (
+    'print,\n'
+    'math.min,\n'
+    'getmetatable(io.stdout).close,\n'
+    'getmetatable(io.stdout).__gc,\n'
+    'getmetatable(io.stdout).__tostring,\n'
+)
+
+
+FFUNC_RX = (
+    r'fast function print \(#[0-9]+\)\n'
+    r'fast function math.min \(#[0-9]+\)\n'
+    r'fast function io.method.close \(#[0-9]+\)\n'
+    r'fast function io.method.__gc \(#[0-9]+\)\n'
+    r'fast function io.method.__tostring \(#[0-9]+\)\n'
+)
+
+
 # Sorted in LJT order.
 GCO_ARGS = (
     '"hello",\n'
     'coroutine.create(function() end),\n'
     'function() end,\n'
-    'require,\n'
-    'print,\n'
+    'require,\n' +
+    FFUNC_ARGS +
     'ffi.new("int*"),\n'
     '{1},\n'
     'newproxy(),\n'
@@ -378,8 +402,8 @@ GCO_RX = (
     r'string \"hello\" @ ' + RX_ADDR + r'\n'
     r'thread @ ' + RX_ADDR + r'\n'
     r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
-    r'C function @ ' + RX_ADDR + r'\n'
-    r'fast function #[0-9]+\n'
+    r'C function @ ' + RX_ADDR + r'\n' +
+    FFUNC_RX +
     r'cdata @ ' + RX_ADDR + r' \[\d+\] <int \*> 0x0\n'
     r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
     r'userdata @ ' + RX_ADDR + r'\n'
@@ -388,21 +412,9 @@ GCO_RX = (
 
 class TestLJTV(TestCaseBase):
     location = 'lj_cf_print'
-    extension_cmds = (
-        'lj-tv L->base\n'
-        'lj-tv L->base + 1\n'
-        'lj-tv L->base + 2\n'
-        'lj-tv L->base + 3\n'
-        'lj-tv L->base + 4\n'
-        'lj-tv L->base + 5\n'
-        'lj-tv L->base + 6\n'
-        'lj-tv L->base + 7\n'
-        'lj-tv L->base + 8\n'
-        'lj-tv L->base + 9\n'
-        'lj-tv L->base + 10\n'
-        'lj-tv L->base + 11\n'
-        'lj-tv L->base + 12\n'
-        'lj-tv L->base + 13\n'
+    extension_cmds = ''.join(
+        ('lj-tv L->base+{}\n'.format(i)
+         for i in range(4 + GCO_ARGS.count('\n') + 2))
     )
 
     # Sorted in LJT order.
@@ -463,15 +475,9 @@ class TestLJTab(TestCaseBase):
 
 class TestLJGCo(TestCaseBase):
     location = 'lj_cf_print'
-    extension_cmds = (
-        'lj-gco ' + gcval('L->base + 0') + '\n'
-        'lj-gco ' + gcval('L->base + 1') + '\n'
-        'lj-gco ' + gcval('L->base + 2') + '\n'
-        'lj-gco ' + gcval('L->base + 3') + '\n'
-        'lj-gco ' + gcval('L->base + 4') + '\n'
-        'lj-gco ' + gcval('L->base + 5') + '\n'
-        'lj-gco ' + gcval('L->base + 6') + '\n'
-        'lj-gco ' + gcval('L->base + 7') + '\n'
+    extension_cmds = ''.join(
+        ('lj-gco ' + gcval('L->base + {}'.format(i)) + '\n'
+         for i in range(GCO_ARGS.count('\n')))
     )
 
     lua_script = (
@@ -483,6 +489,65 @@ class TestLJGCo(TestCaseBase):
     )
 
     pattern = GCO_RX
+
+
+class TestLJGCoFFUnknown(TestCaseBase):
+    location = 'lj_cf_print'
+
+    val = '((GCfuncC *)' + gcval('L->base') + ')'
+    extension_cmds = (
+        'lj-gco ' + val + '\n' +
+        modify_obj_cmd(val + '->ffid', 242) + '\n'
+        'lj-gco ' + val + '\n' +
+        modify_obj_cmd(val + '->ffid', 253) + '\n'
+        'lj-gco ' + val + '\n'
+    )
+
+    lua_script = 'print(pcall)'
+
+    pattern = (
+        r'fast function pcall \(#[0-9]+\)\n'
+        r'fast function unknown \(#242\)\n'
+        r'fast function unknown \(#253\)\n'
+    )
+
+
+class TestLJFuncFFKnown(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = ''.join(
+        ('lj-func ' + gcval('L->base + {}'.format(i)) + '\n'
+         for i in range(FFUNC_ARGS.count('\n')))
+    )
+
+    lua_script = (
+        'print(\n' +
+        FFUNC_ARGS +
+        '  1\n'  # Stub for the pattern.
+        ')\n'
+    )
+
+    pattern = FFUNC_RX
+
+
+class TestLJFuncFFUnknown(TestCaseBase):
+    location = 'lj_cf_print'
+
+    val = '((GCfuncC *)' + gcval('L->base') + ')'
+    extension_cmds = (
+        'lj-func ' + val + '\n' +
+        modify_obj_cmd(val + '->ffid', 242) + '\n'
+        'lj-func ' + val + '\n' +
+        modify_obj_cmd(val + '->ffid', 253) + '\n'
+        'lj-func ' + val + '\n'
+    )
+
+    lua_script = 'print(pcall)'
+
+    pattern = (
+        r'fast function pcall \(#[0-9]+\)\n'
+        r'fast function unknown \(#242\)\n'
+        r'fast function unknown \(#253\)\n'
+    )
 
 
 PROTO_FUNC_SCRIPT = (
