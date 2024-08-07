@@ -4,6 +4,7 @@ exit_jfuncf.lua
 gc.lua
 gc64_slot_revival.lua
 hook_norecord.lua
+hook_record.lua
 phi
 snap.lua
 stitch.lua
