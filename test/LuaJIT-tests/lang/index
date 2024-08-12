@@ -32,3 +32,4 @@ gc_stack.lua
 gc_step.lua
 goto.lua +goto
 meta
+wbarrier.lua
