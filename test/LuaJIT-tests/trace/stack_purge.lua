@@ -1,4 +1,3 @@
-
 -- Must preserve the modified function slot in the RET snapshot.
 local function a()
   local _,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_
@@ -20,6 +19,7 @@ local function c()
   end
 end
 
-jit.off(c)
-c()
-
+do --- Don't purge the function to return from SNAP.
+  jit.off(c)
+  c()
+end

@@ -8,4 +8,5 @@ hook_record.lua
 jit_flush.lua
 phi
 snap.lua
+stack_purge.lua
 stitch.lua
