@@ -6,6 +6,7 @@ catch_wrap.lua
 compare.lua
 compare_nan.lua
 constant
+deep_recursion.lua
 dualnum.lua
 for.lua
 hook_active.lua
