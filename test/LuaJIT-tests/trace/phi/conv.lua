@@ -1,17 +1,4 @@
-
 local bit = require("bit")
-
-local Rm = {}
-for i=0,16 do Rm[i] = 0 end
-
-for k=1,10 do
-  local seed = 1
-  for i=16,0,-1 do
-    seed = bit.band(seed*9069, 0x7fffffff)
-    Rm[i] = seed
-  end
-  assert(seed == 1952688301)
-end
 
 local retindex = 0
 local retdata = { 3, 1, 1, 1, 0, 3, 1, 0, 0, 2, 0, 2, 0, 0, 3, 1, 1, 1, 1 }
@@ -47,7 +34,23 @@ local function test()
   end
 end
 
-if jit and jit.status and jit.status() then jit.opt.start("hotloop=1") end
+do --- PHI for CONV num.int before ASTORE.
+  local Rm = {}
+  for i=0,16 do Rm[i] = 0 end
 
-test()
+  for k=1,10 do
+    local seed = 1
+    for i=16,0,-1 do
+      seed = bit.band(seed*9069, 0x7fffffff)
+      Rm[i] = seed
+    end
+    assert(seed == 1952688301)
+  end
+end
+
+do --- PHI for CONV num.int of lookup.
+  jit.opt.start("hotloop=1")
+  test()
+  jit.opt.start("hotloop=56")
+end
 
