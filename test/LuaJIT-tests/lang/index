@@ -26,6 +26,7 @@ tail_recursion.lua
 vararg_jit.lua
 gc.lua
 gc_debug.lua
+gc_stack.lua
 gc_step.lua
 goto.lua +goto
 meta
