@@ -1,5 +1,4 @@
-
-do
+do --- Marking sparse stack.
   local t = setmetatable({}, { __index=function(t, k)
     k = k - 1
     if k == 0 then
@@ -12,4 +11,3 @@ do
   end})
   local x = t[50]
 end
-
