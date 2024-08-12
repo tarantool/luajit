@@ -13,3 +13,4 @@ stitch.lua
 tcall_base.lua
 tcall_loop.lua
 unordered_jit.lua
+wbarrier.lua
