@@ -1,4 +1,3 @@
-
 local r = 0
 local function g()
   r = r + 1
@@ -14,7 +13,8 @@ local function f()
   end
 end
 
-g() -- Compile this loop first.
-for i=1,50 do f() end
-assert(r == 51)
-
+do --- Recording tailcall at base slot.
+  g() -- Compile this loop first.
+  for i=1,50 do f() end
+  assert(r == 51)
+end
