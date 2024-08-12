@@ -150,31 +150,45 @@ local function tohex64(x)
   return "0x"..bit.tohex(tonumber(x/2LL^32))..bit.tohex(tonumber(x%2LL^32)).."ULL"
 end
 
-local conv = tonumber
-
-if arg and arg[1] == "strtod" then
-  local e = ffi.new("char *[1]")
-  function conv(s)
-    local d = ffi.C.strtod(s, e)
-    return (e[0][0] == 0 and #s ~= 0) and d or nil
-  end
-end
-
+local e = ffi.new("char *[1]")
 local u = ffi.new("union { double d; uint64_t x; }")
 
-for i=1,#t,2 do
-  local y, s = t[i], t[i+1]
-  local d = conv(s)
-  local ok
-  if d == nil then
-    ok = (y == false)
-  else
-    u.d = d
-    ok = (y == u.x)
-  end
-  if not ok then
-    io.write('FAIL: "', s, '"\n GOT: ', d and tohex64(u.x) or "nil", "   OK: ", y and tohex64(y) or "nil", "\n\n")
---      print("  "..tohex64(u.x)..", \""..s.."\",")
+local function test_conv(conv, skip_nan)
+  for i = 1, #t, 2 do
+    local y, s = t[i], t[i + 1]
+    if s:lower():match('nan') and skip_nan then
+      -- LuaJIT uses canonicalized NaNs.
+      -- -NaN = 0xfff8000000000000.
+      -- Hence, `strtod()` yields a different value here.
+      goto continue
+    end
+    local d = conv(s)
+    local ok
+    if d == nil then
+      ok = (y == false)
+    else
+      u.d = d
+      ok = (y == u.x)
+    end
+    if not ok then
+      error(string.format(
+        "FAIL: '%s'\n\tGOT: %s\n\tOK:  %s",
+        s,
+        d and tohex64(u.x) or "nil",
+        y and tohex64(y) or "nil", "\n\n"
+      ))
+    end
+    ::continue::
   end
 end
 
+do --- tonumber parsing
+  test_conv(tonumber)
+end
+
+do --- strtod parsing
+  test_conv(function(s)
+    local d = ffi.C.strtod(s, e)
+    return (e[0][0] == 0 and #s ~= 0) and d or nil
+  end, true)
+end
