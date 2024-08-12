@@ -18,6 +18,7 @@ modulo.lua
 concat.lua
 self.lua
 stackov.lua
+stackov_c.lua
 table.lua
 parse_comp.lua
 parse_esc.lua
