@@ -1,5 +1,4 @@
-
-do
+do --- Recursion sum.
   local function sum(n)
     if n == 1 then return 1 end
     return n + sum(n-1)
@@ -7,7 +6,7 @@ do
   assert(sum(200) == 20100)
 end
 
-do
+do --- Recursion wiht pcall.
   local pcall = pcall
   local tr1
   local x = 0
@@ -19,11 +18,10 @@ do
   assert(tr1(200) == true and x == 200)
 end
 
-do
+do --- Recursion fibonacci.
   local function fib(n)
     if n < 2 then return 1 end
     return fib(n-2) + fib(n-1)
   end
   assert(fib(15) == 987)
 end
-
