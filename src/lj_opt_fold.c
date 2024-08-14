@@ -2406,6 +2406,17 @@ LJFOLD(XSNEW any any)
 LJFOLD(BUFHDR any any)
 LJFOLDX(lj_ir_emit)
 
+/* -- Miscellaneous ------------------------------------------------------- */
+
+LJFOLD(CARG any any)
+LJFOLDF(cse_carg)
+{
+  TRef tr = lj_opt_cse(J);
+  if (tref_ref(tr) < J->chain[IR_LOOP])  /* CSE across loop? */
+    return EMITFOLD;  /* Raw emit. Assumes fins is left intact by CSE. */
+  return tr;
+}
+
 /* ------------------------------------------------------------------------ */
 
 /* Every entry in the generated hash table is a 32 bit pattern:
