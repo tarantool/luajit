@@ -5,9 +5,9 @@ do --- Collect dead traces.
   collectgarbage()
   -- Prevent the creation of side traces.
   jit.off()
-  for j=1,100 do
+  for _ = 1, 100 do
     jit.on()
-    loadstring("for i=1,100 do end")()
+    loadstring("for _ = 1, 100 do end")()
     jit.off()
   end
   jit.on()
@@ -29,7 +29,7 @@ do --- Check KGC marking.
     end
   end
   jit.attach(reccb, "record")
-  for i=1,200 do
+  for i = 1, 200 do
     if i % 5 == 0 then
       f = function() end
     elseif f then
