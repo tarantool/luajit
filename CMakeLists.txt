@@ -325,6 +325,7 @@ if(LUAJIT_USE_UBSAN)
     # NULL checking is disabled because this is not a UB and
     # raises lots of false-positive fails.
     null
+    nonnull-attribute
     # Not interested in checking arithmetic with NULL.
     pointer-overflow
     # Shifts of negative numbers are widely used in parsing ULEB,
