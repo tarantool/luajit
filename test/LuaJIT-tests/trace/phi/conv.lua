@@ -15,7 +15,7 @@ local maskhuf = { 0x0002, 0x0003, 0x0004, 0x0005, }
 local function decodeCode()
   local lookup = get_bits()
   local code = hufcodes[lookup]
-  local z = {1,1,1,1}
+  local z = {1, 1, 1, 1}
   if not code then
     for i = 1, 4 do
       lookup = bit.bor(lookup, bit.lshift(get_bits(), i + 1))
@@ -29,19 +29,19 @@ local function decodeCode()
 end
 
 local function test()
-  for i = 1, 6 do
+  for _ = 1, 6 do
     decodeCode()
   end
 end
 
 do --- PHI for CONV num.int before ASTORE.
   local Rm = {}
-  for i=0,16 do Rm[i] = 0 end
+  for i = 0, 16 do Rm[i] = 0 end
 
-  for k=1,10 do
+  for _ = 1, 10 do
     local seed = 1
-    for i=16,0,-1 do
-      seed = bit.band(seed*9069, 0x7fffffff)
+    for i = 16, 0, -1 do
+      seed = bit.band(seed * 9069, 0x7fffffff)
       Rm[i] = seed
     end
     assert(seed == 1952688301)
