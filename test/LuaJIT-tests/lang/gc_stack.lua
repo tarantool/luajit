@@ -1,5 +1,5 @@
 do --- Marking sparse stack.
-  local t = setmetatable({}, { __index=function(t, k)
+  local t = setmetatable({}, { __index = function(t, k)
     k = k - 1
     if k == 0 then
       collectgarbage() -- Mark stack, including holes.
@@ -7,7 +7,10 @@ do --- Marking sparse stack.
     else
       return t[k] -- Leaves holes in each frame.
     end
-    do local a,b,c,d,e,f,g,h,i,j,k,l,m,n end -- Ensure bigger frame size.
+    do
+      -- Ensure bigger frame size.
+      local a, b, c, d, e, f, g, h, i, j, k, l, m, n
+    end
   end})
   local x = t[50]
 end
