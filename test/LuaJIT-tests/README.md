@@ -109,8 +109,6 @@ Some files/directories in this directory need some thought:
   * `common/ffi_util.inc` - Needs renaming and being made `require`-able.
   * `lib/table/misc.lua` - Tests need organising and converting to structure
                            described in this document.
-  * `misc` - Tests need organising and converting to structure described in
-             this document.
   * `src` - C/C++ source which needs to be compiled into a dynamic library and
             loaded for certain tests.
   * `sysdep` - Need to figure out a good way of handling these.
