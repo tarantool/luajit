@@ -91,19 +91,28 @@ Your test(s) should not write to stdout or stderr, nor should they mutate
 global state. After your test(s) are written, you should be able to determine
 which features they require, and put on metadata appropriately.
 
+## Subcategories of tests ##
+
+The currently valid and runable tests are placed in the following directories:
+
+* `bc` -- tests for the current bytecode implementation.
+* `lang` -- testing the language implementation. This includes parsing, error
+            handling, GC behaviour, etc.
+* `lib` -- namely, tests for built-in libraries.
+* `opt` -- tests for JIT compiler optimizations.
+* `trace` -- tests for JIT compiler behaviour (including `phi` subdirectory).
+
 ## Completing the tidy-up of the test suite ##
 
 Some files/directories in this directory need some thought:
 
   * `common/ffi_util.inc` - Needs renaming and being made `require`-able.
-  * `lib/ffi` - Tests need converting to structure described in this document.
   * `lib/table/misc.lua` - Tests need organising and converting to structure
                            described in this document.
   * `misc` - Tests need organising and converting to structure described in
              this document.
   * `src` - C/C++ source which needs to be compiled into a dynamic library and
-            loaded for certain tests. Need to figure out a good way of handling
-            C/C++ source.
+            loaded for certain tests.
   * `sysdep` - Need to figure out a good way of handling these.
   * `unportable` - Need to figure out a good way of handling these.
 
