@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   test-tarantool-integration:
-    uses: tarantool/tarantool/.github/workflows/integration.yml@master
+    uses: tarantool/tarantool/.github/workflows/integration.yml@release/3.2
     secrets: inherit
     with:
       submodule: luajit
