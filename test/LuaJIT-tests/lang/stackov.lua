@@ -1,18 +1,22 @@
 local function f()
   f()
 end
+jit.off(f)
 
 local function g(i)
   g(i)
 end
+jit.off(g)
 
 local function vtail(...)
   return vtail(1, ...)
 end
+jit.off(vtail)
 
 local function vcall(...)
   vcall(1, ...)
 end
+jit.off(vcall)
 
 local function test_error_msg(func, s)
   local first = string.match(s, "[^\n]+")
