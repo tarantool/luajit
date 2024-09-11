@@ -1,7 +1,9 @@
 local tap = require('tap')
 local profile = require('jit.profile')
 
-local test = tap.test('lj-512-profiler-hook-finalizers')
+local test = tap.test('lj-512-profiler-hook-finalizers'):skipcond({
+  ['Disabled with Valgrind (SIGPROF)'] = os.getenv("LJ_USE_VALGRIND") == 'ON',
+})
 test:plan(1)
 
 -- Sampling interval in ms.

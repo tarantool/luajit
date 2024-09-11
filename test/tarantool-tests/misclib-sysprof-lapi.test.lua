@@ -3,6 +3,7 @@ local test = tap.test("misc-sysprof-lapi"):skipcond({
   ["Sysprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
                                                jit.arch ~= "x64",
   ["Sysprof is implemented for Linux only"] = jit.os ~= "Linux",
+  ['Disabled with Valgrind (SIGPROF)'] = os.getenv("LJ_USE_VALGRIND") == 'ON',
 })
 
 test:plan(19)

@@ -69,6 +69,22 @@ add_custom_target(${PROJECT_NAME}-lint DEPENDS
 )
 
 set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")
+
+if(LUAJIT_USE_VALGRIND)
+  if (NOT LUAJIT_USE_SYSMALLOC)
+    message(WARNING
+      "LUAJIT_USE_SYSMALLOC option is mandatory for Valgrind's memcheck tool"
+      " on x64 and the only way to get useful results from it for all other"
+      " architectures.")
+  endif()
+
+  find_program(VALGRIND valgrind)
+  set(LUAJIT_TEST_VALGRIND_OPTS
+    "--suppressions=${LUAJIT_SOURCE_DIR}/lj.supp $ENV{VALGRIND_OPTIONS}")
+  set(LUAJIT_TEST_COMMAND
+    "${VALGRIND} ${LUAJIT_TEST_VALGRIND_OPTS} ${LUAJIT_TEST_COMMAND}")
+endif()
+
 separate_arguments(LUAJIT_TEST_COMMAND)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

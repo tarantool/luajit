@@ -1,6 +1,8 @@
 local tap = require('tap')
 
-local test = tap.test('lj-726-profile-flush-close')
+local test = tap.test('lj-726-profile-flush-close'):skipcond({
+  ['Disabled with Valgrind (SIGPROF)'] = os.getenv("LJ_USE_VALGRIND") == 'ON',
+})
 test:plan(1)
 
 local TEST_FILE = 'lj-726-profile-flush-close.profile'

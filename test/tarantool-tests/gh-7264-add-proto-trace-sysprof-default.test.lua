@@ -4,6 +4,7 @@ local test = tap.test('gh-7264-add-proto-trace-sysprof-default'):skipcond({
   ['Sysprof is implemented for x86_64 only'] = jit.arch ~= 'x86' and
                                                jit.arch ~= 'x64',
   ['Sysprof is implemented for Linux only'] = jit.os ~= 'Linux',
+  ['Disabled with Valgrind (SIGPROF)'] = os.getenv("LJ_USE_VALGRIND") == 'ON',
 })
 
 test:plan(2)

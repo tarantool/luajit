@@ -130,7 +130,8 @@ foreach(test_path ${tests})
     # LUA_CPATH and LD_LIBRARY_PATH variables and also
     # dependencies list with libraries are set in scope of
     # BuildTestLib macro.
-    ENVIRONMENT "LUA_PATH=${LUA_PATH};LUA_CPATH=${LUA_CPATH};${LUA_TEST_ENV_MORE}"
+    ENVIRONMENT "LUA_PATH=${LUA_PATH};LUA_CPATH=${LUA_CPATH};${LUA_TEST_ENV_MORE};\
+LJ_USE_VALGRIND=${LUAJIT_USE_VALGRIND}"
     LABELS ${TEST_SUITE_NAME}
     DEPENDS tarantool-tests-deps
   )
