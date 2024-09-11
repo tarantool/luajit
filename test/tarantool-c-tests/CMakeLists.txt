@@ -56,10 +56,17 @@ foreach(test_source ${tests})
 
   # Generate CMake tests.
   set(test_title "test/${TEST_SUITE_NAME}/${exe}${C_TEST_SUFFIX}")
+  set(test_command ${CMAKE_CURRENT_BINARY_DIR}/${exe}${C_TEST_SUFFIX})
+
+  if(LUAJIT_USE_VALGRIND)
+    set(test_command ${LUAJIT_TEST_VALGRIND_COMMAND} ${test_command})
+  endif()
+
   add_test(NAME ${test_title}
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${exe}${C_TEST_SUFFIX}
+    COMMAND ${test_command}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
+
   set_tests_properties(${test_title} PROPERTIES
     LABELS ${TEST_SUITE_NAME}
     DEPENDS tarantool-c-tests-deps
