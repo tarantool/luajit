@@ -46,6 +46,8 @@
  * * https://github.com/tarantool/tarantool/issues/9387
  */
 
+#define UNUSED(x) ((void)(x))
+
 #define MESSAGE "Canary is alive"
 #define LUACALL "local a = tostring('" MESSAGE "') return a"
 
@@ -248,6 +250,12 @@ static int tracer(pid_t chpid)
 
 static int test_tostring_call(void *ctx)
 {
+#if LUAJIT_USE_VALGRIND
+	UNUSED(ctx);
+	UNUSED(tracer);
+	UNUSED(tracee);
+	return skip("Disabled with Valgrind (Timeout)");
+#else
 	pid_t chpid = fork();
 	switch(chpid) {
 	case -1:
@@ -264,6 +272,7 @@ static int test_tostring_call(void *ctx)
 	default:
 		return tracer(chpid);
 	}
+#endif
 }
 
 #else /* LUAJIT_OS == LUAJIT_OS_LINUX && LUAJIT_TARGET == LUAJIT_ARCH_X64 */

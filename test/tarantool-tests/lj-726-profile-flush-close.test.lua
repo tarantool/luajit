@@ -1,6 +1,9 @@
 local tap = require('tap')
 
-local test = tap.test('lj-726-profile-flush-close')
+local test = tap.test('lj-726-profile-flush-close'):skipcond({
+  -- See also https://github.com/tarantool/tarantool/issues/10803.
+  ['Disabled due to #10803'] = os.getenv('LUAJIT_TEST_USE_VALGRIND'),
+})
 test:plan(1)
 
 local TEST_FILE = 'lj-726-profile-flush-close.profile'

@@ -6,6 +6,7 @@ local test = tap.test('OOM on trace'):skipcond({
                                                    (jit.os == 'OSX'),
   ['Disabled on MacOS due to #8652'] = jit.os == 'OSX',
   ['Test requires JIT enabled'] = not jit.status(),
+  ['Disabled with Valgrind (Timeout)'] = os.getenv('LUAJIT_TEST_USE_VALGRIND'),
 })
 
 test:plan(1)
