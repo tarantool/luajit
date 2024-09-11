@@ -6,6 +6,8 @@ local test = tap.test("misc-sysprof-lapi"):skipcond({
   -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
   ["Disabled due to LuaJIT/LuaJIT#606"] = os.getenv("LUAJIT_TABLE_BUMP"),
   ["Sysprof is disabled"] = os.getenv('LUAJIT_DISABLE_SYSPROF'),
+  -- See also https://github.com/tarantool/tarantool/issues/10803.
+  ["Disabled due to #10803"] = os.getenv("LUAJIT_TEST_USE_VALGRIND"),
 })
 
 test:plan(19)

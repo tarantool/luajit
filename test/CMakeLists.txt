@@ -69,6 +69,35 @@ add_custom_target(${PROJECT_NAME}-lint DEPENDS
 )
 
 set(LUAJIT_TEST_COMMAND "${LUAJIT_TEST_BINARY} -e dofile[[${LUAJIT_TEST_INIT}]]")
+
+if(LUAJIT_USE_VALGRIND)
+  find_program(VALGRIND valgrind)
+  if(NOT VALGRIND)
+    message(FATAL_ERROR "`valgrind' not found when LUAJIT_USE_VALGRIND option "
+                        "is enabled.")
+  endif()
+
+  if(NOT LUAJIT_USE_SYSMALLOC)
+    message(WARNING
+      "LUAJIT_USE_SYSMALLOC option is mandatory for Valgrind's memcheck tool"
+      " on x64 and the only way to get useful results from it for all other"
+      " architectures.")
+  endif()
+
+  list(APPEND LUAJIT_TEST_VALGRIND_SUPP
+    --suppressions=${LUAJIT_SOURCE_DIR}/lj.supp
+    --suppressions=${LUAJIT_SOURCE_DIR}/lj_extra.supp
+  )
+  # When set to the default value (zero), the return value from
+  # Valgrind will always be the return value of the process being
+  # simulated. Set the exit code to non-zero to automatically
+  # detect failing tests.
+  set(LUAJIT_TEST_VALGRIND_COMMAND
+      ${VALGRIND} --error-exitcode=1 ${LUAJIT_TEST_VALGRIND_SUPP})
+  set(LUAJIT_TEST_COMMAND
+      "${LUAJIT_TEST_VALGRIND_COMMAND} ${LUAJIT_TEST_COMMAND}")
+endif()
+
 separate_arguments(LUAJIT_TEST_COMMAND)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

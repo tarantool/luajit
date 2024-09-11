@@ -93,6 +93,12 @@ if(LUAJIT_DISABLE_SYSPROF)
   list(APPEND LUA_TEST_ENV_MORE LUAJIT_DISABLE_SYSPROF=1)
 endif()
 
+# Needed to skip some long tests or tests using signals.
+# See also https://github.com/tarantool/tarantool/issues/10803.
+if(LUAJIT_USE_VALGRIND)
+  list(APPEND LUA_TEST_ENV_MORE LUAJIT_TEST_USE_VALGRIND=1)
+endif()
+
 set(TEST_SUITE_NAME "tarantool-tests")
 
 # XXX: The call produces both test and target

@@ -1,7 +1,10 @@
 local tap = require('tap')
 local profile = require('jit.profile')
 
-local test = tap.test('lj-512-profiler-hook-finalizers')
+local test = tap.test('lj-512-profiler-hook-finalizers'):skipcond({
+  -- Disable the test since it is time-sensitive.
+  ['Disabled with Valgrind'] = os.getenv('LUAJIT_TEST_USE_VALGRIND'),
+})
 test:plan(1)
 
 -- Sampling interval in ms.

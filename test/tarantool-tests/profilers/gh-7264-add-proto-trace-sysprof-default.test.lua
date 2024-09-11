@@ -7,6 +7,8 @@ local test = tap.test('gh-7264-add-proto-trace-sysprof-default'):skipcond({
   -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
   ['Disabled due to LuaJIT/LuaJIT#606'] = os.getenv('LUAJIT_TABLE_BUMP'),
   ['Sysprof is disabled'] = os.getenv('LUAJIT_DISABLE_SYSPROF'),
+  -- See also https://github.com/tarantool/tarantool/issues/10803.
+  ['Disabled due to #10803'] = os.getenv('LUAJIT_TEST_USE_VALGRIND'),
 })
 
 test:plan(2)

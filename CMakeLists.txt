@@ -289,6 +289,11 @@ endif()
 # ASan enabled.
 option(LUAJIT_USE_ASAN "Build LuaJIT with AddressSanitizer" OFF)
 if(LUAJIT_USE_ASAN)
+  if(LUAJIT_USE_VALGRIND)
+    message(FATAL_ERROR
+      "AddressSanitizer and Valgrind cannot be used simultaneously."
+    )
+  endif()
   if(NOT LUAJIT_USE_SYSMALLOC)
     message(WARNING
       "Unfortunately, internal LuaJIT memory allocator is not instrumented yet,"
