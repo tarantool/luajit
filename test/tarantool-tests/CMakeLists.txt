@@ -21,10 +21,6 @@ endmacro()
 add_subdirectory(ffi-ccall)
 add_subdirectory(fix-bit-shift-generation)
 add_subdirectory(gh-4427-ffi-sandwich)
-add_subdirectory(gh-5813-resolving-of-c-symbols/both)
-add_subdirectory(gh-5813-resolving-of-c-symbols/hash)
-add_subdirectory(gh-5813-resolving-of-c-symbols/gnuhash)
-add_subdirectory(gh-5813-resolving-of-c-symbols/stripped)
 add_subdirectory(gh-6098-fix-side-exit-patching-on-arm64)
 add_subdirectory(gh-6189-cur_L)
 add_subdirectory(lj-416-xor-before-jcc)
@@ -37,6 +33,10 @@ add_subdirectory(lj-802-panic-at-mcode-protfail)
 add_subdirectory(lj-flush-on-trace)
 add_subdirectory(lj-1066-fix-cur_L-after-coroutine-resume)
 add_subdirectory(lj-1166-error-stitch)
+add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/both)
+add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/gnuhash)
+add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/hash)
+add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/stripped)
 
 # The part of the memory profiler toolchain is located in tools
 # directory, jit, profiler, and bytecode toolchains are located
@@ -120,7 +120,7 @@ add_test_suite_target(tarantool-tests
 
 file(GLOB_RECURSE tests ${CMAKE_CURRENT_SOURCE_DIR} "*${LUA_TEST_SUFFIX}")
 foreach(test_path ${tests})
-  get_filename_component(test_name ${test_path} NAME)
+  file(RELATIVE_PATH test_name ${CMAKE_CURRENT_SOURCE_DIR} ${test_path})
   set(test_title "test/${TEST_SUITE_NAME}/${test_name}")
   add_test(NAME ${test_title}
     COMMAND ${LUAJIT_TEST_COMMAND} ${test_path}
