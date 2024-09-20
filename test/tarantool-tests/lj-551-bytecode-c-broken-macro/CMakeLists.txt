@@ -27,7 +27,8 @@ macro(BuildTestBCLib file_ext)
     VERBATIM
   )
 
-  BuildTestCLib(${LIB_NAME} ${EXT_SOURCE})
+  get_filename_component(test_name ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+  BuildTestCLib(${LIB_NAME} ${EXT_SOURCE} ${test_name}.test.lua)
   add_dependencies(${LIB_NAME} export_bc_${file_ext})
 endmacro()
 
