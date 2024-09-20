@@ -17,5 +17,6 @@ add_custom_target(export_bc
   VERBATIM
 )
 
-BuildTestCLib(${LIB_NAME} ${C_FILE})
+get_filename_component(test_name ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+BuildTestCLib(${LIB_NAME} ${C_FILE} ${test_name}.test.lua)
 add_dependencies(${LIB_NAME} export_bc)

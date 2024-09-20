@@ -5,17 +5,16 @@ add_custom_target(tarantool-tests-libs
   DEPENDS libluajit
 )
 
-macro(BuildTestCLib lib sources)
-  AddTestLib(${lib} ${sources})
+macro(BuildTestCLib lib source dependent_tests)
+  AddTestLib(${lib} ${source})
   add_dependencies(tarantool-tests-libs ${lib})
-  # Add the directory where the lib is built to the list with
-  # entries for LUA_CPATH environment variable, so LuaJIT can find
-  # and load it. See the comment about extending the list in the
-  # parent scope few lines above.
-  set(LUA_CPATHS "${CMAKE_CURRENT_BINARY_DIR}/?${CMAKE_SHARED_LIBRARY_SUFFIX};${LUA_CPATHS}" PARENT_SCOPE)
-  # Also add this directory to LD_LIBRARY_PATH environment
-  # variable, so FFI machinery can find and load it.
-  set(LD_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}:${LD_LIBRARY_PATH}" PARENT_SCOPE)
+  # Remember libraries for each test to be proceeded with after
+  # test targets are created.
+  foreach(testname ${dependent_tests})
+    set(LIBS_${testname}
+      "${CMAKE_CURRENT_BINARY_DIR};${LIBS_${testname}}" PARENT_SCOPE
+    )
+  endforeach()
 endmacro()
 
 # FIXME: This is used only due to ancient CMake requirements.
@@ -80,45 +79,7 @@ make_lua_path(LUA_PATH
     ${LUAJIT_BINARY_DIR}/?.lua
 )
 
-# Update LUA_CPATH with the library paths collected within
-# <BuildTestLib> macro.
-make_lua_path(LUA_CPATH PATHS ${LUA_CPATHS})
-
 set(LUA_TEST_SUFFIX .test.lua)
-
-# XXX: Since the auxiliary libraries are built as a dynamically
-# loaded modules on MacOS instead of shared libraries as it is
-# done on Linux and BSD, another environment variable should be
-# used to guide <ffi.load> while searching the extension.
-# XXX: Be noticed that we shouldn't use `"` here to wrap
-# the variable's content. If we do this, the variable value will
-# contain `"` at the beginning and the end, so this `"` at the
-# beginning will be treated as the directory for the first entry
-# (the last subdirectory added).
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  # XXX: Apple tries their best to "protect their users from
-  # malware". As a result SIP (see the link[1] below) has been
-  # designed and released. Now, Apple developers are so protected,
-  # that they can load nothing being not installed in the system,
-  # since some programs sanitize the environment before they start
-  # child processes. Specifically, environment variables starting
-  # with DYLD_ and LD_ are unset for child process started by
-  # other programs (like `ctest` using for launching tests).
-  # For more info, see the docs[2] below.
-  #
-  # These environment variables are used by FFI machinery to find
-  # the proper shared library, hence we can still tweak testing
-  # environment before calling <ffi.load>. However, the value
-  # can't be passed via the standard environment variable, so we
-  # use ENVIRONMENT property in `set_tests_properties` to get
-  # around SIP magic tricks.
-  #
-  # [1]: https://support.apple.com/en-us/HT204899
-  # [2]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/RuntimeProtections/RuntimeProtections.html
-  list(APPEND LUA_TEST_ENV_MORE DYLD_LIBRARY_PATH=${LD_LIBRARY_PATH})
-else()
-  list(APPEND LUA_TEST_ENV_MORE LD_LIBRARY_PATH=${LD_LIBRARY_PATH})
-endif()
 
 # Some tests use `LD_PRELOAD` to mock system calls (like
 # <lj-802-panic-at-mcode-protfail.test.lua> overwrites
@@ -156,7 +117,7 @@ foreach(test_path ${tests})
     # LUA_CPATH and LD_LIBRARY_PATH variables and also
     # dependencies list with libraries are set in scope of
     # BuildTestLib macro.
-    ENVIRONMENT "LUA_PATH=${LUA_PATH};LUA_CPATH=${LUA_CPATH};${LUA_TEST_ENV_MORE}"
+    ENVIRONMENT "LUA_PATH=${LUA_PATH};${LUA_TEST_ENV_MORE}"
     LABELS ${TEST_SUITE_NAME}
     DEPENDS tarantool-tests-deps
   )
@@ -167,5 +128,33 @@ foreach(test_path ${tests})
     AppendTestEnvVar(${test_title}
       LUA_PATH "${PROJECT_SOURCE_DIR}/tools/?.lua\;"
     )
+  endif()
+
+  if(LIBS_${test_name})
+    foreach(path ${LIBS_${test_name}})
+      # Add the directory where the library is built to the list
+      # with entries for the LUA_CPATH environment variable, so
+      # LuaJIT can find and load it.
+      AppendTestEnvVar(${test_title}
+        LUA_CPATH "${path}/?${CMAKE_SHARED_LIBRARY_SUFFIX}\;"
+      )
+      # Also, add this directory to the LD_LIBRARY_PATH environment
+      # variable so FFI machinery can find and load it.
+      # XXX: Be noticed that we shouldn't use `"` here to wrap the
+      # variable's content. If we do this, the variable value will
+      # contain `"` at the beginning and the end, so this `"` at the
+      # beginning will be treated as the directory for the entry.
+      # XXX: Since the auxiliary libraries are built as dynamically
+      # loaded modules on MacOS instead of shared libraries as it is
+      # done on Linux and BSD, another environment variable should
+      # be used to guide <ffi.load> while searching the extension.
+      if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        AppendTestEnvVar(${test_title} DYLD_LIBRARY_PATH ${path}:)
+      else()
+        AppendTestEnvVar(${test_title} LD_LIBRARY_PATH ${path}:)
+      endif()
+    endforeach()
+
+    unset(LIBS_${test_name})
   endif()
 endforeach()
