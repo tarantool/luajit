@@ -3,7 +3,7 @@ local tap = require('tap')
 
 local ffi_ccall = ffi.load('libfficcall')
 
-local test = tap.test('arm64-ccall-fp-convention')
+local test = tap.test('ffi-ccall-arm64-fp-convention')
 test:plan(3)
 
 ffi.cdef[[
