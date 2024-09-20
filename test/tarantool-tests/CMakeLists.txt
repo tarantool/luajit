@@ -18,6 +18,34 @@ macro(BuildTestCLib lib sources)
   set(LD_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}:${LD_LIBRARY_PATH}" PARENT_SCOPE)
 endmacro()
 
+# FIXME: This is used only due to ancient CMake requirements.
+# If we update to CMake >= 3.22, we can use
+# ENVIRONMENT_MODIFICATION [1] instead.
+# [1]: https://cmake.org/cmake/help/latest/prop_test/ENVIRONMENT_MODIFICATION.html
+# This macro appends to the given test's environment variable the
+# given value. If the variable doesn't exist, it is created equal
+# to the given argument.
+macro(AppendTestEnvVar testname var value)
+  get_test_property(${testname} ENVIRONMENT old_env)
+  foreach(loopvar ${old_env})
+    # XXX: `foreach()` unescapes ";" in string, escape them back.
+    string(REPLACE ";" "\;" loopvar "${loopvar}")
+    if("${loopvar}" MATCHES "^${var}=(.*)")
+      set(envvar_found TRUE)
+      set(loopvar "${var}=${value}${CMAKE_MATCH_1}")
+    endif()
+    list(APPEND new_env "${loopvar}")
+  endforeach()
+  if(NOT "${envvar_found}")
+    list(APPEND new_env "${var}=${value}")
+  endif()
+  set_tests_properties(${testname} PROPERTIES ENVIRONMENT "${new_env}")
+
+  unset(envvar_found)
+  unset(old_env)
+  unset(new_env)
+endmacro()
+
 add_subdirectory(ffi-ccall)
 add_subdirectory(fix-bit-shift-generation)
 add_subdirectory(gh-4427-ffi-sandwich)
