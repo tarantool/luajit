@@ -96,6 +96,12 @@ if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
   list(APPEND LUA_TEST_ENV_MORE LD_PRELOAD=${LIB_ASAN})
 endif()
 
+# FIXME: This is needed for disabling some flaky tests (like
+# profilers), until LuaJIT/LuaJIT#606 will not be resolved.
+if(LUAJIT_ENABLE_TABLE_BUMP)
+  list(APPEND LUA_TEST_ENV_MORE LUAJIT_TABLE_BUMP=1)
+endif()
+
 set(TEST_SUITE_NAME "tarantool-tests")
 
 # XXX: The call produces both test and target

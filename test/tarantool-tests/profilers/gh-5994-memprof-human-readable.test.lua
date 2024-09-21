@@ -5,6 +5,8 @@ local test = tap.test('gh-5994-memprof-human-readable'):skipcond({
   ['Profile tools are implemented for Linux only'] = jit.os ~= 'Linux',
   -- XXX: Tarantool integration is required to run this test properly.
   ['No profile tools CLI option integration'] = _TARANTOOL,
+  -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
+  ['Disabled due to LuaJIT/LuaJIT#606'] = os.getenv('LUAJIT_TABLE_BUMP'),
 })
 
 local utils = require('utils')
