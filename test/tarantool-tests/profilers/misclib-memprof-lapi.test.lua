@@ -6,6 +6,8 @@ local test = tap.test("misc-memprof-lapi"):skipcond({
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
   ["Memprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
                                                jit.arch ~= "x64",
+  -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
+  ["Disabled due to LuaJIT/LuaJIT#606"] = os.getenv("LUAJIT_TABLE_BUMP"),
 })
 
 test:plan(5)
@@ -162,9 +164,9 @@ test:test("output", function(subtest)
   -- one is the number of allocations. 1 event - allocation of
   -- table by itself + 1 allocation of array part as far it is
   -- bigger than LJ_MAX_COLOSIZE (16).
-  subtest:ok(check_alloc_report(alloc, { line = 37, linedefined = 35 }, 2))
+  subtest:ok(check_alloc_report(alloc, { line = 39, linedefined = 37 }, 2))
   -- 20 strings allocations.
-  subtest:ok(check_alloc_report(alloc, { line = 42, linedefined = 35 }, 20))
+  subtest:ok(check_alloc_report(alloc, { line = 44, linedefined = 37 }, 20))
 
   -- Collect all previous allocated objects.
   subtest:ok(free.INTERNAL == 22)
@@ -172,8 +174,8 @@ test:test("output", function(subtest)
   -- Tests for leak-only option.
   -- See also https://github.com/tarantool/tarantool/issues/5812.
   local heap_delta = process.form_heap_delta(events)
-  local tab_alloc_stats = heap_delta[form_source_line(37)]
-  local str_alloc_stats = heap_delta[form_source_line(42)]
+  local tab_alloc_stats = heap_delta[form_source_line(39)]
+  local str_alloc_stats = heap_delta[form_source_line(44)]
   subtest:ok(tab_alloc_stats.nalloc == tab_alloc_stats.nfree)
   subtest:ok(tab_alloc_stats.dbytes == 0)
   subtest:ok(str_alloc_stats.nalloc == str_alloc_stats.nfree)
@@ -258,10 +260,10 @@ test:test("jit-output", function(subtest)
   -- 10 allocations in interpreter mode, 1 allocation for a trace
   -- recording and assembling and next 9 allocations will happen
   -- while running the trace.
-  subtest:ok(check_alloc_report(alloc, { line = 42, linedefined = 35 }, 11))
-  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 40 }, 9))
+  subtest:ok(check_alloc_report(alloc, { line = 44, linedefined = 37 }, 11))
+  subtest:ok(check_alloc_report(alloc, { traceno = 1, line = 42 }, 9))
   -- See same checks with jit.off().
-  subtest:ok(check_alloc_report(alloc, { line = 37, linedefined = 35 }, 2))
+  subtest:ok(check_alloc_report(alloc, { line = 39, linedefined = 37 }, 2))
 
   -- Restore default JIT settings.
   jit.opt.start(unpack(jit_opt_default))
