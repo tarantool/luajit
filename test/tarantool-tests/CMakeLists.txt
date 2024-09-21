@@ -82,21 +82,6 @@ make_lua_path(LUA_PATH
 
 set(LUA_TEST_SUFFIX .test.lua)
 
-# Some tests use `LD_PRELOAD` to mock system calls (like
-# <lj-802-panic-at-mcode-protfail.test.lua> overwrites
-# `mprotect()`. When compiling with ASan support under GCC, it is
-# required that the ASan library go first in the `LD_PRELOAD`
-# list. Set it manually. The test will append it to the executed
-# process.
-if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  # FIXME: We should set this environment variable only
-  # for the corresponding tests to avoid warnings from
-  # the GNU libc and other libc implementations.
-  # See https://github.com/tarantool/tarantool/issues/9898.
-  LibRealPath(LIB_ASAN libasan.so)
-  list(APPEND LUA_TEST_ENV_MORE LD_PRELOAD=${LIB_ASAN})
-endif()
-
 # FIXME: This is needed for disabling some flaky tests (like
 # profilers), until LuaJIT/LuaJIT#606 will not be resolved.
 if(LUAJIT_ENABLE_TABLE_BUMP)
@@ -165,3 +150,21 @@ foreach(test_path ${tests})
     unset(LIBS_${test_name})
   endif()
 endforeach()
+
+# Some tests use `LD_PRELOAD` to mock system calls (like
+# <lj-802-panic-at-mcode-protfail.test.lua> overwrites
+# `mprotect()`). When compiling with ASan support under GCC, it is
+# required that the ASan library go first in the `LD_PRELOAD`
+# list. Set it manually. The test will append it to the executed
+# process.
+if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  LibRealPath(LIB_ASAN libasan.so)
+  AppendTestEnvVar(
+    "test/${TEST_SUITE_NAME}/lj-522-fix-dlerror-return-null.test.lua"
+    LD_PRELOAD ${LIB_ASAN}
+  )
+  AppendTestEnvVar(
+    "test/${TEST_SUITE_NAME}/lj-802-panic-at-mcode-protfail.test.lua"
+    LD_PRELOAD ${LIB_ASAN}
+  )
+endif()
