@@ -3,6 +3,8 @@ local test = tap.test("gh-5813-resolving-of-c-symbols"):skipcond({
   ["Memprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
                                                jit.arch ~= "x64",
   ["Memprof is implemented for Linux only"] = jit.os ~= "Linux",
+  -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
+  ["Disabled due to LuaJIT/LuaJIT#606"] = os.getenv("LUAJIT_TABLE_BUMP"),
 })
 
 test:plan(5)
