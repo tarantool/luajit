@@ -132,8 +132,9 @@ test:test("gc-steps", function(subtest)
     subtest:ok(oldm.gc_steps_atomic > 0)
     subtest:ok(oldm.gc_steps_sweepstring > 0)
     subtest:ok(oldm.gc_steps_sweep > 0)
-    -- Nothing to finalize, skipped.
-    subtest:is(oldm.gc_steps_finalize, 0)
+    -- Nothing to finalize, skipped. Tarantool may perform some
+    -- finalize steps already, so just use the base test.
+    subtest:ok(oldm.gc_steps_finalize >= 0)
 
     -- As long as we stopped the GC, consequent call
     -- should return the same values:
@@ -144,7 +145,7 @@ test:test("gc-steps", function(subtest)
     subtest:is(newm.gc_steps_sweepstring - oldm.gc_steps_sweepstring, 0)
     subtest:is(newm.gc_steps_sweep - oldm.gc_steps_sweep, 0)
     -- Nothing to finalize, skipped.
-    subtest:is(newm.gc_steps_finalize, 0)
+    subtest:is(newm.gc_steps_finalize - oldm.gc_steps_finalize, 0)
     oldm = newm
 
     -- Now the last phase: run full GC once and make sure that
@@ -158,7 +159,7 @@ test:test("gc-steps", function(subtest)
     subtest:ok(newm.gc_steps_sweepstring - oldm.gc_steps_sweepstring >= 1)
     subtest:ok(newm.gc_steps_sweep  - oldm.gc_steps_sweep >= 1)
     -- Nothing to finalize, skipped.
-    subtest:is(newm.gc_steps_finalize, 0)
+    subtest:is(newm.gc_steps_finalize - oldm.gc_steps_finalize, 0)
     oldm = newm
 
     -- Now let's run three GC cycles to ensure that increment
@@ -174,7 +175,7 @@ test:test("gc-steps", function(subtest)
     subtest:ok(newm.gc_steps_sweepstring - oldm.gc_steps_sweepstring >= 3)
     subtest:ok(newm.gc_steps_sweep  - oldm.gc_steps_sweep >= 3)
     -- Nothing to finalize, skipped.
-    subtest:is(newm.gc_steps_finalize, 0)
+    subtest:is(newm.gc_steps_finalize - oldm.gc_steps_finalize, 0)
 end)
 
 test:test("objcount", function(subtest)
