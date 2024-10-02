@@ -47,7 +47,7 @@ if(LUAJIT_ARCH STREQUAL "x86")
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  AppendFlags(TARGET_SHARED_FLAGS -single_module -undefined dynamic_lookup)
+  AppendFlags(TARGET_SHARED_FLAGS -undefined dynamic_lookup)
 else() # Linux and FreeBSD.
   AppendFlags(TARGET_BIN_FLAGS -Wl,-E)
   list(APPEND TARGET_LIBS dl)
