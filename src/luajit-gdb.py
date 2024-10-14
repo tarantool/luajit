@@ -892,6 +892,12 @@ def ir_kint64(ir):
     assert irname == 'KINT64', 'wrong IR for ir_knum()'
     return cast('IRIns *', ir.address)[1]['tv'].address
 
+def ctype_ctsG(g):
+    return mref('CTState *', g['ctype_state'])
+
+def ctype_get(cts, id):
+    return cts['tab'][id].address
+
 def proto_bc(proto):
     return cast('BCIns *', cast('char *', proto) + gdb.lookup_type('GCproto').sizeof)
 
@@ -1123,6 +1129,273 @@ def lightudV(tv):
 
 # GCobj dumpers.
 
+# Externally visible types.
+CT_NUM = 0 # Integer or floating-point numbers.
+CT_STRUCT = 1 # Struct or union.
+CT_PTR = 2 # Pointer or reference.
+CT_ARRAY = 3 # Array or complex type.
+CT_MAYCONVERT = CT_ARRAY
+CT_VOID = 4 # Void type.
+CT_ENUM = 5 # Enumeration.
+CT_HASSIZE = CT_ENUM # Last type where ct->size holds the actual size.
+CT_FUNC = 6 # Function.
+CT_TYPEDEF = 7 # Typedef.
+CT_ATTRIB = 8 # Miscellaneous attributes.
+
+# Common types.
+CTID_NONE = 0
+CTID_VOID = 1
+CTID_CVOID = 2
+CTID_BOOL = 3
+CTID_CCHAR = 4
+CTID_INT8 = 5
+CTID_UINT8 = 6
+CTID_INT16 = 7
+CTID_UINT16 = 8
+CTID_INT32 = 9
+CTID_UINT32 = 10
+CTID_INT64 = 11
+CTID_UINT64 = 12
+CTID_FLOAT = 13
+CTID_DOUBLE = 14
+CTID_COMPLEX_FLOAT = 15
+CTID_COMPLEX_DOUBLE = 16
+CTID_P_VOID = 17
+CTID_P_CVOID = 18
+CTID_P_CCHAR = 19
+CTID_A_CCHAR = 20
+CTID_CTYPEID = 21
+
+# C type info flags.
+CTF_BOOL       = 0x08000000 # Boolean: NUM, BITFIELD.
+CTF_FP         = 0x04000000 # Floating-point: NUM.
+CTF_CONST      = 0x02000000 # Const qualifier.
+CTF_VOLATILE   = 0x01000000 # Volatile qualifier.
+CTF_UNSIGNED   = 0x00800000 # Unsigned: NUM, BITFIELD.
+CTF_LONG       = 0x00400000 # Long: NUM.
+CTF_VLA        = 0x00100000 # Variable-length: ARRAY, STRUCT.
+CTF_REF        = 0x00800000 # Reference: PTR.
+CTF_VECTOR     = 0x08000000 # Vector: ARRAY.
+CTF_COMPLEX    = 0x04000000 # Complex: ARRAY.
+CTF_UNION      = 0x00800000 # Union: STRUCT.
+CTF_VARARG     = 0x00800000 # Vararg: FUNC.
+CTF_SSEREGPARM = 0x00400000 # SSE register parameters: FUNC.
+
+CTMASK_ATTRIB = 255 # Max. 256 attributes.
+CTSHIFT_ATTRIB = 16
+
+# Attribute numbers.
+CTA_NONE = 0 # Ignored attribute. Must be zero.
+CTA_QUAL = 1 # Unmerged qualifiers.
+CTA_ALIGN = 2 # Alignment override.
+CTA_SUBTYPE = 3 # Transparent sub-type.
+CTA_REDIR = 4 # Redirected symbol name.
+CTA_BAD = 5 # To catch bad IDs.
+
+CTSHIFT_NUM = 28
+CTMASK_CID = 0x0000ffff
+CTMASK_NUM = 0xf0000000 # Max. 16 type numbers.
+
+# Special sizes.
+CTSIZE_INVALID = 0xffffffff
+DWORDSZ = 4
+QWORDSZ = 8
+
+def ctype_type(info):
+    return info >> CTSHIFT_NUM
+
+def ctype_attrib(info):
+    return (info >> CTSHIFT_ATTRIB) & CTMASK_ATTRIB
+
+def ctinfo(ct, flags):
+    return (tou32(ct) << CTSHIFT_NUM) + flags
+
+def ctype_isptr(info):
+    return ctype_type(info) == CT_PTR
+
+def ctype_iscomplex(info):
+    return (info & (CTMASK_NUM | CTF_COMPLEX)) == ctinfo(CT_ARRAY, CTF_COMPLEX)
+
+def ctype_isinteger(info):
+    return (info & (CTMASK_NUM | CTF_BOOL | CTF_FP)) == ctinfo(CT_NUM, 0)
+
+def ctype_isrefarray(info):
+    return (info & (CTMASK_NUM | CTF_VECTOR | CTF_COMPLEX)) == \
+            ctinfo(CT_ARRAY, 0)
+
+def ctype_cid(info):
+    return info & CTMASK_CID
+
+def ctype_child(cts, ctype):
+    return ctype_get(cts, ctype_cid(ctype['info']))
+
+def cdataptr(cd):
+    return cast('void *', (cd + 1))
+
+def cdata_getptr(p, size):
+    if LJ_64 and size == 4:
+        return cast('void *', cast('uint32_t *', p)[0])
+    else:
+        return cast('void *', cast('uint64_t *', p)[0])
+
+# Get C type ID for a C type.
+def ctype_typeid(cts, ct):
+    return ct - cts['tab']
+
+def cdata_val_int64(cdata, ctype):
+    info = ctype['info']
+    isunsigned = info & CTF_UNSIGNED
+    cdataval = cdataptr(cdata)
+    valueptr = None
+    usuffix = ''
+    if isunsigned:
+        usuffix = 'U'
+        valueptr = cast('uint64_t *', cdataval)
+    else:
+        valueptr = cast('int64_t *', cdataval)
+
+    return str(valueptr[0]) + usuffix + 'LL'
+
+def cdata_val_complex(cdata, ctype):
+    size = ctype['size']
+    cdataval = cdataptr(cdata)
+    casttype = None
+    if size == QWORDSZ * 2:
+        casttype = 'double *'
+    else:
+        assert size == DWORDSZ * 2, 'bad (complex float) size'
+        casttype = 'float *'
+
+    re = cast(casttype, cdataval)[0]
+    im = cast(casttype, cdataval)[1]
+
+    sign = '+' if im > 0 else ''
+    return '{re}{sign}{im}i'.format(re = re, im = im, sign = sign)
+
+def ctype_preplit(ctypestr, lit):
+    # Prevent extra space in the end of the string.
+    space = ' ' if ctypestr != '' else ''
+    return lit + space + ctypestr
+
+def ctype_prepqual(ctypestr, info):
+    if (info & CTF_VOLATILE):
+        ctypestr = ctype_preplit(ctypestr, 'volatile')
+    if (info & CTF_CONST):
+        ctypestr = ctype_preplit(ctypestr, 'const')
+    return ctypestr
+
+def ctype_preptype(cts, ctypestr, ctype, qual, tp):
+    nameref = gcref(ctype['name'])
+    if nameref:
+        ctypestr =  ctype_preplit(ctypestr, re.sub('"', '', strdata(nameref)))
+    else:
+        ctypestr =  ctype_preplit(ctypestr, str(ctype_typeid(cts, ctype)))
+
+    ctypestr = ctype_preplit(ctypestr, tp)
+    ctypestr = ctype_prepqual(ctypestr, qual)
+    return ctypestr
+
+def ctype_prepnum(ctypestr, info, size):
+    if info & CTF_BOOL:
+        ctypestr = ctype_preplit(ctypestr, 'bool');
+    elif info & CTF_FP:
+        if size == QWORDSZ:
+            ctypestr = ctype_preplit(ctypestr, 'double')
+        elif size == DWORDSZ:
+            ctypestr = ctype_preplit(ctypestr, 'float')
+        else:
+            assert size == QWORDSZ * 2, 'bad (long double) size'
+            ctypestr = ctype_preplit(ctypestr, 'long double')
+    elif size == 1:
+        # TODO: Fixup char signess.
+        if (info & CTF_UNSIGNED):
+            ctypestr = ctype_preplit(ctypestr, 'unsigned char')
+        else:
+            ctypestr = ctype_preplit(ctypestr, 'char')
+    elif size < 8:
+        if size == 4:
+            ctypestr = ctype_preplit(ctypestr, 'int')
+        else:
+            assert size == DWORDSZ / 2, 'bad (short) size'
+            ctypestr = ctype_preplit(ctypestr, 'short')
+
+        if (info & CTF_UNSIGNED):
+            ctypestr = ctype_preplit(ctypestr, 'unsigned')
+    else:
+        size_t = '{u}int{sz}_t'.format(
+            u = 'u' if info & CTF_UNSIGNED else '',
+            sz = size * 8,
+        )
+        ctypestr = ctype_preplit(ctypestr, size_t)
+    return ctypestr
+
+def ctype_repr(cts, id):
+    ctype = ctype_get(cts, id)
+    ctypestr = ''
+    qual = 0
+    ptrto = 0
+    while True:
+        info = ctype['info']
+        size = ctype['size']
+        ctp = ctype_type(info)
+        if ctp == CT_NUM:
+            ctypestr = ctype_prepnum(ctypestr, info, size)
+            return ctype_prepqual(ctypestr, qual | info)
+        elif ctp == CT_VOID:
+            ctypestr = ctype_preplit(ctypestr, 'void')
+            return ctype_prepqual(ctypestr, qual | info)
+        elif ctp == CT_STRUCT:
+            tp = 'union' if (info & CTF_UNION) else 'struct'
+            return ctype_preptype(cts, ctypestr, ctype, qual, tp)
+        elif ctp == CT_ENUM:
+            if id == CTID_CTYPEID:
+                return ctype_preplit(ctypestr, 'ctype')
+            return ctype_preptype(cts, ctypestr, ctype, qual, 'enum')
+        elif ctp == CT_ATTRIB:
+            if ctype_attrib(info) == CTA_QUAL:
+                qual |= size
+        elif ctp == CT_PTR:
+            if info & CTF_REF:
+                ctypestr = ctype_preplit(ctypestr, '&')
+            else:
+                ctypestr = ctype_prepqual(ctypestr, qual | info)
+                if LJ_64 and size == 4:
+                    ctypestr = ctype_preplit(ctypestr, '__ptr32')
+                ctypestr = ctype_preplit(ctypestr, '*')
+            qual = 0;
+            ptrto = 1;
+        elif ctp == CT_ARRAY:
+            if ctype_isrefarray(info):
+                if ptrto:
+                    ptrto = 0
+                    ctypestr = '(' + ctypestr + ')'
+                arrsize = ''
+                if size != CTSIZE_INVALID:
+                    child_size = ctype_child(cts, ctype)['size']
+                    arrsize = str(size / child_size if child_size > 0 else 0)
+                elif info & CTF_VLA:
+                    arrsize = '?'
+                ctypestr = ctypestr + '[{}]'.format(arrsize)
+            elif ctype_iscomplex(info):
+                if size == DWORDSZ * 2:
+                    ctypestr = ctype_preplit(ctypestr, 'float')
+                else:
+                    assert size == QWORDSZ * 2, 'bad (complex double) size'
+                return ctype_preplit(ctypestr, 'complex')
+            else:
+                ctypestr = ctype_preplit(
+                    '__attribute__((vector_size({})))'.format(size)
+                )
+        elif ctp == CT_FUNC:
+            if ptrto:
+                ptrto = 0
+                ctypestr = '(' + ctypestr + ')'
+            ctypestr += '()'
+
+        ctype = ctype_child(cts, ctype)
+
+    return 'NIY'
+
 def dump_lj_gco_str(gcobj):
     return 'string {body} @ {address}'.format(
         body = strdata(gcobj),
@@ -1163,7 +1436,31 @@ def dump_lj_gco_trace(gcobj):
     )
 
 def dump_lj_gco_cdata(gcobj):
-    return 'cdata @ {}'.format(strx64(gcobj))
+    cdata = cast('struct GCcdata *', gcobj)
+    cts = ctype_ctsG(G(L()))
+
+    cid = cdata['ctypeid']
+    ctype = ctype_get(cts, cid)
+    info = ctype['info']
+    size = ctype['size']
+    name = ctype_repr(cts, cid)
+    value = ''
+
+    if ctype_iscomplex(info):
+        value = cdata_val_complex(cdata, ctype)
+    elif size == 8 and ctype_isinteger(info):
+        value = cdata_val_int64(cdata, ctype)
+    else:
+        value = cdataptr(cdata)
+        if ctype_isptr(info):
+            value = cdata_getptr(value, size)
+
+    return 'cdata @ {addr} [{id}] <{name}> {value}'.format(
+        addr = strx64(gcobj),
+        id = cid,
+        name = name,
+        value = value,
+    )
 
 def dump_lj_gco_tab(gcobj):
     table = cast('GCtab *', gcobj)
