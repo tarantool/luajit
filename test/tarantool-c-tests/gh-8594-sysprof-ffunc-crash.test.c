@@ -5,12 +5,6 @@
 #include "test.h"
 #include "utils.h"
 
-#include <signal.h>
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
 /* XXX: Still need normal assert inside <tracee> and helpers. */
 #undef NDEBUG
 #include <assert.h>
@@ -23,6 +17,12 @@
 #include "lj_arch.h"
 
 #if LUAJIT_OS == LUAJIT_OS_LINUX && LUAJIT_TARGET == LUAJIT_ARCH_X64
+
+#include <signal.h>
+#include <sys/ptrace.h>
+#include <sys/user.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 /*
  * XXX: The test makes sysprof collect the particular event
