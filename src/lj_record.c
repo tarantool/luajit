@@ -990,7 +990,7 @@ int lj_record_mm_lookup(jit_State *J, RecordIndex *ix, MMS mm)
     int udtype = udataV(&ix->tabv)->udtype;
     mt = tabref(udataV(&ix->tabv)->metatable);
     /* The metatables of special userdata objects are treated as immutable. */
-    if (udtype != UDTYPE_USERDATA) {
+    if (udtype > UDTYPE_IO_FILE) {
       cTValue *mo;
       if (LJ_HASFFI && udtype == UDTYPE_FFI_CLIB) {
 	/* Specialize to the C library namespace object. */
