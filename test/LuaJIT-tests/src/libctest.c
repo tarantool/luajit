@@ -73,9 +73,9 @@ LUA_API double call_ividi(int a, ...)
 }
 
 #ifdef complex
-LUA_API complex call_dd_cd(double a, double b) { return a+b*2i; }
-LUA_API complex call_cd(complex a) { return a+1-2i; }
-LUA_API complex call_cdcd(complex a, complex b) { return a+b; }
+LUA_API complex double call_dd_cd(double a, double b) { return a+b*2i; }
+LUA_API complex double call_cd(complex double a) { return a+1-2i; }
+LUA_API complex double call_cdcd(complex double a, complex double b) { return a+b; }
 
 LUA_API complex float call_ff_cf(float a, float b) { return a+b*2i; }
 LUA_API complex float call_cf(complex float a) { return a+1-2i; }
