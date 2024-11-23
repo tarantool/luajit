@@ -35,7 +35,7 @@ endfunction()
 
 function(LuaJITArch outvar testarch)
   # XXX: Please do not change the order of the architectures.
-  foreach(TRYARCH X64 X86 ARM64 ARM PPC MIPS64 MIPS)
+  foreach(TRYARCH X64 X86 ARM64 ARM PPC MIPS64 MIPS RISCV64)
     string(FIND "${testarch}" "LJ_TARGET_${TRYARCH}" FOUND)
     # FIXME: <continue> is introduced in CMake version 3.2, but
     # the minimum required version now is 3.1. This is not such a

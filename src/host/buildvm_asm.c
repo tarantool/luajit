@@ -164,6 +164,34 @@ static void emit_asm_wordreloc(BuildCtx *ctx, uint8_t *p, int n,
 	  "Error: unsupported opcode %08x for %s symbol relocation.\n",
 	  ins, sym);
   exit(1);
+#elif LJ_TARGET_RISCV64
+  if ((ins & 0x7f) == 0x17u) {
+    fprintf(ctx->fp, "\tauipc x%d, %s\n", (ins >> 7) & 31, sym);
+  } else if ((ins & 0x7f) == 0x67u) {
+    fprintf(ctx->fp, "\tjalr x%d, x%d, %s\n", (ins >> 7) & 31, (ins >> 15) & 31, sym);
+  } else if ((ins & 0x7f) == 0x6fu) {
+    fprintf(ctx->fp, "\tjal x%d, %s\n", (ins >> 7) & 31, sym);
+  } else if ((ins & 0x7f) == 0x03u) {
+    uint8_t funct3 = (ins >> 12) & 7;
+    uint8_t rd = (ins >> 7) & 31, rs1 = (ins >> 15) & 31;
+    switch (funct3) {
+      case 0: fprintf(ctx->fp, "\tlb"); break;
+      case 1: fprintf(ctx->fp, "\tlh"); break;
+      case 2: fprintf(ctx->fp, "\tlw"); break;
+      case 3: fprintf(ctx->fp, "\tld"); break;
+      case 4: fprintf(ctx->fp, "\tlbu"); break;
+      case 5: fprintf(ctx->fp, "\tlhu"); break;
+      case 6: fprintf(ctx->fp, "\tlwu"); break;
+      default: goto rv_reloc_err;
+    }
+    fprintf(ctx->fp, " x%d, %s(x%d)\n", rd, sym, rs1);
+  } else {
+rv_reloc_err:
+    fprintf(stderr,
+  	    "Error: unsupported opcode %08x for %s symbol relocation.\n",
+  	    ins, sym);
+    exit(1);
+  }
 #else
 #error "missing relocation support for this architecture"
 #endif
@@ -254,6 +282,9 @@ void emit_asm(BuildCtx *ctx)
   fprintf(ctx->fp, "\t.abiversion 2\n");
 #endif
   fprintf(ctx->fp, "\t.text\n");
+#if LJ_TARGET_RISCV64
+  fprintf(ctx->fp, ".option arch, -c\n.option norelax\n");
+#endif
   emit_asm_align(ctx, 4);
 
 #if LJ_TARGET_PS3
