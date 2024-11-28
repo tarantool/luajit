@@ -34,6 +34,19 @@ static void *allocf_inj_null_doubling_realloc(void *ud, void *ptr, size_t osize,
 	return old_allocf(ud, ptr, osize, nsize);
 }
 
+static size_t limit = 0;
+/* Returns `NULL` on allocations beyond the given limit. */
+static void *allocf_inj_null_limited_alloc(void *ud, void *ptr, size_t osize,
+					   size_t nsize)
+{
+	assert(old_allocf != NULL);
+	assert(limit != 0);
+	/* Check the specific allocation. */
+	if (osize == 0 && nsize > limit)
+		return NULL;
+	return old_allocf(ud, ptr, osize, nsize);
+}
+
 static int enable(lua_State *L, lua_Alloc allocf_with_injection)
 {
 	assert(old_allocf == NULL);
@@ -52,6 +65,13 @@ static int enable_null_doubling_realloc(lua_State *L)
 	return enable(L, allocf_inj_null_doubling_realloc);
 }
 
+static int enable_null_limited_alloc(lua_State *L)
+{
+	limit = lua_tointeger(L, 1);
+	assert(limit != 0);
+	return enable(L, allocf_inj_null_limited_alloc);
+}
+
 /* Restore the default allocator function. */
 static int disable(lua_State *L)
 {
@@ -65,6 +85,7 @@ static int disable(lua_State *L)
 static const struct luaL_Reg allocinject[] = {
 	{"enable_null_alloc", enable_null_alloc},
 	{"enable_null_doubling_realloc", enable_null_doubling_realloc},
+	{"enable_null_limited_alloc", enable_null_limited_alloc},
 	{"disable", disable},
 	{NULL, NULL}
 };
