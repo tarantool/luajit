@@ -1,6 +1,6 @@
 local loadstring = loadstring or load
 
-do --- Must unpatch modified bytecode with ILOOP/JLOOP etc.
+do --- Must unpatch modified bytecode with ILOOP/JLOOP etc. -table_bump
   local function foo()
     local t = {}
     for i=1,100 do t[i] = i end
