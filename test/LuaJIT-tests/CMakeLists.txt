@@ -71,6 +71,14 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   list(APPEND LUAJIT_TEST_TAGS_EXTRA +libc=${LIBC_VERSION})
 endif()
 
+if(LUAJIT_ENABLE_TABLE_BUMP)
+  # Test <string/dump.lua> verifies that the bytecode is unchanged
+  # for the prototype with the recorded trace. Table bump
+  # optimization changes the TNEW/TDUP bytecodes, so skip the test
+  # in that case.
+  list(APPEND LUAJIT_TEST_TAGS_EXTRA +table_bump)
+endif()
+
 set(TEST_SUITE_NAME "LuaJIT-tests")
 
 # XXX: The call produces both test and target <LuaJIT-tests-deps>
