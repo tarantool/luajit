@@ -73,6 +73,7 @@ separate_arguments(LUAJIT_TEST_COMMAND)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(AddTestLib)
+include(GetLibCVersion)
 include(LibRealPath)
 
 # CTEST_FLAGS is used by CMake targets in test suites.
