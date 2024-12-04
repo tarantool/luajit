@@ -161,7 +161,12 @@ local function parse_args(t)
         error(arg .." does not expect an argument")
       end
     elseif arg:find"^[-+]" then
-      opts.tags[arg:sub(2)] = (arg:sub(1, 1) == "+")
+      local tagval = arg:find"="
+      if tagval then
+        opts.tags[arg:sub(2, tagval - 1)] = tonumber(arg:sub(tagval + 1))
+      else
+        opts.tags[arg:sub(2)] = (arg:sub(1, 1) == "+")
+      end
     elseif arg:find"^%d+$" then
       if not opts.numbers_to_run then
         opts.numbers_to_run = {}
