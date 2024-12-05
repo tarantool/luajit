@@ -17,7 +17,7 @@
 
 /*
  * XXX: The test is *very* Linux/x86_64 specific. Fortunately, so
- * does the sampling profiler. <lj_arch.> is needed for LUAJIT_OS
+ * does the sampling profiler. <lj_arch.h> is needed for LUAJIT_OS
  * and LUAJIT_TARGET.
  */
 #include "lj_arch.h"
@@ -270,7 +270,7 @@ static int test_tostring_call(void *ctx)
 
 static int test_tostring_call(void *ctx)
 {
-	return skip_all("sysprof is implemented for Linux/x86_64 only");
+	return skip("sysprof is implemented for Linux/x86_64 only");
 }
 
 #endif /* LUAJIT_OS == LUAJIT_OS_LINUX && LUAJIT_TARGET == LUAJIT_ARCH_X64 */
