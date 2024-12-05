@@ -6,6 +6,7 @@ local test = tap.test('gh-7264-add-proto-trace-sysprof-default'):skipcond({
   ['Sysprof is implemented for Linux only'] = jit.os ~= 'Linux',
   -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
   ['Disabled due to LuaJIT/LuaJIT#606'] = os.getenv('LUAJIT_TABLE_BUMP'),
+  ['Sysprof is disabled'] = os.getenv('LUAJIT_DISABLE_SYSPROF'),
 })
 
 test:plan(2)
