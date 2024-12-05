@@ -89,6 +89,10 @@ if(LUAJIT_ENABLE_TABLE_BUMP)
   list(APPEND LUA_TEST_ENV_MORE LUAJIT_TABLE_BUMP=1)
 endif()
 
+if(LUAJIT_DISABLE_SYSPROF)
+  list(APPEND LUA_TEST_ENV_MORE LUAJIT_DISABLE_SYSPROF=1)
+endif()
+
 set(TEST_SUITE_NAME "tarantool-tests")
 
 # XXX: The call produces both test and target

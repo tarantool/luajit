@@ -301,6 +301,9 @@ static int profile_func_jiton(void *test_state)
 
 int main(void)
 {
+#if LUAJIT_DISABLE_SYSPROF
+	return skip_all("Sysprof is disabled");
+#else /* LUAJIT_DISABLE_SYSPROF */
 	if (LUAJIT_OS != LUAJIT_OS_LINUX)
 		return skip_all("Sysprof is implemented for Linux only");
 	if (LUAJIT_TARGET != LUAJIT_ARCH_X86
@@ -322,4 +325,5 @@ int main(void)
 	const int test_result = test_run_group(tgroup, L);
 	utils_lua_close(L);
 	return test_result;
+#endif /* LUAJIT_DISABLE_SYSPROF */
 }
