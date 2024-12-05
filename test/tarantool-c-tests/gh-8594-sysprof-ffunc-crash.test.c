@@ -277,8 +277,12 @@ static int test_tostring_call(void *ctx)
 
 int main(void)
 {
+#if LUAJIT_DISABLE_SYSPROF
+	return skip_all("Sysprof is disabled");
+#else /* LUAJIT_DISABLE_SYSPROF */
 	const struct test_unit tgroup[] = {
 		test_unit_def(test_tostring_call),
 	};
 	return test_run_group(tgroup, NULL);
+#endif /* LUAJIT_DISABLE_SYSPROF */
 }
