@@ -62,13 +62,17 @@ if(CMAKE_C_FLAGS MATCHES "-march=skylake-avx512")
   list(APPEND LUAJIT_TEST_TAGS_EXTRA +avx512)
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  GetLibCVersion(LIBC_VERSION)
-  # XXX: <tonumber_scan.lua> uses `strtod()`, old versions of
-  # which have the bug [1] for "0x1p-2075" parsing. Add the skip
-  # check for it.
-  # [1]: https://sourceware.org/bugzilla/show_bug.cgi?id=16151
-  list(APPEND LUAJIT_TEST_TAGS_EXTRA +libc=${LIBC_VERSION})
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  GetLinuxDistro(LINUX_DISTRO)
+  # Alpine uses musl instead of glibc.
+  if(NOT LINUX_DISTRO MATCHES "alpine")
+    GetLibCVersion(LIBC_VERSION)
+    # XXX: <tonumber_scan.lua> uses `strtod()`, old versions of
+    # which have the bug [1] for "0x1p-2075" parsing. Add the skip
+    # check for it.
+    # [1]: https://sourceware.org/bugzilla/show_bug.cgi?id=16151
+    list(APPEND LUAJIT_TEST_TAGS_EXTRA +libc=${LIBC_VERSION})
+  endif()
 endif()
 
 if(LUAJIT_ENABLE_TABLE_BUMP)
