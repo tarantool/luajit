@@ -89,6 +89,9 @@ wrapper()
 
 assert(not traceinfo(1), 'no traces recorded')
 
+-- Reset hot counters to avoid collisions and blacklisting.
+jit.opt.start('hotloop=1')
+
 -- The simplest trace to compile.
 for _ = 1, 4 do end
 
