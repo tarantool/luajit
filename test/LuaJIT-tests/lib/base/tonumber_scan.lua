@@ -186,9 +186,11 @@ do --- tonumber parsing
   test_conv(tonumber)
 end
 
--- Skip for the old libc version with the bug in the `strtod()`.
--- See also https://sourceware.org/bugzilla/show_bug.cgi?id=16151.
-do --- strtod parsing -libc<2.19
+-- Skip for the old libc version with the bugs in the `strtod()`.
+-- Affected versions:
+-- * <2.19: https://sourceware.org/bugzilla/show_bug.cgi?id=16151.
+-- * <2.28: https://sourceware.org/bugzilla/show_bug.cgi?id=23279.
+do --- strtod parsing -libc<2.28
   test_conv(function(s)
     local d = ffi.C.strtod(s, e)
     return (e[0][0] == 0 and #s ~= 0) and d or nil
