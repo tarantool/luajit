@@ -1847,7 +1847,14 @@ static void build_subroutines(BuildCtx *ctx)
   |   bxgeu RA, RB, ->fff_resn
   |  checknum CARG2, >7
   |6:
-  |  fpins FARG1, FARG1, FARG2
+  |.if ismax
+  |  flt.d TMP0, FARG2, FARG1
+  |.else // min
+  |  flt.d TMP0, FARG1, FARG2
+  |.endif
+  |  bnez TMP0, >8 // skip swap
+  |  fmv.d FARG1, FARG2
+  |8:
   |   addi RA, RA, 8
   |  j <5
   |7:  // Convert integer to number and continue above.
@@ -4124,7 +4131,7 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
   case BC_ITERN:
     |  // RA = base*8, (RB = (nresults+1)*8, RC = (nargs+1)*8 (2+1)*8)
     |.if JIT
-    |  hotloop
+    |  // NYI: compile table traversal.
     |.endif
     |->vm_IITERN:
     |  add RA, BASE, RA
@@ -4210,26 +4217,8 @@ static void build_ins(BuildCtx *ctx, BCOp op, int defop)
     |   li TMP1, BC_ITERC
     |  sb TMP3, -4+OFS_OP(PC)
     |   add PC, TMP0, TMP2
-    |.if JIT
-    |  lb TMP0, OFS_OP(PC)
-    |  li TMP3, BC_ITERN
-    |  lhu TMP2, OFS_RD(PC)
-    |  bne TMP0, TMP3, >6
-    |.endif
     |  sb TMP1, OFS_OP(PC)
     |  j <1
-    |.if JIT
-    |6:  // Unpatch JLOOP.
-    |  ld TMP0, GL_J(trace)(GL)	// Assumes J.trace in-reach relative to GL.
-    |  slliw TMP2, TMP2, 3
-    |  add TMP0, TMP0, TMP2
-    |  ld TRACE:TMP2, 0(TMP0)
-    |  lw TMP0, TRACE:TMP2->startins
-    |  andi TMP0, TMP0, -256
-    |  or TMP0, TMP0, TMP1
-    |  sw TMP0, 0(PC)
-    |  j <1
-    |.endif
     break;
 
   case BC_VARG:
