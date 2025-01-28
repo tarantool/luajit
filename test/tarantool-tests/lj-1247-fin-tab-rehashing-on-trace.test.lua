@@ -24,7 +24,7 @@ local test = tap.test('lj-1247-fin-tab-rehashing-on-trace'):skipcond({
 -- omitted, we test only the first case.
 test:plan(2)
 
-local allocinject = require('lj_1247_allocinject')
+local allocinject = require('allocinject')
 
 local ffi = require('ffi')
 ffi.cdef[[
@@ -115,7 +115,7 @@ crash_on_trace_unwind_gc_setup()
 
 -- OOM on every allocation (i.e., on finalizer table rehashing
 -- too).
-allocinject.enable()
+allocinject.enable_null_alloc()
 
 local r, err = pcall(f, res_tab)
 
