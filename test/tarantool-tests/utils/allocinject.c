@@ -7,9 +7,22 @@
 static lua_Alloc old_allocf = NULL;
 static void *old_alloc_state = NULL;
 
-/* Function to be used instead of the default allocator. */
-static void *allocf_with_injection(void *ud, void *ptr, size_t osize,
+/* Functions to be used instead of the default allocator. */
+
+/* Always OOM on allocation (not on realloc). */
+static void *allocf_inj_null_alloc(void *ud, void *ptr, size_t osize,
 				   size_t nsize)
+{
+	assert(old_allocf != NULL);
+	if (ptr == NULL)
+		return NULL;
+	else
+		return old_allocf(ud, ptr, osize, nsize);
+}
+
+/* Returns `NULL` on reallocations doubling used memory. */
+static void *allocf_inj_null_doubling_realloc(void *ud, void *ptr, size_t osize,
+					      size_t nsize)
 {
 	assert(old_allocf != NULL);
 	/*
@@ -21,7 +34,7 @@ static void *allocf_with_injection(void *ud, void *ptr, size_t osize,
 	return old_allocf(ud, ptr, osize, nsize);
 }
 
-static int enable(lua_State *L)
+static int enable(lua_State *L, lua_Alloc allocf_with_injection)
 {
 	assert(old_allocf == NULL);
 	old_allocf = lua_getallocf(L, &old_alloc_state);
@@ -29,10 +42,20 @@ static int enable(lua_State *L)
 	return 0;
 }
 
+static int enable_null_alloc(lua_State *L)
+{
+	return enable(L, allocf_inj_null_alloc);
+}
+
+static int enable_null_doubling_realloc(lua_State *L)
+{
+	return enable(L, allocf_inj_null_doubling_realloc);
+}
+
+/* Restore the default allocator function. */
 static int disable(lua_State *L)
 {
 	assert(old_allocf != NULL);
-	assert(old_allocf != allocf_with_injection);
 	lua_setallocf(L, old_allocf, old_alloc_state);
 	old_allocf = NULL;
 	old_alloc_state = NULL;
@@ -40,7 +63,8 @@ static int disable(lua_State *L)
 }
 
 static const struct luaL_Reg allocinject[] = {
-	{"enable", enable},
+	{"enable_null_alloc", enable_null_alloc},
+	{"enable_null_doubling_realloc", enable_null_doubling_realloc},
 	{"disable", disable},
 	{NULL, NULL}
 };
