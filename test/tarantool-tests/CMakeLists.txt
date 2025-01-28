@@ -59,11 +59,13 @@ add_subdirectory(lj-727-lightuserdata-itern)
 add_subdirectory(lj-802-panic-at-mcode-protfail)
 add_subdirectory(lj-flush-on-trace)
 add_subdirectory(lj-1066-fix-cur_L-after-coroutine-resume)
-add_subdirectory(lj-1166-error-stitch)
 add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/both)
 add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/gnuhash)
 add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/hash)
 add_subdirectory(profilers/gh-5813-resolving-of-c-symbols/stripped)
+
+# Module for alloc injections to return OOM for allocations.
+add_subdirectory(utils)
 
 if(BUILDMODE STREQUAL "dynamic")
   add_subdirectory(fix-argv-handling)
