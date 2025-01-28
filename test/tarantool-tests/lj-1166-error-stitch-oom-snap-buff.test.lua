@@ -59,7 +59,7 @@ jparse.start('t')
 jit.opt.start('hotloop=1')
 jit.on()
 
-allocinject.enable()
+allocinject.enable_null_doubling_realloc()
 
 tracef()
 
