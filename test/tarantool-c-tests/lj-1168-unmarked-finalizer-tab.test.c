@@ -3,8 +3,6 @@
 
 #include "test.h"
 
-#define UNUSED(x) ((void)(x))
-
 /*
  * This test demonstrates LuaJIT's incorrect behaviour on
  * loading Lua chunk with cdata numbers.
