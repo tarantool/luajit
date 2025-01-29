@@ -18,8 +18,6 @@
 /* Need for skipcond for OS and ARCH. */
 #include "lj_arch.h"
 
-#define UNUSED(x) ((void)(x))
-
 /* --- utils -------------------------------------------------- */
 
 #define SYSPROF_INTERVAL_DEFAULT 100

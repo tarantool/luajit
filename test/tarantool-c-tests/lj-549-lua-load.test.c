@@ -3,8 +3,6 @@
 
 #include "lj_def.h"
 
-#define UNUSED(x) ((void)(x))
-
 /*
  * XXX: In C language, objects with static storage duration have
  * to be initialized with constant expressions or with aggregate

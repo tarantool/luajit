@@ -1,7 +1,5 @@
 #include "test.h"
 
-#define UNUSED(x) ((void)(x))
-
 static int test_ok(void *test_state)
 {
 	UNUSED(test_state);

@@ -46,8 +46,6 @@
  * * https://github.com/tarantool/tarantool/issues/9387
  */
 
-#define UNUSED(x) ((void)(x))
-
 #define MESSAGE "Canary is alive"
 #define LUACALL "local a = tostring('" MESSAGE "') return a"
 
