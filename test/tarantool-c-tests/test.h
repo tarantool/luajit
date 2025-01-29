@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifndef UNUSED
+#define UNUSED(x) ((void)(x))
+#endif
+
 /*
  * Test module, based on TAP 14 specification [1].
  * [1]: https://testanything.org/tap-version-14-specification.html

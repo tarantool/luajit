@@ -3,8 +3,6 @@
 #include "test.h"
 #include "utils.h"
 
-#define UNUSED(x) ((void)(x))
-
 /*
  * This test demonstrates LuaJIT's incorrect behaviour, when
  * calling `lua_yield()` inside a C hook.
