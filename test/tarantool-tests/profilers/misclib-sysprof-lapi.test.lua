@@ -65,34 +65,38 @@ end
 
 -- Wrong profiling mode.
 local res, err, errno = misc.sysprof.start{ mode = "A" }
-test:ok(res == nil and err:match("profiler misuse"))
-test:ok(type(errno) == "number")
+test:ok(res == nil and err:match("profiler misuse"),
+        "result status with wrong profiling mode")
+test:ok(type(errno) == "number", "errno with wrong profiling mode")
 
 -- Already running.
 res, err = misc.sysprof.start{ mode = "D" }
 assert(res, err)
 
 res, err, errno = misc.sysprof.start{ mode = "D" }
-test:ok(res == nil and err:match("profiler is running already"))
-test:ok(type(errno) == "number")
+test:ok(res == nil and err:match("profiler is running already"),
+        "ok with already running")
+test:ok(type(errno) == "number", "errno with already running")
 
 res, err = misc.sysprof.stop()
 assert(res, err)
 
 -- Not running.
 res, err, errno = misc.sysprof.stop()
-test:ok(res == nil and err)
-test:ok(type(errno) == "number")
+test:ok(res == nil and err, "result status and error with not running")
+test:ok(type(errno) == "number", "errno with not running")
 
 -- Bad path.
 res, err, errno = misc.sysprof.start({ mode = "C", path = BAD_PATH })
-test:ok(res == nil and err:match("No such file or directory"))
-test:ok(type(errno) == "number")
+test:ok(res == nil and err:match("No such file or directory"),
+        "result status and error with bad path")
+test:ok(type(errno) == "number", "errno with bad path")
 
 -- Bad interval.
 res, err, errno = misc.sysprof.start{ mode = "C", interval = -1 }
-test:ok(res == nil and err:match("profiler misuse"))
-test:ok(type(errno) == "number")
+test:ok(res == nil and err:match("profiler misuse"),
+        "result status and error with bad interval")
+test:ok(type(errno) == "number", "errno with bad interval")
 
 -- DEFAULT MODE
 
@@ -102,20 +106,26 @@ end
 
 local report = misc.sysprof.report()
 
--- Check the profile is not empty
-test:ok(report.samples > 0)
+-- Check the profile is not empty.
+test:ok(report.samples > 0,
+        "number of samples is greater than 0 for the default payload")
 -- There is a Lua function with FNEW bytecode in it. Hence there
 -- are only three possible sample types:
 -- * LFUNC -- Lua payload is sampled.
 -- * GC -- Lua GC machinery triggered in scope of FNEW bytecode
 --   is sampled.
 -- * INTERP -- VM is in a specific state when the sample is taken.
-test:ok(report.vmstate.LFUNC + report.vmstate.GC + report.vmstate.INTERP > 0)
+test:ok(report.vmstate.LFUNC + report.vmstate.GC + report.vmstate.INTERP > 0,
+        "total number of LFUNC, GC and INTERP samples is greater than 0 " ..
+        "for the default payload")
 -- There is no fast functions and C function in default payload.
-test:ok(report.vmstate.FFUNC + report.vmstate.CFUNC == 0)
+test:ok(report.vmstate.FFUNC + report.vmstate.CFUNC == 0,
+        "total number of FFUNC and CFUNC samples is equal to 0 " ..
+        "for the default payload")
 -- Check all JIT-related VM states are not sampled.
+local msg = "total number of VM state %s is equal to 0 for the default payload"
 for _, vmstate in pairs({ 'TRACE', 'RECORD', 'OPT', 'ASM', 'EXIT' }) do
-  test:ok(report.vmstate[vmstate] == 0)
+  test:ok(report.vmstate[vmstate] == 0, msg:format(vmstate))
 end
 
 -- With very big interval.
@@ -124,7 +134,8 @@ if not pcall(generate_output, { mode = "D", interval = 1000 }) then
 end
 
 report = misc.sysprof.report()
-test:ok(report.samples == 0)
+test:ok(report.samples == 0, "total number of samples is equal to 0 for " ..
+        "the too big sampling interval")
 
 -- LEAF MODE
 check_mode("L", 100)
