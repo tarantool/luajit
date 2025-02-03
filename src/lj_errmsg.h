@@ -188,6 +188,10 @@ ERRDEF(PROF_ISRUNNING,	"profiler is running already")
 ERRDEF(PROF_NOTRUNNING,	"profiler is not running")
 #endif
 
+ERRDEF(PROF_DETAILS_BADMODE, "profiler mode must be 'D', 'L' or 'C'")
+ERRDEF(PROF_DETAILS_BADINTERVAL, "profiler interval must be greater than 1")
+ERRDEF(PROF_DETAILS_BADPATH, "profiler path should be a string")
+
 #undef ERRDEF
 
 /* Detecting unused error messages:
