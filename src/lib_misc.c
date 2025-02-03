@@ -161,7 +161,7 @@ static int on_stop_cb_default(void *opt, uint8_t *buf)
 
 #define LJLIB_MODULE_misc_sysprof
 
-/* The default profiling interval equals to 11 ms. */
+/* The default profiling interval equals to 10 ms. */
 #define SYSPROF_DEFAULT_INTERVAL 10
 #define SYSPROF_DEFAULT_OUTPUT "sysprof.bin"
 
