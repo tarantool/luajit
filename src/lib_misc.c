@@ -14,6 +14,7 @@
 
 #include "lj_obj.h"
 #include "lj_str.h"
+#include "lj_strfmt.h"
 #include "lj_tab.h"
 #include "lj_lib.h"
 #include "lj_gc.h"
@@ -163,6 +164,7 @@ static int on_stop_cb_default(void *opt, uint8_t *buf)
 
 /* The default profiling interval equals to 10 ms. */
 #define SYSPROF_DEFAULT_INTERVAL 10
+#define SYSPROF_DEFAULT_MODE "D"
 #define SYSPROF_DEFAULT_OUTPUT "sysprof.bin"
 
 static int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
@@ -177,21 +179,38 @@ static int set_output_path(const char *path, struct luam_Sysprof_Options *opt) {
   return PROFILE_SUCCESS;
 }
 
-static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, int idx) {
-  GCtab *options = lj_lib_checktab(L, idx);
+static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt,
+			      const char **err_details) {
+  int n = (int)(L->top - L->base);
+  GCtab *options;
+  if (n == 0) {
+    opt->mode = LUAM_SYSPROF_DEFAULT;
+    opt->interval = SYSPROF_DEFAULT_INTERVAL;
+    return PROFILE_SUCCESS;
+  }
+
+  /* All other arguments given to this function are ignored. */
+  options = lj_lib_checktab(L, 1);
 
   /* Get profiling mode. */
   {
     const char *mode = NULL;
 
     cTValue *mode_opt = lj_tab_getstr(options, lj_str_newlit(L, "mode"));
-    if (!mode_opt || !tvisstr(mode_opt)) {
-      return PROFILE_ERRUSE;
+    if (mode_opt) {
+      if (!tvisstr(mode_opt)) {
+	*err_details = err2msg(LJ_ERR_PROF_DETAILS_BADMODE);
+	return PROFILE_ERRUSE;
+      }
+      mode = strVdata(mode_opt);
+      if (strlen(mode) == 0 || mode[1] != '\0') {
+	*err_details = err2msg(LJ_ERR_PROF_DETAILS_BADMODE);
+	return PROFILE_ERRUSE;
+      }
     }
 
-    mode = strVdata(mode_opt);
-    if (mode[1] != '\0')
-      return PROFILE_ERRUSE;
+    if (!mode)
+      mode = SYSPROF_DEFAULT_MODE;
 
     switch (*mode) {
       case 'D':
@@ -204,7 +223,8 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, in
         opt->mode = LUAM_SYSPROF_CALLGRAPH;
         break;
       default:
-        return PROFILE_ERRUSE;
+	*err_details = err2msg(LJ_ERR_PROF_DETAILS_BADMODE);
+	return PROFILE_ERRUSE;
     }
   }
 
@@ -214,8 +234,10 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, in
     opt->interval = SYSPROF_DEFAULT_INTERVAL;
     if (interval && tvisnumber(interval)) {
       int32_t signed_interval = numberVint(interval);
-      if (signed_interval < 1)
-        return PROFILE_ERRUSE;
+      if (signed_interval < 1) {
+	*err_details = err2msg(LJ_ERR_PROF_DETAILS_BADINTERVAL);
+	return PROFILE_ERRUSE;
+      }
       opt->interval = signed_interval;
     }
   }
@@ -228,12 +250,14 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, in
     int status = 0;
 
     cTValue *pathtv = lj_tab_getstr(options, lj_str_newlit(L, "path"));
-    if (!pathtv)
+    if (!pathtv) {
       path = SYSPROF_DEFAULT_OUTPUT;
-    else if (!tvisstr(pathtv))
+    } else if (!tvisstr(pathtv)) {
+      *err_details = err2msg(LJ_ERR_PROF_DETAILS_BADPATH);
       return PROFILE_ERRUSE;
-    else
+    } else {
       path = strVdata(pathtv);
+    }
 
     ctx = lj_mem_new(L, sizeof(*ctx));
     ctx->g = G(L);
@@ -243,6 +267,7 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, in
 
     status = set_output_path(path, opt);
     if (status != PROFILE_SUCCESS) {
+      *err_details = path;
       lj_mem_free(ctx->g, ctx, sizeof(*ctx));
       return status;
     }
@@ -251,23 +276,15 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt, in
   return PROFILE_SUCCESS;
 }
 
-static int parse_options(lua_State *L, struct luam_Sysprof_Options *opt)
-{
-  if (lua_gettop(L) != 1)
-    return PROFILE_ERRUSE;
-
-  if (!lua_istable(L, 1))
-    return PROFILE_ERRUSE;
-
-  return parse_sysprof_opts(L, opt, 1);
-}
-
-static int sysprof_error(lua_State *L, int status)
+static int sysprof_error(lua_State *L, int status, const char *err_details)
 {
   switch (status) {
     case PROFILE_ERRUSE:
       lua_pushnil(L);
-      lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
+      if (err_details)
+	lj_strfmt_pushf(L, "%s: %s", err2msg(LJ_ERR_PROF_MISUSE), err_details);
+      else
+	lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
       lua_pushinteger(L, EINVAL);
       return 3;
 #if LJ_HASSYSPROF
@@ -277,7 +294,7 @@ static int sysprof_error(lua_State *L, int status)
       lua_pushinteger(L, EINVAL);
       return 3;
     case PROFILE_ERRIO:
-      return luaL_fileresult(L, 0, NULL);
+      return luaL_fileresult(L, 0, err_details);
 #endif
     default:
       lj_assertL(0, "bad sysprof error %d", status);
@@ -291,15 +308,16 @@ LJLIB_CF(misc_sysprof_start)
   int status = PROFILE_SUCCESS;
 
   struct luam_Sysprof_Options opt = {};
+  const char *err_details = NULL;
 
-  status = parse_options(L, &opt);
+  status = parse_sysprof_opts(L, &opt, &err_details);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
-    return sysprof_error(L, status);
+    return sysprof_error(L, status, err_details);
 
   status = luaM_sysprof_start(L, &opt);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
     /* Allocated memory will be freed in on_stop callback. */
-    return sysprof_error(L, status);
+    return sysprof_error(L, status, err_details);
 
   lua_pushboolean(L, 1);
   return 1;
@@ -310,7 +328,7 @@ LJLIB_CF(misc_sysprof_stop)
 {
   int status = luaM_sysprof_stop(L);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
-    return sysprof_error(L, status);
+    return sysprof_error(L, status, NULL);
 
   lua_pushboolean(L, 1);
   return 1;
@@ -325,7 +343,7 @@ LJLIB_CF(misc_sysprof_report)
 
   int status = luaM_sysprof_report(&counters);
   if (status != PROFILE_SUCCESS)
-    return sysprof_error(L, status);
+    return sysprof_error(L, status, NULL);
 
   lua_createtable(L, 0, 3);
   data_tab = tabV(L->top - 1);

@@ -10,7 +10,7 @@ local test = tap.test("misclib-sysprof-lapi"):skipcond({
   ["Disabled due to #10803"] = os.getenv("LUAJIT_TEST_USE_VALGRIND"),
 })
 
-test:plan(19)
+test:plan(43)
 
 jit.off()
 -- XXX: Run JIT tuning functions in a safe frame to avoid errors
@@ -21,9 +21,13 @@ local bufread = require("utils.bufread")
 local symtab = require("utils.symtab")
 local sysprof = require("sysprof.parse")
 local profilename = require("utils").tools.profilename
+local read_file = require("utils").tools.read_file
 
+local SYSPROF_DEFAULT_OUTPUT_FILE = "sysprof.bin"
 local TMP_BINFILE = profilename("sysprofdata.tmp.bin")
 local BAD_PATH = profilename("sysprofdata/tmp.bin")
+local BAD_MODE = "A"
+local BAD_INTERVAL = -1
 
 local function payload()
   local function fib(n)
@@ -64,10 +68,46 @@ end
 -- GENERAL
 
 -- Wrong profiling mode.
-local res, err, errno = misc.sysprof.start{ mode = "A" }
-test:ok(res == nil and err:match("profiler misuse"),
-        "result status with wrong profiling mode")
+local res, err, errno = misc.sysprof.start{ mode = BAD_MODE }
+test:ok(res == nil, "result status with wrong profiling mode")
+test:ok(err:match("profiler mode must be 'D', 'L' or 'C'"),
+        "error with wrong profiling mode")
 test:ok(type(errno) == "number", "errno with wrong profiling mode")
+
+-- Missed profiling mode.
+res, err, errno = misc.sysprof.start{}
+test:is(res, true, "res with missed profiling mode")
+test:is(err, nil, "no error with missed profiling mode")
+test:is(errno, nil, "no errno with missed profiling mode")
+local ok, err_msg = pcall(read_file, SYSPROF_DEFAULT_OUTPUT_FILE)
+test:ok(ok == false and err_msg:match("cannot open a file"),
+        "default output file is empty")
+assert(misc.sysprof.stop())
+
+-- Not a table.
+res, err = pcall(misc.sysprof.start, "NOT A TABLE")
+test:is(res, false, "res with not a table")
+test:ok(err:match("table expected, got string"),
+        "error with not a table")
+
+-- All parameters are invalid. Check parameter validation order
+-- (not strict documented behaviour).
+res, err, errno = misc.sysprof.start({
+  mode = BAD_MODE, path = BAD_PATH, interval = BAD_INTERVAL })
+test:ok(res == nil, "res with all invalid parameters")
+test:ok(err:match("profiler misuse: profiler mode must be 'D', 'L' or 'C'"),
+        "error with all invalid parameters")
+test:ok(type(errno) == "number", "errno with all invalid parameters")
+
+-- All parameters are invalid, except the first one. Check
+-- parameter validation order (not strict documented behaviour).
+res, err, errno = misc.sysprof.start({
+  mode = "C", path = BAD_PATH, interval = BAD_INTERVAL })
+test:ok(res == nil, "res with all invalid parameters except the first one")
+test:ok(err:match("profiler misuse: profiler interval must be greater than 1"),
+        "error with all invalid parameters except the first one")
+test:ok(type(errno) == "number",
+        "errno with all invalid parameters except the first one")
 
 -- Already running.
 res, err = misc.sysprof.start{ mode = "D" }
@@ -88,15 +128,42 @@ test:ok(type(errno) == "number", "errno with not running")
 
 -- Bad path.
 res, err, errno = misc.sysprof.start({ mode = "C", path = BAD_PATH })
-test:ok(res == nil and err:match("No such file or directory"),
-        "result status and error with bad path")
+test:ok(res == nil, "result status with bad path")
+local error_msg = ("%s: No such file or directory"):format(BAD_PATH)
+test:ok(err == error_msg, "error with bad path")
 test:ok(type(errno) == "number", "errno with bad path")
 
+-- Path is not a string.
+res, err, errno = misc.sysprof.start({ mode = 'C', path = 190 })
+test:ok(res == nil, "result status with path is not a string")
+test:ok(err:match("profiler path should be a string"),
+        "err with path is not a string")
+test:ok(type(errno) == "number", "errno with path is not a string")
+
 -- Bad interval.
-res, err, errno = misc.sysprof.start{ mode = "C", interval = -1 }
-test:ok(res == nil and err:match("profiler misuse"),
-        "result status and error with bad interval")
+res, err, errno = misc.sysprof.start{ mode = "C", interval = BAD_INTERVAL }
+test:is(res, nil, "result status and error with bad interval")
+test:ok(err:match("profiler interval must be greater than 1"),
+        "error with bad interval")
 test:ok(type(errno) == "number", "errno with bad interval")
+
+-- Bad interval (0).
+res, err, errno = misc.sysprof.start{ mode = "C", interval = 0 }
+test:ok(res == nil, "res with bad interval 0")
+test:ok(err:match("profiler interval must be greater than 1"),
+        "error with bad interval 0")
+test:ok(type(errno) == "number", "errno with bad interval 0")
+
+-- Good interval (1).
+res, err, errno = misc.sysprof.start{
+    mode = "C",
+    interval = 1,
+    path = "/dev/null",
+}
+test:is(res, true, "res with good interval 1")
+test:is(err, nil, "no error with good interval 1")
+test:is(errno, nil, "no errno with good interval 1")
+misc.sysprof.stop()
 
 -- DEFAULT MODE
 
