@@ -10,7 +10,7 @@ local test = tap.test("misclib-sysprof-lapi"):skipcond({
   ["Disabled due to #10803"] = os.getenv("LUAJIT_TEST_USE_VALGRIND"),
 })
 
-test:plan(43)
+test:plan(44)
 
 jit.off()
 -- XXX: Run JIT tuning functions in a safe frame to avoid errors
@@ -123,7 +123,8 @@ assert(res, err)
 
 -- Not running.
 res, err, errno = misc.sysprof.stop()
-test:ok(res == nil and err, "result status and error with not running")
+test:is(res, nil, "result status with not running")
+test:ok(err:match("profiler is not running"), "error with not running")
 test:ok(type(errno) == "number", "errno with not running")
 
 -- Bad path.
