@@ -336,8 +336,14 @@ LJLIB_CF(misc_sysprof_stop)
   return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   int status = luaM_sysprof_stop(L);
-  if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
+  if (LJ_UNLIKELY(status == PROFILE_ERRRUN)) {
+    lua_pushnil(L);
+    lua_pushstring(L, err2msg(LJ_ERR_PROF_NOTRUNNING));
+    lua_pushinteger(L, EINVAL);
+    return 3;
+  } else if (LJ_UNLIKELY(status != PROFILE_SUCCESS)) {
     return prof_error(L, status, NULL);
+  }
 
   lua_pushboolean(L, 1);
   return 1;
