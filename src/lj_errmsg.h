@@ -192,6 +192,7 @@ ERRDEF(PROF_DETAILS_BADMODE, "profiler mode must be 'D', 'L' or 'C'")
 ERRDEF(PROF_DETAILS_BADINTERVAL, "profiler interval must be greater than 1")
 ERRDEF(PROF_DETAILS_BADPATH, "profiler path should be a string")
 
+ERRDEF(PROF_DETAILS_DISABLED, "profiler is disabled")
 #undef ERRDEF
 
 /* Detecting unused error messages:
