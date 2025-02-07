@@ -305,6 +305,10 @@ static int sysprof_error(lua_State *L, int status, const char *err_details)
 /* local res, err, errno = sysprof.start(options) */
 LJLIB_CF(misc_sysprof_start)
 {
+#if !LJ_HASSYSPROF
+  const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
+  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+#else
   int status = PROFILE_SUCCESS;
 
   struct luam_Sysprof_Options opt = {};
@@ -321,26 +325,35 @@ LJLIB_CF(misc_sysprof_start)
 
   lua_pushboolean(L, 1);
   return 1;
+#endif /* !LJ_HASSYSPROF */
 }
 
 /* local res, err, errno = profile.sysprof_stop() */
 LJLIB_CF(misc_sysprof_stop)
 {
+#if !LJ_HASSYSPROF
+  const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
+  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+#else
   int status = luaM_sysprof_stop(L);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
     return sysprof_error(L, status, NULL);
 
   lua_pushboolean(L, 1);
   return 1;
+#endif /* !LJ_HASSYSPROF */
 }
 
 /* local counters, err, errno = sysprof.report() */
 LJLIB_CF(misc_sysprof_report)
 {
+#if !LJ_HASSYSPROF
+  const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
+  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+#else
   struct luam_Sysprof_Counters counters = {};
   GCtab *data_tab = NULL;
   GCtab *count_tab = NULL;
-
   int status = luaM_sysprof_report(&counters);
   if (status != PROFILE_SUCCESS)
     return sysprof_error(L, status, NULL);
@@ -367,6 +380,7 @@ LJLIB_CF(misc_sysprof_report)
   lua_setfield(L, -2, "vmstate");
 
   return 1;
+#endif /* !LJ_HASSYSPROF */
 }
 
 /* ----- misc.memprof module ---------------------------------------------- */
@@ -376,6 +390,10 @@ LJLIB_CF(misc_sysprof_report)
 /* local started, err, errno = misc.memprof.start(fname) */
 LJLIB_CF(misc_memprof_start)
 {
+#if !LJ_HASMEMPROF
+  const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
+  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+#else
   struct lj_memprof_options opt = {0};
   const char *fname = strdata(lj_lib_checkstr(L, 1));
   struct profile_ctx *ctx;
@@ -425,11 +443,16 @@ LJLIB_CF(misc_memprof_start)
   }
   lua_pushboolean(L, 1);
   return 1;
+#endif /* !LJ_HASMEMPROF */
 }
 
 /* local stopped, err, errno = misc.memprof.stop() */
 LJLIB_CF(misc_memprof_stop)
 {
+#if !LJ_HASMEMPROF
+  const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
+  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+#else
   int status = lj_memprof_stop(L);
   if (status != PROFILE_SUCCESS) {
     switch (status) {
@@ -454,6 +477,7 @@ LJLIB_CF(misc_memprof_stop)
   }
   lua_pushboolean(L, 1);
   return 1;
+#endif /* !LJ_HASMEMPROF */
 }
 #endif /* !LJ_TARGET_WINDOWS */
 
