@@ -1,5 +1,6 @@
 local tap = require('tap')
--- The test reproduces the problem only for GC64 mode with enabled JIT.
+-- The test reproduces the problem only for GC64 mode with enabled
+-- JIT.
 local test = tap.test('lj-962-stack-overflow-report')
 test:plan(1)
 

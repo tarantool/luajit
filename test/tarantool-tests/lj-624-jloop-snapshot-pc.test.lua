@@ -66,8 +66,8 @@ test:plan(1)
 -- 0012  ADDVV    1   1   2
 -- 0013  JLOOP    3   3
 --
--- The assertion introduced in the previous patch is triggered during
--- recording of the last 0013 JLOOP.
+-- The assertion introduced in the previous patch is triggered
+-- during recording of the last 0013 JLOOP.
 --
 -- See also:
 -- https://github.com/luaJIT/LuaJIT/issues/624

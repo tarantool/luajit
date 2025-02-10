@@ -11,7 +11,8 @@ local test = tap.test('OOM on trace'):skipcond({
 
 test:plan(1)
 
--- NB: When GC64 is enabled, fails with TABOV, otherwise -- with OOM.
+-- NB: When GC64 is enabled, fails with TABOV, otherwise -- with
+-- OOM.
 local function memory_payload()
   local t = {} -- luacheck: no unused
   for i = 1, 1e10 do

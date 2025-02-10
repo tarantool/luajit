@@ -14,13 +14,16 @@ local utils = require('utils')
 -- Command below exports bytecode as an object file in ELF format:
 -- $ luajit -b -n 'lango_team' -e 'print()' xxx.obj
 -- $ file xxx.obj
--- xxx.obj: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped
+-- xxx.obj: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV),
+-- not stripped
 --
 -- With read_elf(1) it is possible to display entries in symbol
 -- table section of the file, if it has one. Object file contains
 -- a single symbol with name 'luaJIT_BC_lango_team':
 --
 -- $ readelf --symbols xxx.obj
+--
+-- luacheck: push no max_comment_line_length
 --
 -- Symbol table '.symtab' contains 2 entries:
 --    Num:    Value          Size Type    Bind   Vis      Ndx Name
@@ -45,6 +48,8 @@ local utils = require('utils')
 -- Reference numbers for strtab offset and size could be obtained
 -- with readelf(1). Note that number system of these numbers is
 -- hexadecimal.
+--
+-- luacheck: pop
 
 -- Symbol name prefix for LuaJIT bytecode defined in bcsave.lua.
 local LJBC_PREFIX = 'luaJIT_BC_'
@@ -139,11 +144,12 @@ local function create_obj_file(name)
   return elf_filename
 end
 
--- Parses a buffer in an ELF format and returns an offset and a size of strtab
--- and symtab sections.
+-- Parses a buffer in an ELF format and returns an offset and a
+-- size of strtab and symtab sections.
 local function read_elf(elf_content)
   local ELFobj_type = ffi.typeof(is64 and 'ELF64obj *' or 'ELF32obj *')
-  local ELFsectheader_type = ffi.typeof(is64 and 'ELF64sectheader *' or 'ELF32sectheader *')
+  local ELFsectheader_type = ffi.typeof(is64 and 'ELF64sectheader *' or
+                                        'ELF32sectheader *')
   local elf = ffi.cast(ELFobj_type, elf_content)
   local symtab_hdr, strtab_hdr
   -- Iterate by section headers.
@@ -178,7 +184,8 @@ assert(sym_cnt ~= 0, 'number of symbols is zero')
 test:is(strtab_size, EXPECTED_STRTAB_SIZE, 'check .strtab size')
 test:is(strtab_offset, EXPECTED_STRTAB_OFFSET, 'check .strtab offset')
 
-local strtab_str = string.sub(elf_content, strtab_offset, strtab_offset + strtab_size)
+local strtab_str = string.sub(elf_content, strtab_offset,
+                              strtab_offset + strtab_size)
 
 local strtab_p = ffi.cast('char *', strtab_str)
 local sym_is_found = false

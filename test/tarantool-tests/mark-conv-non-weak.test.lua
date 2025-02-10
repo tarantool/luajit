@@ -9,20 +9,22 @@ test:plan(1)
 -- instruction is emitted. See `loop_unrool` in `lj_opt_loop.c`.
 local data = {0, 0.1, 0, 0 / 0}
 
---- XXX: The sum is required to be initialized with a non-zero
--- floating point value; otherwise, `0023  + num ADD    0017  0007`
--- instruction in the IR below becomes `ADDOV` and the `CONV int.num`
--- conversion is used by it.
+-- XXX: The sum is required to be initialized with a non-zero
+-- floating point value.
+-- Otherwise, `0023  + num ADD    0017  0007` instruction in the
+-- IR below becomes `ADDOV` and the `CONV int.num` conversion is
+-- used by it.
 local sum = 0.1
 
 jit.opt.start('hotloop=1')
 
--- XXX: The test fails before the patch only
--- for `DUALNUM` mode. All of the IRs below are
--- produced by the corresponding LuaJIT build.
+-- XXX: The test fails before the patch only for `DUALNUM` mode.
+-- All of the IRs below are produced by the corresponding LuaJIT
+-- build.
 
--- When the trace is recorded, the IR
--- is the following before the patch:
+-- luacheck: push no max_comment_line_length
+-- When the trace is recorded, the IR is the following before the
+-- patch:
 ---- TRACE 1 IR
 -- ....        SNAP   #0   [ ---- ---- ---- ---- ---- ---- ---- ---- ---- ]
 -- 0001    u8  XLOAD  [0x100dac521]  V
@@ -103,6 +105,8 @@ jit.opt.start('hotloop=1')
 
 ---- TRACE 1 exit 0
 ---- TRACE 1 exit 2
+--
+-- luacheck: pop
 --
 -- Before the patch, the `0022 >  int CONV   0017  int.num`
 -- instruction is omitted due to DCE, which results in the

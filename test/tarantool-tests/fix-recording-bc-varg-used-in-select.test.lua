@@ -1,8 +1,12 @@
 local tap = require('tap')
 
+-- luacheck: push no max_comment_line_length
+--
 -- Test file to demonstrate incorrect recording of `BC_VARG` that
 -- is given to the `select()` function. See also:
 -- https://www.freelists.org/post/luajit/Possible-issue-during-register-allocation-ra-alloc1.
+--
+-- luacheck: pop
 
 local test = tap.test('fix-recording-bc-varg-used-in-select'):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),

@@ -6,20 +6,22 @@ local test = tap.test('lj-416-xor-before-jcc'):skipcond({
 test:plan(1)
 
 -- To reproduce this issue, we need:
--- 0) IR for either "internal" (e.g. type check, hmask check) or "external"
---    (e.g. branch or loop condition) guard begins to be emitted to
---    mcode.
--- 1) JCC to side exit is emitted to the trace mcode at the beginning.
+-- 0) IR for either "internal" (e.g. type check, hmask check) or
+--    "external" (e.g. branch or loop condition) guard begins to
+--    be emitted to mcode.
+-- 1) JCC to side exit is emitted to the trace mcode at the
+--    beginning.
 -- 2) Condition (i.e. comparison) is going to be emitted.
--- 3) Fuse optimization takes its place, that ought to allocate a register
---    for the load base.
+-- 3) Fuse optimization takes its place, that ought to allocate a
+--    register for the load base.
 -- 4) There are no free registers at this point.
--- 5) The one storing the constant zero is chosen to be sacrificed and
---    reallocated (consider the allocation cost in ra_alloc for constant
---    materialization).
--- 6) Before (or in the sense of trace execution, after) register is
---    being used in the aforementioned comparison, register (r14 in our
---    case) is reset by XOR emitted right after (before) jump instruction.
+-- 5) The one storing the constant zero is chosen to be sacrificed
+--    and reallocated (consider the allocation cost in ra_alloc
+--    for constant materialization).
+-- 6) Before (or in the sense of trace execution, after) register
+--    is being used in the aforementioned comparison, register
+--    (r14 in our case) is reset by XOR emitted right after
+--    (before) jump instruction.
 -- 7) The comparison with fused load within is emitted.
 --
 -- This leads to assembly code like the following:
@@ -69,6 +71,7 @@ local function testf()
     end
   end
 
+  -- luacheck: push no max_comment_line_length
   -- The code below is recorded with the following IRs:
   -- ....              SNAP   #1   [ lj-416-xor-before-jcc.test.lua:44|---- ]
   -- 0012       >  num UGT    0009  +42
@@ -80,6 +83,7 @@ local function testf()
   --
   -- As a result, this branch is taken due to the emitted `xor`
   -- instruction until the issue is not resolved.
+  -- luacheck: pop
   if value <= MAGIC then
     return true
   end

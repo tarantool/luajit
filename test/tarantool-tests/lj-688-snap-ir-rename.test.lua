@@ -41,7 +41,9 @@ jit.opt.start('hotloop=1')
 -- platform-agnostic, there is no real necessity to test it
 -- against ARM/ARM64 separately.
 --
+-- luacheck: push no max_comment_line_length
 -- See also https://drive.google.com/file/d/1iYkFx3F0DOtB9o9ykWfCEm-OdlJNCCL0/view?usp=share_link
+-- luacheck: pop
 
 
 local vals = {-0.1, 0.1, -0.1, 0.1}

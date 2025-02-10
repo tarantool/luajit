@@ -19,9 +19,9 @@ local function eatchunks(size)
   end
 end
 
--- The chunk size below is empirical. It is big enough, so the test
--- is not too long, yet small enough for the OOM frame issue to have
--- enough iterations in the second loop to trigger.
+-- The chunk size below is empirical. It is big enough, so the
+-- test is not too long, yet small enough for the OOM frame issue
+-- to have enough iterations in the second loop to trigger.
 pcall(eatchunks, 512 * 1024 * 1024)
 
 local anchor = {}
