@@ -3,7 +3,9 @@ local tap = require('tap')
 -- Test file to demonstrate incorrect behaviour of binary number
 -- parsing with fractional dot.
 -- See also:
+-- luacheck: push no max_comment_line_length
 -- https://www.freelists.org/post/luajit/Fractional-binary-number-literals
+-- luacheck: pop
 local test = tap.test('fix-binary-number-parsing')
 test:plan(2)
 

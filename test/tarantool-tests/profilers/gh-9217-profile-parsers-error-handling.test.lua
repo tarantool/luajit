@@ -3,7 +3,8 @@ local test = tap.test('gh-9217-profile-parsers-error-handling'):skipcond({
   ['Profile tools are implemented for x86_64 only'] = jit.arch ~= 'x86' and
                                                       jit.arch ~= 'x64',
   ['Profile tools are implemented for Linux only'] = jit.os ~= 'Linux',
-  -- XXX: Tarantool integration is required to run this test properly.
+  -- XXX: Tarantool integration is required to run this test
+  -- properly.
   ['No profile tools CLI option integration'] = _TARANTOOL,
   -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
   ['Disabled due to LuaJIT/LuaJIT#606'] = os.getenv('LUAJIT_TABLE_BUMP'),

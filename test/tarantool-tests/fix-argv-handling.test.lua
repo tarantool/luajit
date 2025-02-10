@@ -10,7 +10,11 @@ test:plan(1)
 -- to a single empty string if it is empty [1], so the issue is
 -- not reproducible on new kernels.
 --
+-- luacheck: push no max_comment_line_length
+--
 -- [1]: https://lore.kernel.org/all/20220201000947.2453721-1-keescook@chromium.org/
+--
+-- luacheck: pop
 
 local utils = require('utils')
 local execlib = require('execlib')

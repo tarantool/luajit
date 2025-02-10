@@ -93,7 +93,7 @@ local function parse_lua_callchain(reader, event, symbols)
   end
 end
 
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
 
 local function parse_host_callchain(reader, event, symbols)
   local addr = reader:read_uleb128()
@@ -105,7 +105,7 @@ local function parse_host_callchain(reader, event, symbols)
   end
 end
 
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
 
 local function parse_trace_callchain(reader, event, symbols)
   local loc = {}
@@ -121,7 +121,7 @@ local function parse_trace_callchain(reader, event, symbols)
   event.lua.trace.name = name_lua
 end
 
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--
 
 local function parse_host_only(reader, event, symbols)
   parse_host_callchain(reader, event, symbols)

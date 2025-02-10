@@ -11,9 +11,9 @@ local function do_test()
   local recursive_f
   local function errfunc()
     xpcall(recursive_f, errfunc)
-    -- Since this error is occurred on snapshot restoration and can
-    -- be handled by compiler itself, we shouldn't bother a user
-    -- with it.
+    -- Since this error is occurred on snapshot restoration and
+    -- can be handled by compiler itself, we shouldn't bother a
+    -- user with it.
     handler_is_called = true
   end
 
