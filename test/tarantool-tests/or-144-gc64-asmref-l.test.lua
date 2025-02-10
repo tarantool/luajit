@@ -5,11 +5,15 @@ local test = tap.test('or-144-gc64-asmref-l'):skipcond({
 
 test:plan(1)
 
+-- luacheck: push no max_comment_line_length
+--
 -- Test file to demonstrate LuaJIT `IR_LREF` assembling incorrect
 -- behaviour.
 -- See also:
 -- * https://github.com/openresty/lua-resty-core/issues/144.
 -- * https://www.freelists.org/post/luajit/Consistent-SEGV-on-x64-with-the-latest-LuaJIT-v21-GC64-mode.
+--
+-- luacheck: pop
 
 jit.opt.start('hotloop=1')
 

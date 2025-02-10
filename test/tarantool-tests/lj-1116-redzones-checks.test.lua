@@ -44,7 +44,9 @@ jit.opt.start('hotloop=1')
 -- This makes this reproducer unstable (regarding the register
 -- allocator changes). So, lets use this as a regression test.
 --
+-- luacheck: push no max_comment_line_length
 -- [1]: https://wiki.osdev.org/X86-64_Instruction_Encoding#REX_prefix
+-- luacheck: pop
 
 _G.a = 0
 _G.b = 0

@@ -6,8 +6,8 @@ local test = tap.test('or-524-fold-icorrect-behavior'):skipcond({
 test:plan(1)
 
 local ffi = require('ffi')
--- Test file to demonstrate LuaJIT folding machinery incorrect behaviour,
--- details:
+-- Test file to demonstrate LuaJIT folding machinery incorrect
+-- behaviour, details:
 --     https://github.com/LuaJIT/LuaJIT/issues/524
 --     https://github.com/moonjit/moonjit/issues/37
 

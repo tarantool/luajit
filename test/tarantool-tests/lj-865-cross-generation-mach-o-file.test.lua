@@ -22,6 +22,8 @@ local ffi = require('ffi')
 --
 -- Manual steps for reproducing are the following:
 --
+-- luacheck: push no max_comment_line_length
+--
 -- $ CC=gcc TARGET_CFLAGS='skylake-avx512' cmake -S . -B build
 -- $ cmake --build build --parallel
 -- $ echo > test.lua
@@ -59,6 +61,8 @@ local ffi = require('ffi')
 -- 1. https://github.com/aidansteele/osx-abi-macho-file-format-reference
 -- 2. https://reverseengineering.stackexchange.com/a/6357/46029
 -- 3. http://formats.kaitai.io/mach_o/index.html
+--
+-- luacheck: pop
 
 test:plan(1)
 

@@ -5,7 +5,8 @@ local test = tap.test("lj-505-fold-icorrect-behavior"):skipcond({
 
 test:plan(1)
 
--- Test file to demonstrate Lua fold machinery icorrect behavior, details:
+-- Test file to demonstrate Lua fold machinery icorrect behavior,
+-- details:
 --     https://github.com/LuaJIT/LuaJIT/issues/505
 
 jit.opt.start("hotloop=1")

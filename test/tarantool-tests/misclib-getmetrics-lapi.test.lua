@@ -1,5 +1,6 @@
 -- This is a part of tarantool/luajit testing suite.
--- Major portions taken verbatim or adapted from the LuaVela testing suite.
+-- Major portions taken verbatim or adapted from the LuaVela
+-- testing suite.
 -- Copyright (C) 2015-2019 IPONWEB Ltd.
 
 local tap = require('tap')
@@ -77,7 +78,8 @@ test:test("gc-allocated-freed", function(subtest)
     -- (such as concatenation, string.format, table.concat)
     -- while creating the string. Otherwise gc_freed/gc_allocated
     -- relations will not be so straightforward.
-    local str = string.sub("Hello, world", 1, 5) -- luacheck: no unused
+    -- luacheck: no unused
+    local str = string.sub("Hello, world", 1, 5)
     collectgarbage("collect")
 
     new_metrics = misc.getmetrics()
@@ -333,7 +335,8 @@ test:test("snap-restores-loop-side-exit", function(subtest)
 end)
 
 test:test("snap-restores-scalar", function(subtest)
-    -- Compiled scalar trace with a direct exit to the interpreter.
+    -- Compiled scalar trace with a direct exit to the
+    -- interpreter.
     subtest:plan(2)
 
     -- For calls it will be 2 * hotloop (see lj_dispatch.{c,h}

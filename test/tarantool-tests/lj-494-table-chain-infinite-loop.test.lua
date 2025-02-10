@@ -6,7 +6,7 @@ test:plan(1)
 -- Test file to demonstrate Lua table hash chain bugs discussed in
 --     https://github.com/LuaJIT/LuaJIT/issues/494
 -- Credit: prepared by Peter Cawley here with minor edits:
---     https://gist.github.com/corsix/1fc9b13a2dd5f3659417b62dd54d4500
+-- https://gist.github.com/corsix/1fc9b13a2dd5f3659417b62dd54d4500
 
 --- Plumbing
 local ffi = require("ffi")
@@ -93,7 +93,8 @@ do --- Just `mn != nn` can lead to infinite loops
     t[victims.d] = true
     t[victims.c] = true
     t[victims.b] = true
-    -- Change c's primary to b, d's primary to d, and e's primary to d
+    -- Change c's primary to b, d's primary to d, and e's primary
+    -- to d
     t[victims.e] = nil
     t[victims.d] = nil
     t[victims.c] = nil
@@ -103,7 +104,8 @@ do --- Just `mn != nn` can lead to infinite loops
     t[victims.c] = true
     t[victims.d] = true
     t[victims.e] = true
-    -- Insert something with b as primary (infinite rechaining loop)
+    -- Insert something with b as primary (infinite rechaining
+    -- loop)
     str_hash(victims.f)[0] = 4
     t[victims.f] = true
 end
@@ -163,7 +165,8 @@ do --- Do not forget to advance freenode in the not-string case
     t[0x0p-1074] = true
     t[0x4p-1074] = true
     t[0x8p-1074] = true
-    -- Steal middle node of the chain to be a main node (infinite walking loop)
+    -- Steal middle node of the chain to be a main node (infinite
+    -- walking loop)
     t[0x2p-1074] = true
 end
 collectgarbage()
@@ -172,6 +175,7 @@ collectgarbage()
 for c, v in pairs(victims) do
     str_hash(v)[0] = orig_hash[c]
 end
-test:ok(true, "table keys collisions are resolved properly (no assertions failed)")
+test:ok(true,
+        "table keys collisions are resolved properly (no assertions failed)")
 
 test:done(true)

@@ -90,9 +90,10 @@ test:ok(tree_contains(symbols.cfunc, "allocate_string"))
 symbols = generate_parsed_symtab(testboth.allocate_string)
 test:ok(tree_contains(symbols.cfunc, "allocate_string"))
 
--- FIXME: There is one case that is not tested -- shared objects, which
--- have neither .symtab section nor .dynsym segment. It is unclear how to
--- perform a test in that case, since it is impossible to load Lua module
--- written in C if it doesn't have a .dynsym segment.
+-- FIXME: There is one case that is not tested -- shared objects,
+-- which have neither .symtab section nor .dynsym segment. It is
+-- unclear how to perform a test in that case, since it is
+-- impossible to load Lua module written in C if it doesn't have
+-- a .dynsym segment.
 
 test:done(true)

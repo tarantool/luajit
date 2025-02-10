@@ -27,7 +27,8 @@ local function wrapped_trace(create_closure)
     if i == 2 then
       -- Before the patch, this slot was considered unused by
       -- use-def analysis in the `snap_usedef()` since there are
-      -- no open unpvalues for `closure()` on recording (1st call).
+      -- no open unpvalues for `closure()` on recording
+      -- (1st call).
       local_upvalue = EXPECTED
       -- luacheck: ignore
       -- Emit an additional snapshot after setting the

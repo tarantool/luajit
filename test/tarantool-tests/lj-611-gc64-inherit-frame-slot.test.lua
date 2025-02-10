@@ -35,7 +35,9 @@ end
 -- objects from the prototype of the `inner()` function and hit
 -- the `PROTO_CLC_POLY` limit, so the side traces stop spawning.
 -- See also:
+-- luacheck: push no max_comment_line_length
 -- https://github.com/tarantool/tarantool/wiki/LuaJIT-function-inlining.
+-- luacheck: pop
 lower_frame()
 lower_frame()
 -- Compile hotexit.
