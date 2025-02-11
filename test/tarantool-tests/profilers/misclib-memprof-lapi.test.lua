@@ -1,7 +1,7 @@
 -- XXX: This comment is a reminder to reimplement memprof tests
 -- assertions to make them more independent to the changes made.
 local tap = require("tap")
-local test = tap.test("misc-memprof-lapi"):skipcond({
+local test = tap.test("misclib-memprof-lapi"):skipcond({
   ['Test requires JIT enabled'] = not jit.status(),
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
   ["Memprof is implemented for x86_64 only"] = jit.arch ~= "x86" and

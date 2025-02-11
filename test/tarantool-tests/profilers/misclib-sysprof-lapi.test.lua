@@ -1,5 +1,5 @@
 local tap = require("tap")
-local test = tap.test("misc-sysprof-lapi"):skipcond({
+local test = tap.test("misclib-sysprof-lapi"):skipcond({
   ["Sysprof is implemented for x86_64 only"] = jit.arch ~= "x86" and
                                                jit.arch ~= "x64",
   ["Sysprof is implemented for Linux only"] = jit.os ~= "Linux",
