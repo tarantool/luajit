@@ -387,6 +387,8 @@ LJLIB_CF(misc_sysprof_report)
 
 #define LJLIB_MODULE_misc_memprof
 
+#define MEMPROF_DEFAULT_OUTPUT "memprof.bin"
+
 /* local started, err, errno = misc.memprof.start(fname) */
 LJLIB_CF(misc_memprof_start)
 {
@@ -395,7 +397,8 @@ LJLIB_CF(misc_memprof_start)
   return sysprof_error(L, PROFILE_ERRUSE, err_details);
 #else
   struct lj_memprof_options opt = {0};
-  const char *fname = strdata(lj_lib_checkstr(L, 1));
+  GCstr *s = lj_lib_optstr(L, 1);
+  const char *fname = s ? strdata(s) : MEMPROF_DEFAULT_OUTPUT;
   struct profile_ctx *ctx;
   int memprof_status;
 
