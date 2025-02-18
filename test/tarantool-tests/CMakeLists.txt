@@ -97,6 +97,10 @@ if(LUAJIT_DISABLE_SYSPROF)
   list(APPEND LUA_TEST_ENV_MORE LUAJIT_DISABLE_SYSPROF=1)
 endif()
 
+if(LUAJIT_DISABLE_MEMPROF)
+  list(APPEND LUA_TEST_ENV_MORE LUAJIT_DISABLE_MEMPROF=1)
+endif()
+
 # Needed to skip some long tests or tests using signals.
 # See also https://github.com/tarantool/tarantool/issues/10803.
 if(LUAJIT_USE_VALGRIND)
