@@ -276,7 +276,7 @@ static int parse_sysprof_opts(lua_State *L, struct luam_Sysprof_Options *opt,
   return PROFILE_SUCCESS;
 }
 
-static int sysprof_error(lua_State *L, int status, const char *err_details)
+static int prof_error(lua_State *L, int status, const char *err_details)
 {
   switch (status) {
     case PROFILE_ERRUSE:
@@ -307,7 +307,7 @@ LJLIB_CF(misc_sysprof_start)
 {
 #if !LJ_HASSYSPROF
   const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
-  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+  return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   int status = PROFILE_SUCCESS;
 
@@ -316,12 +316,12 @@ LJLIB_CF(misc_sysprof_start)
 
   status = parse_sysprof_opts(L, &opt, &err_details);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
-    return sysprof_error(L, status, err_details);
+    return prof_error(L, status, err_details);
 
   status = luaM_sysprof_start(L, &opt);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
     /* Allocated memory will be freed in on_stop callback. */
-    return sysprof_error(L, status, err_details);
+    return prof_error(L, status, err_details);
 
   lua_pushboolean(L, 1);
   return 1;
@@ -333,11 +333,11 @@ LJLIB_CF(misc_sysprof_stop)
 {
 #if !LJ_HASSYSPROF
   const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
-  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+  return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   int status = luaM_sysprof_stop(L);
   if (LJ_UNLIKELY(status != PROFILE_SUCCESS))
-    return sysprof_error(L, status, NULL);
+    return prof_error(L, status, NULL);
 
   lua_pushboolean(L, 1);
   return 1;
@@ -349,14 +349,14 @@ LJLIB_CF(misc_sysprof_report)
 {
 #if !LJ_HASSYSPROF
   const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
-  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+  return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   struct luam_Sysprof_Counters counters = {};
   GCtab *data_tab = NULL;
   GCtab *count_tab = NULL;
   int status = luaM_sysprof_report(&counters);
   if (status != PROFILE_SUCCESS)
-    return sysprof_error(L, status, NULL);
+    return prof_error(L, status, NULL);
 
   lua_createtable(L, 0, 3);
   data_tab = tabV(L->top - 1);
@@ -394,7 +394,7 @@ LJLIB_CF(misc_memprof_start)
 {
 #if !LJ_HASMEMPROF
   const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
-  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+  return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   struct lj_memprof_options opt = {0};
   GCstr *s = lj_lib_optstr(L, 1);
@@ -454,7 +454,7 @@ LJLIB_CF(misc_memprof_stop)
 {
 #if !LJ_HASMEMPROF
   const char *err_details = err2msg(LJ_ERR_PROF_DETAILS_DISABLED);
-  return sysprof_error(L, PROFILE_ERRUSE, err_details);
+  return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   int status = lj_memprof_stop(L);
   if (status != PROFILE_SUCCESS) {
