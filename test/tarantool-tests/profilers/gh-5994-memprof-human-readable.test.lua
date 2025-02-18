@@ -8,6 +8,7 @@ local test = tap.test('gh-5994-memprof-human-readable'):skipcond({
   ['No profile tools CLI option integration'] = _TARANTOOL,
   -- See also https://github.com/LuaJIT/LuaJIT/issues/606.
   ['Disabled due to LuaJIT/LuaJIT#606'] = os.getenv('LUAJIT_TABLE_BUMP'),
+  ['Memprof is disabled'] = os.getenv('LUAJIT_DISABLE_MEMPROF'),
 })
 
 local utils = require('utils')
