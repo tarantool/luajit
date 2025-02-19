@@ -287,7 +287,7 @@ static int prof_error(lua_State *L, int status, const char *err_details)
 	lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
       lua_pushinteger(L, EINVAL);
       return 3;
-#if LJ_HASSYSPROF
+#if LJ_HASSYSPROF || LJ_HASMEMPROF
     case PROFILE_ERRRUN:
       lua_pushnil(L);
       lua_pushstring(L, err2msg(LJ_ERR_PROF_ISRUNNING));
@@ -418,32 +418,13 @@ LJLIB_CF(misc_memprof_start)
 
   if (ctx->fd == -1) {
     lj_mem_free(ctx->g, ctx, sizeof(*ctx));
-    return luaL_fileresult(L, 0, fname);
+    return prof_error(L, PROFILE_ERRIO, fname);
   }
 
   memprof_status = lj_memprof_start(L, &opt);
+  if (LJ_UNLIKELY(memprof_status != PROFILE_SUCCESS))
+    return prof_error(L, memprof_status, NULL);
 
-  if (LJ_UNLIKELY(memprof_status != PROFILE_SUCCESS)) {
-    switch (memprof_status) {
-    case PROFILE_ERRUSE:
-      lua_pushnil(L);
-      lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
-      lua_pushinteger(L, EINVAL);
-      return 3;
-#if LJ_HASMEMPROF
-    case PROFILE_ERRRUN:
-      lua_pushnil(L);
-      lua_pushstring(L, err2msg(LJ_ERR_PROF_ISRUNNING));
-      lua_pushinteger(L, EINVAL);
-      return 3;
-    case PROFILE_ERRIO:
-      return luaL_fileresult(L, 0, fname);
-#endif
-    default:
-      lj_assertL(0, "bad memprof error %d", memprof_status);
-      return 0;
-    }
-  }
   lua_pushboolean(L, 1);
   return 1;
 #endif /* !LJ_HASMEMPROF */
@@ -457,27 +438,15 @@ LJLIB_CF(misc_memprof_stop)
   return prof_error(L, PROFILE_ERRUSE, err_details);
 #else
   int status = lj_memprof_stop(L);
-  if (status != PROFILE_SUCCESS) {
-    switch (status) {
-    case PROFILE_ERRUSE:
-      lua_pushnil(L);
-      lua_pushstring(L, err2msg(LJ_ERR_PROF_MISUSE));
-      lua_pushinteger(L, EINVAL);
-      return 3;
-#if LJ_HASMEMPROF
-    case PROFILE_ERRRUN:
-      lua_pushnil(L);
-      lua_pushstring(L, err2msg(LJ_ERR_PROF_NOTRUNNING));
-      lua_pushinteger(L, EINVAL);
-      return 3;
-    case PROFILE_ERRIO:
-      return luaL_fileresult(L, 0, NULL);
-#endif
-    default:
-      lj_assertL(0, "bad memprof error %d", status);
-      return 0;
-    }
+  if (LJ_UNLIKELY(status == PROFILE_ERRRUN)) {
+    lua_pushnil(L);
+    lua_pushstring(L, err2msg(LJ_ERR_PROF_NOTRUNNING));
+    lua_pushinteger(L, EINVAL);
+    return 3;
+  } else if (LJ_UNLIKELY(status != PROFILE_SUCCESS)) {
+    return prof_error(L, status, NULL);
   }
+
   lua_pushboolean(L, 1);
   return 1;
 #endif /* !LJ_HASMEMPROF */
