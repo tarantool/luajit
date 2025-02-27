@@ -9,6 +9,11 @@ local frontend = require('utils').frontend
 
 test:plan(1)
 
+-- Flush all possible traces and collect them to be sure that
+-- we have enough space.
+jit.flush()
+collectgarbage()
+
 -- The function to be tested for side exit patching:
 -- * At the beginning of the test case, the <if> branch is
 --   recorded as a root trace.

@@ -15,6 +15,11 @@ local MAXTRACE = 2000;
 
 test:plan(1)
 
+-- Flush all possible traces and collect them to be sure that
+-- we have enough space.
+jit.flush()
+collectgarbage()
+
 local function find_last_trace()
   local candidate = misc.getmetrics().jit_trace_num
   for traceno = candidate, MAXTRACE do
