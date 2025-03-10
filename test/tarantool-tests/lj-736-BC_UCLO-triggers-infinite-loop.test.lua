@@ -35,9 +35,10 @@ local function testcase()
 
     -- Records the trace for which use-def analysis is applied.
     for i = 1, 2 do
-      -- This condition triggers snapshoting and use-def analysis.
-      -- Before the patch this triggers the infinite loop in the
-      -- `snap_usedef()`, so the `goto` is never taken.
+      -- This condition triggers snapshotting and use-def
+      -- analysis. Before the patch this triggers the infinite
+      -- loop in the `snap_usedef()`, so the `goto` is never
+      -- taken.
       if i == 2 then
         goto x
       end
