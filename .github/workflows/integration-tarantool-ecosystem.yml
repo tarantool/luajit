@@ -11,6 +11,10 @@ on:
       - '**-notest'
       - '**-nointegration'
       - 'upstream-**'
+      # FIXME: Temporarily disable this workflow until it is
+      # fixed on the Tarantool's side. See also:
+      # https://github.com/tarantool/tarantool/pull/11220.
+      - '**'
     tags-ignore:
       - '**'
 
