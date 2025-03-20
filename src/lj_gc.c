@@ -548,6 +548,7 @@ static void gc_finalize(lua_State *L)
     setcdataV(L, &tmp, gco2cd(o));
     tv = lj_tab_set(L, tabref(g->gcroot[GCROOT_FFI_FIN]), &tmp);
     if (!tvisnil(tv)) {
+      g->gc.nocdatafin = 0;
       copyTV(L, &tmp, tv);
       setnilV(tv);  /* Clear entry in finalizer table. */
       gc_call_finalizer(g, L, &tmp, o);
@@ -693,6 +694,9 @@ static size_t gc_onestep(lua_State *L)
 	lj_str_resize(L, g->strmask >> 1);  /* Shrink string table. */
       if (gcref(g->gc.mmudata)) {  /* Need any finalizations? */
 	g->gc.state = GCSfinalize;
+#if LJ_HASFFI
+	g->gc.nocdatafin = 1;
+#endif
       } else {  /* Otherwise skip this phase to help the JIT. */
 	g->gc.state = GCSpause;  /* End of GC cycle. */
 	g->gc.debt = 0;
@@ -709,6 +713,9 @@ static size_t gc_onestep(lua_State *L)
 	g->gc.estimate -= GCFINALIZECOST;
       return GCFINALIZECOST;
     }
+#if LJ_HASFFI
+    if (!g->gc.nocdatafin) lj_tab_rehash(L, tabref(g->gcroot[GCROOT_FFI_FIN]));
+#endif
     g->gc.state = GCSpause;  /* End of GC cycle. */
     g->gc.debt = 0;
     return 0;
@@ -757,15 +764,35 @@ void LJ_FASTCALL lj_gc_step_fixtop(lua_State *L)
   lj_gc_step(L);
 }
 
+/* Need to protect lj_gc_step because it may throw. */
+static TValue *gc_step_jit_cp(lua_State *L, lua_CFunction dummy, void *ud)
+{
+  MSize steps = (MSize)(uintptr_t)ud;
+  UNUSED(dummy);
+
+  /* Always catch error here and don't call error function. */
+  cframe_errfunc(L->cframe) = 0;
+  cframe_nres(L->cframe) = -2*LUAI_MAXSTACK*(int)sizeof(TValue);
+
+  while (steps-- > 0 && lj_gc_step(L) == 0)
+    ;
+
+  return NULL;
+}
+
 #if LJ_HASJIT
 /* Perform multiple GC steps. Called from JIT-compiled code. */
 int LJ_FASTCALL lj_gc_step_jit(global_State *g, MSize steps)
 {
   lua_State *L = gco2th(gcref(g->cur_L));
+  int32_t ostate = g->vmstate;
+  int errcode;
   L->base = tvref(G(L)->jit_base);
   L->top = curr_topL(L);
-  while (steps-- > 0 && lj_gc_step(L) == 0)
-    ;
+  errcode = lj_vm_cpcall(L, NULL, (void *)(uintptr_t)steps, gc_step_jit_cp);
+  g->vmstate = ostate;
+  if (errcode)
+    lj_err_throw(L, errcode);  /* Propagate errors. */
   /* Return 1 to force a trace exit. */
   return (G(L)->gc.state == GCSatomic || G(L)->gc.state == GCSfinalize);
 }
