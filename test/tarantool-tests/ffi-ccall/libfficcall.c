@@ -76,3 +76,25 @@ float test_float_stack(float f1, float f2, float f3, float f4, float f5,
 {
 	return f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9 + f10 + f11;
 }
+
+/****************************************************************/
+/*       Homogeneous Floating-Point Aggregate (HFA) argument.   */
+/****************************************************************/
+
+typedef struct hfa_float2 {
+	float v[2];
+} hfa_float2;
+
+typedef union uhfa_float2 {
+	float v[2];
+} uhfa_float2;
+
+float hfa_float2_sum(hfa_float2 h)
+{
+	return h.v[0] + h.v[1];
+}
+
+float uhfa_float2_sum(uhfa_float2 h)
+{
+	return h.v[0] + h.v[1];
+}
