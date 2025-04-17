@@ -61,13 +61,6 @@ jobs:
       submodule: luajit
       revision: ${{ github.sha }}
 
-  test-tarantool-default_gcc_centos_7:
-    name: gcc centos 7
-    uses: tarantool/tarantool/.github/workflows/default_gcc_centos_7.yml@master
-    with:
-      submodule: luajit
-      revision: ${{ github.sha }}
-
   test-tarantool-out_of_source:
     name: out of source
     uses: tarantool/tarantool/.github/workflows/out_of_source.yml@master
