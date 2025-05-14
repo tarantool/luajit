@@ -23,7 +23,6 @@ gtype_cache = {}
 
 
 def gtype(typestr):
-    global gtype_cache
     if typestr in gtype_cache:
         return gtype_cache[typestr]
 
