@@ -10,7 +10,7 @@ local test = tap.test("misclib-sysprof-lapi"):skipcond({
   ["Disabled due to #10803"] = os.getenv("LUAJIT_TEST_USE_VALGRIND"),
 })
 
-test:plan(44)
+test:plan(45)
 
 jit.off()
 -- XXX: Run JIT tuning functions in a safe frame to avoid errors
@@ -166,13 +166,28 @@ test:is(err, nil, "no error with good interval 1")
 test:is(errno, nil, "no errno with good interval 1")
 misc.sysprof.stop()
 
+-- Intermediate sysprof.report().
+assert(misc.sysprof.start({
+    mode = "D",
+    interval = 1,
+    path = "/dev/null",
+}))
+
+payload()
+
+local report = misc.sysprof.report()
+-- Check the profile is not empty.
+test:ok(report.samples > 0,
+        "number of samples is greater than 0 for the default payload")
+assert(misc.sysprof.stop())
+
 -- DEFAULT MODE
 
 if not pcall(generate_output, { mode = "D", interval = 100 }) then
   test:fail('`default` mode with interval 100')
 end
 
-local report = misc.sysprof.report()
+report = misc.sysprof.report()
 
 -- Check the profile is not empty.
 test:ok(report.samples > 0,
