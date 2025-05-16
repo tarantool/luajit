@@ -532,8 +532,6 @@ int lj_sysprof_stop(lua_State *L)
 int lj_sysprof_report(struct luam_Sysprof_Counters *counters)
 {
   const struct sysprof *sp = &sysprof;
-  if (sp->state != SPS_IDLE)
-    return PROFILE_ERRUSE;
   memcpy(counters, &sp->counters, sizeof(sp->counters));
   return PROFILE_SUCCESS;
 }
