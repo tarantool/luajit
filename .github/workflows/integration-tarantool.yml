@@ -39,6 +39,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-debug:
     name: debug
@@ -46,6 +47,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-debug_aarch64:
     name: debug aarch64
@@ -53,6 +55,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-debug_asan_clang:
     name: debug ASAN clang
@@ -60,6 +63,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-out_of_source:
     name: out of source
@@ -67,6 +71,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-release:
     name: release
@@ -74,6 +79,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-release_asan_clang:
     name: release ASAN clang
@@ -81,6 +87,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-release_clang:
     name: release clang
@@ -88,6 +95,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-release_lto:
     name: release lto
@@ -95,6 +103,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-release_lto_clang:
     name: release lto clang
@@ -102,6 +111,7 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
 
   test-tarantool-static_build:
     name: static build
@@ -109,3 +119,4 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: release/3.4
