@@ -43,3 +43,4 @@ jobs:
     with:
       submodule: luajit
       revision: ${{ github.sha }}
+      tarantool_revision: master
