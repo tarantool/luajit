@@ -241,6 +241,14 @@ if(LUAJIT_USE_VALGRIND)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_USE_VALGRIND)
 endif()
 
+# This creates a symbol table of the JIT-compiled code in
+# a </tmp/perf-%d.map> (%d = pid of process) file. It should be
+# used with Linux perf tools. See <src/lj_trace.c> for details.
+option(LUAJIT_USE_PERFTOOLS "Linux perf JIT support" OFF)
+if(LUAJIT_USE_PERFTOOLS)
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_USE_PERFTOOLS)
+endif()
+
 # This is the client for the GDB JIT API. GDB 7.0 or higher is
 # required to make use of it. See lj_gdbjit.c for details.
 # Enabling this causes a non-negligible overhead, even when not
