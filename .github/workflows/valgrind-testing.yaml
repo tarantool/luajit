@@ -38,7 +38,11 @@ jobs:
         # Therefore, testing on this platform is currently
         # disabled.
         BUILDTYPE: [Debug, Release]
-        VALGRIND_SCENARIO: [full, malloc-free-fill-0x00, malloc-free-fill-0xff]
+        VALGRIND_SCENARIO:
+          - full
+          - malloc-free-fill-0x00
+          - malloc-free-fill-0xff
+          - track-fds
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
@@ -59,6 +63,9 @@ jobs:
           - VALGRIND_SCENARIO: malloc-free-fill-0xff
             VALGRIND_OPTS: --leak-check=no --malloc-fill=0xff --free-fill=0xff
             JOB_POSTFIX: "malloc/free-fill: 0xff"
+          - VALGRIND_SCENARIO: track-fds
+            VALGRIND_OPTS: --leak-check=no --track-fds=yes
+            JOB_POSTFIX: "track-fds"
     runs-on: [self-hosted, regular, Linux, x86_64]
     name: >
       LuaJIT with Valgrind (Linux/x86_64)
