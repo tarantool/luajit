@@ -108,6 +108,11 @@ if(LUAJIT_USE_VALGRIND)
   list(APPEND LUA_TEST_ENV_MORE LUAJIT_TEST_USE_VALGRIND=1)
 endif()
 
+# Needed to skip some long tests.
+if(LUAJIT_USE_ASAN_HARDENING)
+  list(APPEND LUA_TEST_ENV_MORE LJ_ASAN_HARDENING=1)
+endif()
+
 # Needed to skip the <fix-argv-handling.test.lua> for a
 # non-dynamic build.
 if(BUILDMODE STREQUAL "dynamic")
@@ -135,7 +140,7 @@ foreach(test_path ${tests})
     # LUA_CPATH and LD_LIBRARY_PATH variables and also
     # dependencies list with libraries are set in scope of
     # BuildTestLib macro.
-    ENVIRONMENT "LUA_PATH=${LUA_PATH};${LUA_TEST_ENV_MORE};LJ_ASAN_HARDENING=${LUAJIT_USE_ASAN_HARDENING}"
+    ENVIRONMENT "LUA_PATH=${LUA_PATH};${LUA_TEST_ENV_MORE}"
     LABELS ${TEST_SUITE_NAME}
     DEPENDS tarantool-tests-deps
   )

@@ -12,6 +12,7 @@ local test = tap.test('lj-1350-fix-gc-finalizer-pressure'):skipcond({
   ['Disable test for Tarantool'] = _TARANTOOL,
   ['Test requires GC64 mode enabled'] = not ffi.abi('gc64'),
   ['Disabled with Valgrind (Timeout)'] = os.getenv('LUAJIT_TEST_USE_VALGRIND'),
+  ['Test requires ASAN-HARDENING disabled'] = os.getenv("LJ_ASAN_HARDENING"),
 })
 
 test:plan(1)
