@@ -297,7 +297,15 @@ static void sysprof_record_sample(struct sysprof *sp, siginfo_t *info)
 {
   global_State *g = sp->g;
   uint32_t _vmstate = ~(uint32_t)(g->vmstate);
-  uint32_t vmstate = _vmstate < LJ_VMST_TRACE ? _vmstate : LJ_VMST_TRACE;
+  uint32_t vmstate;
+
+  /* `g->vmstate` is 0 outside the VM. Hence, dump only the host stack. */
+  if (g->vmstate == 0)
+    vmstate = LJ_VMST_INTERP;
+  else if (_vmstate < LJ_VMST_TRACE)
+    vmstate = _vmstate;
+  else
+    vmstate = LJ_VMST_TRACE;
 
   lj_assertX(pthread_self() == sp->thread,
 	     "bad thread during sysprof record sample");
