@@ -303,7 +303,7 @@ if(LUAJIT_USE_ASAN)
     )
   endif()
   if(NOT LUAJIT_USE_SYSMALLOC)
-    message(WARNING
+    message(FATAL_ERROR
       "Unfortunately, internal LuaJIT memory allocator is not instrumented yet,"
       " so to find any memory errors it's better to build LuaJIT with system"
       " provided memory allocator (i.e. run CMake configuration phase with"
