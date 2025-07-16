@@ -181,6 +181,10 @@ static void stream_backtrace_lua(struct sysprof *sp, uint32_t vmstate)
   top_frame = g->top_frame_info.top_frame - 1;
 
   bot = tvref(L->stack) + LJ_FR2;
+
+  lj_assertG(bot <= top_frame && top_frame < L->top,
+             "invalid top frame value");
+
   /* Traverse frames backwards */
   for (frame = top_frame; frame > bot; frame = frame_prev(frame)) {
     if (frame_gc(frame) == obj2gco(L) || frame_isvarg(frame))

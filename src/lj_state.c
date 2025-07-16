@@ -79,6 +79,9 @@ static void resizestack(lua_State *L, MSize n)
   ** to avoid inconsistent behaviour.
   */
   setvmstate(G(L), INTERP);
+  int relevant_top_frame = 0;
+  if ((G(L)->top_frame_info.top_frame - (TValue *)tvref(L->stack)) < L->stacksize)
+    relevant_top_frame = 1;
   st = (TValue *)lj_mem_realloc(L, tvref(L->stack),
 				(MSize)(oldsize*sizeof(TValue)),
 				(MSize)(realsize*sizeof(TValue)));
@@ -95,6 +98,8 @@ static void resizestack(lua_State *L, MSize n)
   for (up = gcref(L->openupval); up != NULL; up = gcnext(up))
     setmref(gco2uv(up)->v, (TValue *)((char *)uvval(gco2uv(up)) + delta));
 
+  if (relevant_top_frame)
+    G(L)->top_frame_info.top_frame = L->base;
   G(L)->vmstate = oldvmstate;
 }
 
