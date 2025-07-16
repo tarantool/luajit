@@ -470,7 +470,6 @@ static void build_subroutines(BuildCtx *ctx)
   |  jnz ->vm_returnp
   |
   |  // Return to C.
-  |  set_vmstate_sync_base CFUNC
   |  and PC, -8
   |  sub PC, BASE
   |  neg PC				// Previous base = BASE - delta.
@@ -503,6 +502,9 @@ static void build_subroutines(BuildCtx *ctx)
   |
   |->vm_leave_unw:
   |  // DISPATCH required to set properly.
+  |  set_vmstate INTERP  // Guard for non-atomic VM context restoration.
+  |  mov PC, L:RB->base // L->base may be updated via growstack.
+  |  mov qword [DISPATCH+DISPATCH_GL(top_frame_info.top_frame)], PC
   |  restore_vmstate			// Caveat: uses TMPRd (r10d).
   |  restoreregs
   |  ret
