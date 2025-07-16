@@ -18,3 +18,7 @@ end
 function _dofile(filename)
   return dofile(path_to_sources..filename)
 end
+
+if os.getenv("ENABLE_SYSPROF") then
+  misc.sysprof.start({mode = "C", path = "/dev/null", interval = 1})
+end
