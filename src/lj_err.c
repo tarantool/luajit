@@ -18,6 +18,7 @@
 #include "lj_vm.h"
 #include "lj_strfmt.h"
 
+#include <stdio.h>
 /*
 ** LuaJIT can either use internal or external frame unwinding:
 **
@@ -186,6 +187,13 @@ static void *err_unwind(lua_State *L, void *stopcf, int errcode)
 	L->base = frame_prevd(frame) + 1;
 	L->cframe = cf;
 	unwindstack(L, L->base);
+	/* fprintf(stderr, "L %p, cur_L %p\n", L, gcrefp(g->cur_L, lua_State)); */
+	/* fprintf(stderr, "L->base %p, cur_L base %p\n", frame_prevd(frame) + 1, gcrefp(g->cur_L, lua_State)->base); */
+	/* g->top_frame_info.top_frame = L->base; */
+	/* cTValue *top_frame = g->top_frame_info.top_frame - 1; */
+	/* cTValue *bot = tvref(L->stack) + LJ_FR2; */
+	/* lj_assertG(bot <= top_frame && top_frame <= L->top, */
+	/* 	"invalid top frame value"); */
       }
       return (void *)((intptr_t)cf | CFRAME_UNWIND_FF);
     }
