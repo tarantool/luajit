@@ -161,30 +161,34 @@ static int sysprof_resizestack(void *test_state)
 
 static int error_after_coroutine_return(lua_State *L)
 {
-	/* lua_State *innerL = lua_newthread(L); */
-	/* (void)luaL_dostring(innerL, */
-	/* 	"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 1})"); */
-	luaL_loadstring(L, "return");
-	lua_pcall(L, 0, 0, 0);
+	lua_State *innerL = lua_newthread(L);
+	fprintf(stderr, "innerL %p\n", innerL);
+	luaL_loadstring(innerL, "return");
+	lua_pcall(innerL, 0, 0, 0);
 	luaL_error(L, "my fancy error");
-	/* (void)luaL_dostring(L, "misc.sysprof.stop()"); */
+	assert(NULL); /* Unreachable. */
+	return 0;
+}
+
+static int func1(lua_State *L)
+{
+	lua_State *L2 = lua_newthread(L);
+	/* fprintf(stderr, "innerL %p\n", func2); */
+	lua_pushcfunction(L2, error_after_coroutine_return);
+	lua_pcall(L2, 0, 0, 0);
+	/* lua_resume(L2, 0); */
 	kill(getpid(), SIGPROF);
-	assert(NULL);
 	return 0;
 }
 
 static int sysprof_err_throw(void *test_state)
 {
 	lua_State *L = test_state;
+	/* Start profiler. */
 	(void)luaL_dostring(L,
-		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 1})");
+		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 999999999999})");
 
-	lua_State *L2 = lua_newthread(L);
-	lua_pushcfunction(L2, error_after_coroutine_return);
-	lua_resume(L2, 0);
-	kill(getpid(), SIGPROF);
-	/* lua_pcall(L2, 0, 0, 0); */
-	/* kill(getpid(), SIGPROF); */
+	lua_cpcall(L, func1, NULL);
 
 	/* Terminate profiler. */
 	/* No assertion fail -- stop the profiler and exit. */
