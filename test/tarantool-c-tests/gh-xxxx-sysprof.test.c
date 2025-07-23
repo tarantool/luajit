@@ -197,12 +197,49 @@ static int sysprof_err_throw(void *test_state)
 	return TEST_EXIT_SUCCESS;
 }
 
+static int nop(lua_State *L)
+{
+	lua_State *innerL = lua_newthread(L);
+	fprintf(stderr, "innerL %p\n", innerL);
+	luaL_loadstring(innerL, "return");
+	lua_pcall(innerL, 0, 0, 0);
+	kill(getpid(), SIGPROF);
+	return 0;
+}
+
+static int func2(lua_State *L)
+{
+	lua_State *L2 = lua_newthread(L);
+	lua_pushcfunction(L2, nop);
+	lua_pcall(L2, 0, 0, 0);
+	/* lua_resume(L2, 0); */
+	kill(getpid(), SIGPROF);
+	return 0;
+}
+
+static int sysprof_creturn(void *test_state)
+{
+	lua_State *L = test_state;
+	/* Start profiler. */
+	(void)luaL_dostring(L,
+		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 999999999999})");
+
+	lua_cpcall(L, func2, NULL);
+
+	/* Terminate profiler. */
+	/* No assertion fail -- stop the profiler and exit. */
+	(void)luaL_dostring(L, "misc.sysprof.stop()");
+
+	return TEST_EXIT_SUCCESS;
+}
+
 int main(void)
 {
 	lua_State *L = utils_lua_init();
 	const struct test_unit tgroup[] = {
 		test_unit_def(sysprof_wrong_top_frame),
 		test_unit_def(sysprof_resizestack),
+		test_unit_def(sysprof_err_throw),
 	};
 	const int test_result = test_run_group(tgroup, L);
 	utils_lua_close(L);
