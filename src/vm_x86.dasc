@@ -708,6 +708,7 @@ static void build_subroutines(BuildCtx *ctx)
   |  mov dword GL:RB->vmstate, ~LJ_VMST_CFUNC
   |  mov DISPATCH, GL:RB   // Setup pointer to dispatch table.
   |  add DISPATCH, GG_G2DISP
+  |  mov L:RB, SAVE_L
   |  jmp ->vm_leave_unw
   |
   |->vm_unwind_rethrow:
