@@ -240,6 +240,7 @@ int main(void)
 		test_unit_def(sysprof_wrong_top_frame),
 		test_unit_def(sysprof_resizestack),
 		test_unit_def(sysprof_err_throw),
+		test_unit_def(sysprof_creturn),
 	};
 	const int test_result = test_run_group(tgroup, L);
 	utils_lua_close(L);
