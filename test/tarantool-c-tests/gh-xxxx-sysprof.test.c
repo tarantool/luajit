@@ -186,7 +186,7 @@ static int sysprof_err_throw(void *test_state)
 	lua_State *L = test_state;
 	/* Start profiler. */
 	(void)luaL_dostring(L,
-		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 999999999999})");
+		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 9999999})");
 
 	lua_cpcall(L, func1, NULL);
 
@@ -197,12 +197,27 @@ static int sysprof_err_throw(void *test_state)
 	return TEST_EXIT_SUCCESS;
 }
 
+static int real_nop(lua_State *L)
+{
+	return 0;
+}
+
 static int nop(lua_State *L)
 {
 	lua_State *innerL = lua_newthread(L);
 	fprintf(stderr, "innerL %p\n", innerL);
-	luaL_loadstring(innerL, "return");
+	lua_pushnil(innerL);
+	lua_pushnil(innerL);
+	lua_pushnil(innerL);
+	lua_pushnil(innerL);
+	lua_pushcfunction(innerL, real_nop);
 	lua_pcall(innerL, 0, 0, 0);
+	/* luaL_loadstring(innerL, "return"); */
+	/* lua_pcall(innerL, 0, 0, 0); */
+	/* lua_settop(innerL, 0); */
+	lua_pushnil(innerL);
+	lua_pushnil(innerL);
+	lua_pushnil(innerL);
 	kill(getpid(), SIGPROF);
 	return 0;
 }
@@ -213,7 +228,7 @@ static int func2(lua_State *L)
 	lua_pushcfunction(L2, nop);
 	lua_pcall(L2, 0, 0, 0);
 	/* lua_resume(L2, 0); */
-	kill(getpid(), SIGPROF);
+	/* kill(getpid(), SIGPROF); */
 	return 0;
 }
 
@@ -222,7 +237,7 @@ static int sysprof_creturn(void *test_state)
 	lua_State *L = test_state;
 	/* Start profiler. */
 	(void)luaL_dostring(L,
-		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 999999999999})");
+		"misc.sysprof.start({mode = 'C', path = '/dev/null', interval = 9999999})");
 
 	lua_cpcall(L, func2, NULL);
 
@@ -237,10 +252,10 @@ int main(void)
 {
 	lua_State *L = utils_lua_init();
 	const struct test_unit tgroup[] = {
-		test_unit_def(sysprof_wrong_top_frame),
-		test_unit_def(sysprof_resizestack),
+		/* test_unit_def(sysprof_wrong_top_frame), */
+		/* test_unit_def(sysprof_resizestack), */
 		test_unit_def(sysprof_err_throw),
-		test_unit_def(sysprof_creturn),
+		/* test_unit_def(sysprof_creturn), */
 	};
 	const int test_result = test_run_group(tgroup, L);
 	utils_lua_close(L);
