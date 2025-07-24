@@ -4,15 +4,7 @@ local tap = require('tap')
 -- in case of the stack overflow.
 -- See also: https://github.com/LuaJIT/LuaJIT/issues/1196.
 
-local test = tap.test('lj-1196-partial-snap-restore'):skipcond({
-  -- Disable test for Tarantool to avoid failures, see also:
-  -- https://github.com/LuaJIT/LuaJIT/issues/1369.
-  ['Disabled for Tarantool due to lj-1369'] = _TARANTOOL,
-  -- Also, it may fail on some non-arm64 runners stable after
-  -- adding the skip condition above.
-  ['Disabled for x86/x64 due to lj-1369'] = jit.arch ~= 'arm64',
-})
-
+local test = tap.test('lj-1196-partial-snap-restore')
 test:plan(1)
 
 -- XXX: The reproducer below uses several stack slot offsets to
