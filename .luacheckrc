@@ -16,6 +16,7 @@ files['test/tarantool-tests/'] = {
 -- test suites and need to be coherent with the upstream.
 exclude_files = {
   'dynasm/',
+  'perf/LuaJIT-benches/',
   'src/',
   'test/LuaJIT-tests/',
   'test/PUC-Rio-Lua-5.1-tests/',
