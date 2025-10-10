@@ -1,10 +1,12 @@
+-- Benchmark to check the performance of FP arithmetics and
+-- structure accesses via modeling of ray tracing. The benchmark
+-- generates the fractal image of spheres in the PGM format.
+
+local bench = require("bench").new(arg)
+
 local sqrt = math.sqrt
 local huge = math.huge
-
-local delta = 1
-while delta * delta + 1 ~= 1 do
-  delta = delta * 0.5
-end
+local delta
 
 local function length(x, y, z)  return sqrt(x*x + y*y + z*z) end
 local function vlen(v)          return length(v[1], v[2], v[3]) end
@@ -110,26 +112,55 @@ end
 
 
 local level, n, ss = tonumber(arg[1]) or 9, tonumber(arg[2]) or 256, 4
-local iss = 1/ss
-local gf = 255/(ss*ss)
 
-io.write(("P5\n%d %d\n255\n"):format(n, n))
-local light = { unitise(-1, -3, 2) }
-ilight = { -light[1], -light[2], -light[3] }
-local camera = { 0, 0, -4 }
-local dir = { 0, 0, 0 }
+local stdout = io.output()
 
-local scene = create(level, {0, -1, 0}, 1)
+bench:add({
+  name = "ray",
+  -- Avoid skip checking here, since it is not very convenient.
+  -- If you want to check the behaviour -- drop the setup
+  -- function.
+  skip_check = true,
+  setup = function()
+    io.output("/dev/null")
+  end,
+  payload = function()
+    -- Cache to avoid upvalue lookups.
+    local level, n, ss = level, n, ss
 
-for y = n/2-1, -n/2, -1 do
-  for x = -n/2, n/2-1 do
-    local g = 0
-    for d = y, y+.99, iss do
-      for e = x, x+.99, iss do
-        dir[1], dir[2], dir[3] = unitise(e, d, n)
-        g = g + ray_trace(light, camera, dir, scene) 
+    local iss = 1 / ss
+    local gf = 255 / (ss * ss)
+
+    delta = 1
+    while delta * delta + 1 ~= 1 do
+      delta = delta * 0.5
+    end
+
+    io.write(("P5\n%d %d\n255\n"):format(n, n))
+    local light = { unitise(-1, -3, 2) }
+    ilight = { -light[1], -light[2], -light[3] }
+    local camera = { 0, 0, -4 }
+    local dir = { 0, 0, 0 }
+
+    local scene = create(level, {0, -1, 0}, 1)
+
+    for y = n / 2 - 1, -n / 2, -1 do
+      for x = -n / 2, n / 2 - 1 do
+        local g = 0
+        for d = y, y + .99, iss do
+          for e = x, x + .99, iss do
+            dir[1], dir[2], dir[3] = unitise(e, d, n)
+            g = g + ray_trace(light, camera, dir, scene)
+          end
+        end
+        io.write(string.char(math.floor(0.5 + g * gf)))
       end
     end
-    io.write(string.char(math.floor(0.5 + g*gf)))
-  end
-end
+  end,
+  teardown = function()
+    io.output(stdout)
+  end,
+  items = n * n * level,
+})
+
+bench:run_and_report()
