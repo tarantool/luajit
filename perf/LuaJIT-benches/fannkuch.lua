@@ -1,3 +1,11 @@
+-- The benchmark that checks the performance of operations on
+-- small integers and vectors of integers and the performance of
+-- inner loops of the benchmark. The benchmark finds the maximum
+-- number of flips in the table needed for any permutation.
+-- For the details see:
+-- https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/fannkuchredux.html
+
+local bench = require("bench").new(arg)
 
 local function fannkuch(n)
   local p, q, s, odd, check, maxflips = {}, {}, {}, true, 0, 0
@@ -6,7 +14,6 @@ local function fannkuch(n)
     -- Print max. 30 permutations.
     if check < 30 then
       if not p[n] then return maxflips end	-- Catch n = 0, 1, 2.
-      io.write(unpack(p)); io.write("\n")
       check = check + 1
     end
     -- Copy and flip.
@@ -46,5 +53,36 @@ local function fannkuch(n)
   until false
 end
 
-local n = tonumber(arg and arg[1]) or 1
-io.write("Pfannkuchen(", n, ") = ", fannkuch(n), "\n")
+local n = tonumber(arg and arg[1]) or 11
+
+-- Precomputed numbers taken from "Performing Lisp Analysis of the
+-- FANNKUCH Benchmark":
+-- https://dl.acm.org/doi/pdf/10.1145/382109.382124
+local FANNKUCH = { 0, 1, 2, 4, 7, 10, 16, 22, 30, 38, 51, 65, 80 }
+
+local function factorial(n)
+  local fact = 1
+  for i = 2, n do
+    fact = fact * i
+  end
+  return fact
+end
+
+bench:add({
+  name = "fannkuch",
+  payload = function()
+    return fannkuch(n)
+  end,
+  checker = function(res)
+    if n > #FANNKUCH then
+      -- Not precomputed, so can't check.
+      return true
+    else
+      return res == FANNKUCH[n]
+    end
+  end,
+  -- Assume that we count permutations here.
+  items = factorial(n),
+})
+
+bench:run_and_report()
