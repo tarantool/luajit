@@ -1,11 +1,19 @@
 -- life.lua
--- original by Dave Bollinger <DBollinger@compuserve.com> posted to lua-l
+-- The benchmark to check the performance of array-like data
+-- structures with RW access. John Horton Conway's "Game of Life"
+-- cellular automaton.
+-- For the details see:
+-- https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life
+-- Original by Dave Bollinger <DBollinger@compuserve.com> posted
+-- to lua-l:
+-- http://lua-users.org/lists/lua-l/1999-12/msg00003.html
 -- modified to use ANSI terminal escape sequences
 -- modified to use for instead of while
 
+local bench = require('bench').new(arg)
+
 local write=io.write
 
-ALIVE="¥"	DEAD="þ"
 ALIVE="O"	DEAD="-"
 
 function delay() -- NOTE: SYSTEM-DEPENDENT, adjust as necessary
@@ -106,6 +114,81 @@ function LIFE(w,h)
     if gen>2000 then break end
     --delay()		-- no delay
   end
+  return thisgen
 end
 
-LIFE(40,20)
+-- Result of the LIFE(40, 20) after 2000 generations.
+--[[
+----------------------------------------
+----------------------------------------
+--OO--------------------------O---------
+-OO--------------------------O-O--------
+---O--------------------------O---------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+---O------------------------------------
+--O-O-----------------------------------
+--O-O-----------------------------------
+---O------------------------------------
+----------------------------------------
+-------OO-------------------------------
+-------OO-------------------------------
+----------------------------------------
+]]
+
+local function check_life(thisgen, w, h)
+  local expected_cells = ARRAY2D(w, h)
+  for y = 1, h do
+    for x = 1, w do
+      expected_cells[y][x] = false
+    end
+  end
+  local alive_cells = {
+    {3, 3}, {3, 4}, {3, 31},
+    {4, 2}, {4, 3}, {4, 30}, {4, 32},
+    {5, 4}, {5, 31},
+    {13, 4},
+    {14, 3}, {14, 5},
+    {15, 3}, {15, 5},
+    {16, 4},
+    {18, 8}, {18, 9},
+    {19, 8}, {19, 9},
+  }
+  for _, cell in ipairs(alive_cells) do
+    local y, x = cell[1], cell[2]
+    expected_cells[y][x] = true
+  end
+  for y = 1, h do
+    for x = 1, w do
+      assert(thisgen[y][x] > 0 == expected_cells[y][x],
+             ('Incorrect value for cell (%d, %d)'):format(x, y))
+    end
+  end
+  return true
+end
+
+local stdout = io.output()
+
+bench:add({
+  name = 'life',
+  setup = function()
+    io.output('/dev/null')
+  end,
+  payload = function()
+    return LIFE(40, 20)
+  end,
+  teardown = function()
+    io.output(stdout)
+  end,
+  checker = function(res)
+    return check_life(res, 40, 20)
+  end,
+  items = 2000 * 40 * 20,
+})
+
+bench:run_and_report()
