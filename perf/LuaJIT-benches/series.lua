@@ -1,3 +1,8 @@
+-- The benchmark to check the performance of FP arithmetics, power
+-- operation, and trigonometrical functions. Calculates the
+-- integrals of sin/cos functions.
+
+local bench = require("bench").new(arg)
 
 local function integrate(x0, x1, nsteps, omegan, f)
   local x, dx = x0, (x1-x0)/nsteps
@@ -26,9 +31,16 @@ local function series(n)
 end
 
 local n = tonumber(arg and arg[1]) or 10000
-local tm = os.clock()
-local t = series(n)
-tm = os.clock() - tm
-assert(math.abs(t[1]-2.87295) < 0.00001)
-io.write(string.format("size %d, %.2f s, %.1f iterations/s\n",
-                       n, tm, (2*n-1)/tm))
+
+bench:add({
+  name = "series",
+  checker = function(res)
+    return math.abs(res[1] - 2.87295) < 0.00001
+  end,
+  payload = function()
+    return series(n)
+  end,
+  items = 2 * n - 1,
+})
+
+bench:run_and_report()
