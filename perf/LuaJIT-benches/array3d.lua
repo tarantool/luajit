@@ -1,3 +1,8 @@
+-- The benchmark to measure simple operations on array-like data
+-- structures.
+-- Here, a 3D array is represented as a contiguous 1D array.
+
+local bench = require("bench").new(arg)
 
 local function array_set(self, x, y, z, p)
   assert(x >= 0 and x < self.nx, "x outside PA")
@@ -50,10 +55,24 @@ end
 
 local dim = tonumber(arg and arg[1]) or 300 -- Array dimension dim^3
 local packed = arg and arg[2] == "packed"   -- Packed image or flat
-local arr = array_new(dim, dim, dim, packed)
 
-for x,y,z in arr:points() do
-  arr:set(x, y, z, x*x)
-end
-assert(arr.image[dim^3-1] == (dim-1)^2)
+bench:add({
+  name = "array3d",
+  checker = function(arr)
+    assert(arr.image[dim ^ 3 - 1] == (dim - 1) ^ 2)
+    return true
+  end,
+  payload = function()
+    local arr = array_new(dim, dim, dim, packed)
+    for x, y, z in arr:points() do
+      arr:set(x, y, z, x * x)
+    end
+    return arr
+  end,
+  items = dim * dim * dim,
+  -- Limit the number of iterations to avoid OOM errors for
+  -- non-GC64 builds.
+  iterations = 4,
+})
 
+bench:run_and_report()
