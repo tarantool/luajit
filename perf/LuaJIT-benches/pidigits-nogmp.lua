@@ -1,3 +1,11 @@
+-- The benchmark to check the performance of arithmetic operations
+-- array accesses simulating the multi-precision number
+-- operations and the streaming output to the stdout. This
+-- benchmark calculates the first numbers of Pi.
+-- For the details see:
+-- https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/pidigits.html
+
+local bench = require("bench").new(arg)
 
 -- Start of dynamically compiled chunk.
 local chunk = [=[
@@ -80,21 +88,41 @@ end)
 
 ]=] -- End of dynamically compiled chunk.
 
-local N = tonumber(arg and arg[1]) or 27
+local N = tonumber(arg and arg[1]) or 5000
 local RADIX = N < 6500 and 2^36 or 2^32 -- Avoid overflow.
 
--- Substitute radix and compile chunk.
-local pidigit = loadstring(string.gsub(chunk, "RADIX", tostring(RADIX)))()
+local stdout = io.output()
 
--- Print lines with 10 digits.
-for i=10,N,10 do
-  for j=1,10 do io.write(pidigit()) end
-  io.write("\t:", i, "\n")
-end
+bench:add({
+  name = "pidigit_nogmp",
+  -- Avoid skip checking here, since it is not very convenient.
+  -- If you want to check the behaviour -- drop the setup
+  -- function.
+  skip_check = true,
+  setup = function()
+    io.output("/dev/null")
+  end,
+  payload = function()
+    -- Substitute radix and compile chunk.
+    local pidigit = loadstring(string.gsub(chunk, "RADIX", tostring(RADIX)))()
 
--- Print remaining digits (if any).
-local n10 = N % 10
-if n10 ~= 0 then
-  for i=1,n10 do io.write(pidigit()) end
-  io.write(string.rep(" ", 10-n10), "\t:", N, "\n")
-end
+    -- Print lines with 10 digits.
+    for i = 10, N, 10 do
+      for _ = 1, 10 do io.write(pidigit()) end
+      io.write("\t:", i, "\n")
+    end
+
+    -- Print remaining digits (if any).
+    local n10 = N % 10
+    if n10 ~= 0 then
+      for _ = 1, n10 do io.write(pidigit()) end
+      io.write(string.rep(" ", 10 - n10), "\t:", N, "\n")
+    end
+  end,
+  teardown = function()
+    io.output(stdout)
+  end,
+  items = N,
+})
+
+bench:run_and_report()
