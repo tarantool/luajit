@@ -1,5 +1,11 @@
+-- Benchmark to check the performance of the bit operations.
+-- Calculates the MD5 hash sum from the fixed string.
+-- For more details about the MD5 algorithm see:
+-- https://en.wikipedia.org/wiki/MD5
 
 local bit = require("bit")
+local bench = require("bench").new(arg)
+
 local tobit, tohex, bnot = bit.tobit or bit.cast, bit.tohex, bit.bnot
 local bor, band, bxor = bit.bor, bit.band, bit.bxor
 local lshift, rshift, rol, bswap = bit.lshift, bit.rshift, bit.rol, bit.bswap
@@ -147,7 +153,7 @@ assert(md5('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789') ==
 assert(md5('12345678901234567890123456789012345678901234567890123456789012345678901234567890') ==
        '57edf4a22be3c955ac49da2e2107b67a')
 
-local N = tonumber(arg and arg[1]) or 10000
+local N = tonumber(arg and arg[1]) or 20000
 
   -- Credits: William Shakespeare, Romeo and Juliet
 local txt = [[Rebellious subjects, enemies to peace,
@@ -176,8 +182,20 @@ Once more, on pain of death, all men depart.]]
   txt = txt..txt..txt..txt
   txt = txt..txt..txt..txt
 
-for i=1,N do
-  res = md5(txt)
-end
-assert(res == 'a831e91e0f70eddcb70dc61c6f82f6cd')
+bench:add({
+  name = 'md5',
+  payload = function()
+    local res
+    for _ = 1, N do
+      res = md5(txt)
+    end
+    return res
+  end,
+  checker = function(res)
+    assert(res == 'a831e91e0f70eddcb70dc61c6f82f6cd')
+    return true
+  end,
+  items = N,
+})
 
+bench:run_and_report()
