@@ -1,3 +1,9 @@
+-- Benchmark to check various operations via the Meteor puzzle
+-- solver.
+-- For the details see:
+-- https://pybenchmarks.org/u64q/performance.php?test=meteor
+
+local bench = require("bench").new(arg)
 
 -- Generate a decision tree based solver for the meteor puzzle.
 local function generatesolver(countinit)
@@ -118,6 +124,10 @@ local function printresult()
   printboard(smax)
 end
 
+local function getresult()
+  return countinit-count, smin, smax
+end
+
 -- Generate piece lookup array from the order of use.
 local function genp()
   local p = pcs
@@ -141,7 +151,7 @@ local function f91(k)
     local s = p[b0] ]]
   for p=2,99 do if ok[p] then s = s.."..p[b"..p.."]" end end
   s = s..[[
-    -- Remember min/max boards, dito for the symmetric board.
+    -- Remember min/max boards, ditto for the symmetric board.
     if not smin then smin = s; smax = s
     elseif s < smin then smin = s elseif s > smax then smax = s end
     s = reverse(s)
@@ -206,15 +216,36 @@ local f93 = f91
   end
 
   -- Compile and return solver function and result getter.
-  return loadstring(s.."return f0, printresult\n", "solver")(countinit)
+  return loadstring(s.."return f0, printresult, getresult\n", "solver")(countinit)
 end
 
--- Generate the solver function hierarchy.
-local solver, printresult = generatesolver(tonumber(arg and arg[1]) or 10000)
+local N = tonumber(arg and arg[1]) or 10000
 
--- The optimizer for LuaJIT 1.1.x is not helpful here, so turn it off.
-if jit and jit.opt and jit.version_num < 10200 then jit.opt.start(0) end
+bench:add({
+  name = "meteor",
+  setup = function()
+    -- The optimizer for LuaJIT 1.1.x is not helpful here, so turn it off.
+    if jit and jit.opt and jit.version_num < 10200 then jit.opt.start(0) end
+  end,
+  payload = function()
+    -- Generate the solver function hierarchy.
+    local solver, printresult, getresult = generatesolver(N)
 
--- Run the solver protected to get partial results (max count or ctrl-c).
-pcall(solver, 0)
-printresult()
+    -- Run the solver protected to get partial results (max count or ctrl-c).
+    pcall(solver, 0)
+
+    local n, smin, smax = getresult()
+    return {n = n, smin = smin, smax = smax}
+  end,
+  checker = function(res)
+    if N >= 2097 then
+      assert(res.n == 2098, "Incorrect solutions number")
+      assert(res.smin == "00001222012661126155865558633348893448934747977799")
+      assert(res.smax == "99998966856688568255777257472014220144031400311333")
+    end
+    return true
+  end,
+  items = 2098,
+})
+
+bench:run_and_report()
