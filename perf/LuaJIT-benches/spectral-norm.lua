@@ -1,3 +1,11 @@
+-- The benchmark to check the performance of FP arithmetics and
+-- function call inlining in the inner loops.
+-- The benchmark calculates the spectral norm of an infinite
+-- matrix.
+-- For more details see:
+-- https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/spectralnorm.html
+
+local bench = require("bench").new(arg)
 
 local function A(i, j)
   local ij = i+j-1
@@ -25,16 +33,33 @@ local function AtAv(x, y, t, N)
   Atv(t, y, N)
 end
 
-local N = tonumber(arg and arg[1]) or 100
-local u, v, t = {}, {}, {}
-for i=1,N do u[i] = 1 end
+local N = tonumber(arg and arg[1]) or 3000
 
-for i=1,10 do AtAv(u, v, t, N) AtAv(v, u, t, N) end
+bench:add({
+  name = "spectral_norm",
+  checker = function(res)
+    -- XXX: Empirical value.
+    if N > 66 then
+      assert(math.abs(res - 1.27422) < 0.00001)
+    end
+    return true
+  end,
+  payload = function()
+    local u, v, t = {}, {}, {}
+    for i = 1, N do u[i] = 1 end
 
-local vBv, vv = 0, 0
-for i=1,N do
-  local ui, vi = u[i], v[i]
-  vBv = vBv + ui*vi
-  vv = vv + vi*vi
-end
-io.write(string.format("%0.9f\n", math.sqrt(vBv / vv)))
+    for _ = 1, 10 do AtAv(u, v, t, N) AtAv(v, u, t, N) end
+
+    local vBv, vv = 0, 0
+    for i = 1, N do
+      local ui, vi = u[i], v[i]
+      vBv = vBv + ui * vi
+      vv = vv + vi * vi
+    end
+    return math.sqrt(vBv / vv)
+  end,
+  -- Operations inside `for i=1,10` loop.
+  items = 40 * N * N,
+})
+
+bench:run_and_report()
