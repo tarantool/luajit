@@ -9,25 +9,26 @@
 local SCIMARK_VERSION = "2010-12-10"
 local SCIMARK_COPYRIGHT = "Copyright (C) 2006-2010 Mike Pall"
 
-local MIN_TIME = 2.0
+local bench = require("bench").new(arg)
+
 local RANDOM_SEED = 101009 -- Must be odd.
 local SIZE_SELECT = "small"
 
 local benchmarks = {
   "FFT", "SOR", "MC", "SPARSE", "LU",
   small = {
-    FFT		= { 1024 },
-    SOR		= { 100 },
-    MC		= { },
-    SPARSE	= { 1000, 5000 },
-    LU		= { 100 },
+    FFT		= { params = { 1024 }, cycles = 50000, },
+    SOR		= { params = { 100 }, cycles = 50000, },
+    MC		= { params = { }, cycles = 15e7, },
+    SPARSE	= { params = { 1000, 5000 }, cycles = 15e4, },
+    LU		= { params = { 100 }, cycles = 5000, },
   },
   large = {
-    FFT		= { 1048576 },
-    SOR		= { 1000 },
-    MC		= { },
-    SPARSE	= { 100000, 1000000 },
-    LU		= { 1000 },
+    FFT		= { params = { 1048576 }, cycles = 25, },
+    SOR		= { params = { 1000 }, cycles = 500, },
+    MC		= { params = { }, cycles = 15e7, },
+    SPARSE	= { params = { 100000, 1000000 }, cycles = 1500, },
+    LU		= { params = { 1000 }, cycles = 50, },
   },
 }
 
@@ -342,48 +343,48 @@ local function fmtparams(p1, p2)
   return ""
 end
 
-local function measure(min_time, name, ...)
+local function measure(name, cycles, ...)
   array_init()
   rand_init(RANDOM_SEED)
   local run = benchmarks[name](...)
-  local cycles = 1
-  repeat
-    local tm = clock()
-    local flops = run(cycles, ...)
-    tm = clock() - tm
-    if tm >= min_time then
-      local res = flops / tm * 1.0e-6
-      local p1, p2 = ...
-      printf("%-7s %8.2f  %s\n", name, res, fmtparams(...))
-      return res
-    end
-    cycles = cycles * 2
-  until false
+  local flops = run(cycles, ...)
+  return flops
 end
-
-printf("Lua SciMark %s based on SciMark 2.0a. %s.\n\n",
-       SCIMARK_VERSION, SCIMARK_COPYRIGHT)
 
 while arg and arg[1] do
   local a = table.remove(arg, 1)
-  if a == "-noffi" then
+  if a == "noffi" then
     package.preload.ffi = nil
-  elseif a == "-small" then
+  elseif a == "small" then
     SIZE_SELECT = "small"
-  elseif a == "-large" then
+  elseif a == "large" then
     SIZE_SELECT = "large"
   elseif benchmarks[a] then
-    local p = benchmarks[SIZE_SELECT][a]
-    measure(MIN_TIME, a, tonumber(arg[1]) or p[1], tonumber(arg[2]) or p[2])
+    local cycles = benchmarks[SIZE_SELECT][a].cycles
+    local p = benchmarks[SIZE_SELECT][a].params
+    local b
+    b = {
+      name = a,
+      -- XXX: The description of tests for each function is too
+      -- inconvenient.
+      skip_check = true,
+      payload = function()
+        local flops = measure(a, cycles, tonumber(arg[1]) or p[1],
+                              tonumber(arg[2]) or p[2])
+        b.items = flops
+      end,
+    }
+    bench:add(b)
+    bench:run_and_report()
     return
   else
-    printf("Usage: scimark [-noffi] [-small|-large] [BENCH params...]\n\n")
-    printf("BENCH   -small         -large\n")
+    printf("Usage: scimark [noffi] [small|large] [BENCH params...]\n\n")
+    printf("BENCH   small         large\n")
     printf("---------------------------------------\n")
     for _,name in ipairs(benchmarks) do
       printf("%-7s %-13s %s\n", name,
-	     fmtparams(unpack(benchmarks.small[name])),
-	     fmtparams(unpack(benchmarks.large[name])))
+	     fmtparams(unpack(benchmarks.small[name].params)),
+	     fmtparams(unpack(benchmarks.large[name].params)))
     end
     printf("\n")
     os.exit(1)
@@ -393,8 +394,19 @@ end
 local params = benchmarks[SIZE_SELECT]
 local sum = 0
 for _,name in ipairs(benchmarks) do
-  sum = sum + measure(MIN_TIME, name, unpack(params[name]))
+  local cycles = params[name].cycles
+  local b
+  b = {
+    name = name,
+    -- XXX: The description of tests for each function is too
+    -- inconvenient.
+    skip_check = true,
+    payload = function()
+      local flops = measure(name, cycles, unpack(params[name].params))
+      b.items = flops
+    end,
+  }
+  bench:add(b)
 end
-printf("\nSciMark %8.2f  [%s problem sizes]\n", sum / #benchmarks, SIZE_SELECT)
-io.flush()
 
+bench:run_and_report()
