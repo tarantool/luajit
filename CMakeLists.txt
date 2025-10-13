@@ -464,6 +464,17 @@ if(LUAJIT_USE_TEST)
 endif()
 add_subdirectory(test)
 
+# --- Benchmarks source tree ---------------------------------------------------
+
+# The option to enable performance tests for the LuaJIT.
+# Disabled by default, since commonly it is used only by LuaJIT
+# developers and run in the CI with the specially set-up machine.
+option(LUAJIT_ENABLE_PERF "Generate <perf> target" OFF)
+
+if(LUAJIT_ENABLE_PERF)
+  add_subdirectory(perf)
+endif()
+
 # --- Misc rules ---------------------------------------------------------------
 
 # XXX: Implement <uninstall> target using the following recipe:
