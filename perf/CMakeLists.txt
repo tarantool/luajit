@@ -98,3 +98,16 @@ add_custom_target(${PROJECT_NAME}-perf
 add_custom_target(${PROJECT_NAME}-perf-console
   DEPENDS LuaJIT-benches-console
 )
+
+set(PERF_SUMMARY ${PERF_OUTPUT_DIR}/summary.txt)
+add_custom_target(${PROJECT_NAME}-perf-aggregate
+  BYPRODUCTS ${PERF_SUMMARY}
+  COMMENT "Aggregate performance test results into ${PERF_SUMMARY}"
+  COMMAND ${CMAKE_COMMAND} -E env
+    LUA_CPATH="${LUA_CPATH}"
+      ${LUAJIT_BINARY} ${CMAKE_CURRENT_SOURCE_DIR}/helpers/aggregate.lua
+        ${PERF_SUMMARY}
+        ${PERF_OUTPUT_DIR}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS luajit-main
+)
