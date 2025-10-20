@@ -12,6 +12,13 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
                   "Timings may be affected.")
 endif()
 
+# The shell command needs to be run before benchmarks are started.
+if(LUAJIT_BENCH_INIT)
+  message(STATUS
+    "The following command will run before benchmarks: '${LUAJIT_BENCH_INIT}'."
+  )
+endif()
+
 set(PERF_OUTPUT_DIR ${PROJECT_BINARY_DIR}/perf/output)
 file(MAKE_DIRECTORY ${PERF_OUTPUT_DIR})
 
@@ -56,7 +63,7 @@ macro(AddBench bench_name bench_path perf_suite LUA_PATH)
   set(bench_out_file
     ${PERF_OUTPUT_DIR}/${perf_suite}/${bench_name_stripped}.json
   )
-  set(bench_command "${LUAJIT_BINARY} ${bench_path}")
+  set(bench_command "${LUAJIT_BENCH_INIT} ${LUAJIT_BINARY} ${bench_path}")
   if(${ARGC} GREATER 4)
     set(input_file ${ARGV4})
     set(bench_command "${bench_command} < ${input_file}")
