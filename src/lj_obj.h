@@ -672,6 +672,7 @@ typedef struct global_State {
   GCupval uvhead;	/* Head of double-linked list of all open upvalues. */
   volatile int32_t vmstate;  /* VM state or current JIT code trace number. */
   int32_t hookcstart;	/* Start count for instruction hook counter. */
+  GCRef vmthref;	/* Link to VM thread. */
   lua_Hook hookf;	/* Hook function. */
   lua_CFunction wrapf;	/* Wrapper for C function calls. */
   lua_CFunction panic;	/* Called as a last resort for errors. */
@@ -688,6 +689,7 @@ typedef struct global_State {
 } global_State;
 
 #define mainthread(g)	(&gcref(g->mainthref)->th)
+#define vmthread(g)	(&gcref(g->vmthref)->th)
 #define niltv(L) \
   check_exp(tvisnil(&G(L)->nilnode.val), &G(L)->nilnode.val)
 #define niltvg(g) \
