@@ -59,6 +59,8 @@ foreach(test_source ${tests})
     OUTPUT_NAME "${exe}${C_TEST_SUFFIX}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
   )
+  # Allow to call non-static functions via FFI.
+  target_link_options(${exe} PRIVATE "-rdynamic")
   target_link_libraries(${exe} libtest ${LUAJIT_LIBRARY})
   add_dependencies(tarantool-c-tests-build ${exe})
 
