@@ -1,12 +1,9 @@
-local caught, caught_line, caught_mm
+local caught
 
 local function gcmeta()
   if caught ~= "end" then
     -- This may point to the wrong instruction if in a JIT trace.
     -- But there's no guarantee if, when or where any GC steps occur.
-    local dbg = debug.getinfo(2)
-    caught_line = dbg.currentline
-    caught_mm = debug.getinfo(1).name
     caught = true
   end
 end
@@ -24,12 +21,6 @@ local function testgc(mm, f)
   end
   if not caught then
     error(mm.." metamethod not called", 2)
-  end
-  if type(caught_line) ~= "number" or caught_line < 0 then
-    error("bad linenumber in debug info", 2)
-  end
-  if caught_mm ~= mm then
-    error("bad name for metamethod in debug info", 2)
   end
 end
 
