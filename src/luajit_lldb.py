@@ -36,7 +36,7 @@ VARNAME__MAX = len(VARNAMES) + 1
 target = None
 luajit_module = None
 PADDING = None
-
+is_tarantool = False
 
 class Ptr:
     def __init__(self, value, normal_type):
@@ -188,6 +188,7 @@ c_structs = {
         ('TValuePtr', 'top'),
         ('MRef', 'maxstack'),
         ('MRef', 'stack'),
+        ('uint', 'stacksize'),
     ],
     'global_State': [
         ('GCState', 'gc'),
@@ -217,6 +218,7 @@ c_structs = {
         ('int', 'numparams'),
         ('int', 'flags'),
         ('MRef', 'varinfo'),
+        ('int', 'sizebc')
     ],
     'GCtrace': [('uint', 'traceno')],
     'Node': [('TValue', 'key'), ('TValue', 'val'), ('MRef', 'next')],
@@ -288,8 +290,8 @@ class Command(object):
         """
 
 
-def cast(typename, value):
-    pointer_type = False
+def cast(typename=None, value=None):
+    levels_of_indirection = 0
     name = None
     if isinstance(value, Struct) or isinstance(value, Ptr):
         # Get underlying value, if passed object is a wrapper.
@@ -299,41 +301,37 @@ def cast(typename, value):
     if isinstance(typename, type):
         name = typename.__name__
         if name.endswith('Ptr'):
-            pointer_type = True
+            levels_of_indirection = 1
             name = name[:-3]
     else:
         name = typename
-        if name[-1] == '*':
-            name = name[:-1].strip()
-            pointer_type = True
+
+        while name.endswith('*'):
+            levels_of_indirection += 1
+            name = name[:-1]
+
+        name = name.strip()
 
     # Get the lldb type representation.
     t = find_type(name)
-    if pointer_type:
+
+    for _ in range(levels_of_indirection):
         t = t.GetPointerType()
 
     if isinstance(value, int):
-        # Integer casts require some black magic for lldb to behave properly.
-        if pointer_type:
-            casted = target.CreateValueFromAddress(
-                'value',
-                lldb.SBAddress(value, target),
-                t.GetPointeeType(),
-            ).address_of
-        else:
-            casted = target.CreateValueFromData(
-                name='value',
-                data=lldb.SBData.CreateDataFromInt(value, size=8),
-                type=t,
-            )
+        casted = target.CreateValueFromData(
+            name='value',
+            data=lldb.SBData.CreateDataFromInt(value, size=8),
+            type=t,
+        )
     else:
         casted = value.Cast(t)
 
     if isinstance(typename, type):
         # Wrap lldb object, if possible
         return typename(casted)
-    else:
-        return casted
+
+    return casted
 
 
 def lookup_global(name):
@@ -357,6 +355,7 @@ def offsetof(typename, membername):
 
 def sizeof(typename):
     type_obj = find_type(typename)
+    assert(type_obj)
     return type_obj.GetByteSize()
 
 
@@ -496,16 +495,27 @@ def i2notu32(val):
 
 
 def vm_state(g):
+    if is_tarantool:
+        return {
+            i2notu32(0): 'INTERP',
+            i2notu32(1): 'LFUNC',
+            i2notu32(2): 'FFUNC',
+            i2notu32(3): 'CFUNC',
+            i2notu32(4): 'GC',
+            i2notu32(5): 'EXIT',
+            i2notu32(6): 'RECORD',
+            i2notu32(7): 'OPT',
+            i2notu32(8): 'ASM',
+        }.get(int(tou32(g.vmstate)), 'TRACE')
+
     return {
         i2notu32(0): 'INTERP',
-        i2notu32(1): 'LFUNC',
-        i2notu32(2): 'FFUNC',
-        i2notu32(3): 'CFUNC',
-        i2notu32(4): 'GC',
-        i2notu32(5): 'EXIT',
-        i2notu32(6): 'RECORD',
-        i2notu32(7): 'OPT',
-        i2notu32(8): 'ASM',
+        i2notu32(1): 'CFUNC',
+        i2notu32(2): 'GC',
+        i2notu32(3): 'EXIT',
+        i2notu32(4): 'RECORD',
+        i2notu32(5): 'OPT',
+        i2notu32(6): 'ASM',
     }.get(int(tou32(g.vmstate)), 'TRACE')
 
 
@@ -619,7 +629,7 @@ def thread_state(t):
         4: 'ERRMEM',
         5: 'ERRERR',
         5
-        + 1: 'ERRERR+1',  # Appeared in error handlers as 'Don't touch the stack during ...'
+        + 1: 'ERRERR+1',  # Undocumented status used for `cpluaopen` function that initializes minimal required stuff to run Lua
     }.get(t.status, 'INVALID')
 
 
@@ -658,6 +668,11 @@ def proto_chunkname(pt):
     return strdata(cast(GCstrPtr, gcref(pt.chunkname)))
 
 
+def proto_bcpos(pt, pc):
+    proto_size = sizeof("GCproto")
+
+    return pc - cast(BCInsPtr, pt.value.unsigned + proto_size)
+
 def dump_lj_tfunc(o):
     func = cast(GCfuncCPtr, o)
 
@@ -683,7 +698,7 @@ def dump_lj_tfunc(o):
 
 def debug_framepc(L, func, nextframe):
     return dbg_eval(
-        f'(BCPos)debug_framepc((lua_State*){L.value.value}, (GCfunc*){func}, (cTValue*){nextframe})'
+        f'(BCPos)debug_framepc((lua_State*){L.value.value}, (GCfunc*){func}, (cTValue*){nextframe or 0})'
     ).signed
 
 
@@ -699,7 +714,7 @@ def debug_frameline(L, func, nextframe):
 
 
 def lj_debug_funcname(L, frame):
-    FUNCNAME_VARIABLE_NAME = '$lj_debug_funcname_name'
+    FUNCNAME_VARIABLE_NAME = '$lj_debug_funcname_name' + str(target.GetProcess().id) # Must be unique in case we restart the debugger
 
     name = dbg_eval(f'{FUNCNAME_VARIABLE_NAME} = NULL; &{FUNCNAME_VARIABLE_NAME}')
 
@@ -714,18 +729,19 @@ def lj_debug_funcname(L, frame):
         )
 
         if namewhat.unsigned == 0:
-            return '', None
+            return None, None
 
         return namewhat.summary, name.Dereference().summary
     except UnicodeEncodeError:
         error = '<luajit-lldb: error occurred while rendering non-ascii slot>'
         return error, error
     except:
-        return '', None
+        return None, None
 
 
 def lj_debug_getinfo(L, tv, frame, nextframe):
     func = cast(GCfuncCPtr, gcval(tv))
+    linedefined = -1
 
     if isluafunc(func):
         pt = funcproto(func)
@@ -735,6 +751,7 @@ def lj_debug_getinfo(L, tv, frame, nextframe):
             return None
 
         what = 'Lua' if (pt.firstline or not pt.numline) else 'm'
+        linedefined = pt.firstline
     else:
         source = '[C]'
         what = 'C'
@@ -758,9 +775,9 @@ def lj_debug_getinfo(L, tv, frame, nextframe):
         if what == 'm':
             result += ' in main chunk'
         elif what == 'C':
-            result += f' at {strx64(func.f)}'
+            return '' # Not useful
         else:
-            result += f' in function <{source}:{0}>'
+            result += f' in function <{source}:{linedefined}>'
 
     return result
 
@@ -919,6 +936,18 @@ def bc_a(ins):
     return (ins >> 8) & 0xFF
 
 
+def bc_b(ins):
+    return ins >> 24
+
+
+def bc_c(ins):
+    return (ins >> 16) & 0xff
+
+
+def bc_d(ins):
+    return ins >> 16
+
+
 def frame_gc(framelink):
     return gcval(framelink - LJ_FR2)
 
@@ -1000,9 +1029,9 @@ def frame_sentinel(L):
 
 # The generator that implements frame iterator.
 # Every frame is represented as a tuple of framelink and frametop.
-def frames(L, limit):
+def frames(L, base, limit):
     frametop = L.top
-    framelink = L.base - 1
+    framelink = base - 1
     nextframe = framelink
     framelink_sentinel = frame_sentinel(L)
 
@@ -1053,19 +1082,15 @@ def dump_framelink(L, level, fr, nextframe):
         f=dump_gcobj(frame_gc(fr)),
         traceback=(
             format_lj_debug_getinfo(lj_debug_getinfo(L, fr - LJ_FR2, fr, nextframe))
-            if not frame_isc(fr)
-            and not frame_isvarg(
+            if nextframe and not frame_isvarg(
                 nextframe
-            )  # Not printing for C frames and for pseudo-frames
+            )  # Not printing for pseudo-frames
             else ''
         ),
     )
 
 
-def dump_stack_slot(L, slot, base=None, top=None):
-    base = base or L.base
-    top = top or L.top
-
+def dump_stack_slot(L, slot, base, top):
     return '{addr:{padding}} [ {B}{T}{M}] VALUE: {value}'.format(
         addr=strx64(slot),
         padding=2 * len(PADDING) + 1,
@@ -1131,55 +1156,77 @@ def debug_varname(pt, pc, slot):
         uleb128_result, p_index = lj_buf_ruleb128(p, p_index)
         endpc = startpc + uleb128_result
 
-        if pc < endpc and slot == 0:
-            if vn < VARNAME__MAX:
-                return VARNAMES[vn - 1]
+        if pc < endpc:
+            if slot == 0:
+                if vn < VARNAME__MAX:
+                    return VARNAMES[vn - 1]
 
-            return name
+                return name
 
-        slot -= 1
+            slot -= 1
 
     return None
 
 
-def debug_localname(L, frame, nextframe, slot):
+def debug_localname(L, frame, nextframe, slot1, pc_hint):
+    if frame == nextframe:
+        nextframe = None
+
     fn = cast(GCfuncCPtr, frame_gc(frame))
-    name = None
-
     pc = debug_framepc(L, fn, nextframe)
+    is_param = False
 
-    if frame == nextframe:  # nextframe is always valid in our debugger
+    if isluafunc(fn):
+        pt = funcproto(fn)
+
+        # For the top lua frame we might have a hint about the current pc. Better than nothing
+        if pc == NO_BCPOS and not nextframe and pc_hint:
+            pc = proto_bcpos(pt, pc_hint) - 1
+
+            if 0 > pc > pt.sizebc:
+                pc = NO_BCPOS
+
+        if pt.numparams > slot1:
+            is_param = True
+
+    if not nextframe:
+        if is_param:
+            # Treat like a function parameter
+            pc = 0
+
         nextframe = L.top + LJ_FR2
-
-    if frame_isvarg(nextframe):
+    elif frame_isvarg(nextframe): # nextframe exists
         pt = funcproto(fn)
 
         if pt.flags & PROTO_VARARG:
-            slot = pt.numparams + tou32(slot)
+            slot1 = pt.numparams + tou32(slot1)
 
-            if (frame + slot + LJ_FR2) < nextframe:
-                return f'...[{slot}]'
+            if (frame + slot1 + LJ_FR2) < nextframe:
+                return is_param, f'...[{slot1}]'
 
-        return name
+        return is_param, None
 
-    if pc != NO_BCPOS and (name := debug_varname(funcproto(fn), pc, slot - 1)):
+    name = None
+
+    if pc != NO_BCPOS and (name := debug_varname(funcproto(fn), pc, slot1 - 1)):
         pass
-    elif slot > 0 and (frame + slot + LJ_FR2) < nextframe:
-        name = None  # In original code it's (*temporary), but it's not too useful for us
+    elif slot1 > 0 and (frame + slot1 + LJ_FR2) < nextframe:
+        return is_param, None  # In original code it's (*temporary), but it's not too useful for us
 
-    return name
+    return is_param, name
 
 
 def format_localname(localname):
-    return ' [local ' + localname + ']' if localname else ''
+    is_param, name = localname
 
+    return f' [{'param' if is_param else 'local'} {name}]' if name else ''
 
-def dump_stack(L, base=None, top=None):
+def dump_stack(L, raw):
     if not L:
         return 'Main coroutine not found. Provide an address of lua_State*'
 
-    base = base or L.base
-    top = top or L.top
+    base = L.base
+    top = L.top
 
     global PADDING
     if not PADDING:
@@ -1189,6 +1236,39 @@ def dump_stack(L, base=None, top=None):
     maxstack = mref(TValuePtr, L.maxstack)
     frame_stack_size = int((maxstack - stack) >> 3)
     red = 5 + 2 * LJ_FR2
+
+    if not stack or not maxstack:
+        return "Invalid lua_State or uninitialized stack"
+
+    if maxstack - stack > L.stacksize:
+        return "Invalid lua_State"
+
+    if not base or raw:
+        return "\n".join([
+            dump_stack_slot(L, stack + offset, base, top)
+            for offset in range(L.stacksize - 1, -1, -1)  # noqa: E131
+        ]) + "\nNo base information, dumping whole stack"
+
+    pc_hint = None
+    process = target.GetProcess()
+    thread = process.GetSelectedThread()
+    frame = thread.GetSelectedFrame()
+
+    # Sometimes the first frame is not what L->base points to.
+    # I suppose this is an optimization made in the Lua interpreter because we don't leave the VM.
+    # All calls to extern C code that requires correct base have a code that updates L->base.
+    if frame.GetSymbol().name.startswith("lj_BC_"):
+        rdx = cast(TValuePtr, frame.FindRegister("rdx"))
+
+        if top >= rdx > stack:
+            print("Base was deduced from the registers")
+
+            pc_hint = cast(BCInsPtr, frame.FindRegister("rbx"))
+            ins = pc_hint.value.deref.unsigned
+            pc_a = bc_a(ins)
+            base_from_pc = cast(TValuePtr, rdx.value.unsigned + 8 * -pc_a - 0x10)
+
+            base = base_from_pc if frame.GetSymbol().name == "lj_BC_RET" and base == rdx else rdx
 
     dump = [
         '{padding} Red zone: {nredslots: >2} slots {padding}'.format(
@@ -1225,7 +1305,7 @@ def dump_stack(L, base=None, top=None):
 
     level = 0
 
-    for framelink, frametop, nextframe in frames(L, frame_stack_size):
+    for framelink, frametop, nextframe in frames(L, base, frame_stack_size):
         # Dump all data slots in the (framelink, top) interval.
         dump.extend(
             [
@@ -1236,6 +1316,7 @@ def dump_stack(L, base=None, top=None):
                         framelink,
                         nextframe,
                         offset,
+                        pc_hint
                     )
                 )
                 for offset in range(frametop - framelink, 0, -1)  # noqa: E131
@@ -1464,10 +1545,31 @@ If L is omitted the main coroutine is used.
     '''
 
     def execute(self, debugger, args, result):
+        raw = args.startswith("--raw")
+
+        if raw:
+            args = args[len("--raw"):].strip()
+
         lstate = self.parse(args)
         lstate_ptr = cast('lua_State *', lstate) if lstate is not None else None
 
-        print('{}'.format(dump_stack(L(lstate_ptr))))
+        try:
+            print('{}'.format(dump_stack(L(lstate_ptr), raw)))
+        except Exception as e:
+            import traceback
+
+            # `e` is an exception object that you get from somewhere
+            print(e, ''.join(traceback.format_tb(e.__traceback__)))
+
+
+class LJDumpBC(Command):
+    '''
+lj-bc <BCIns*>
+    '''
+    def execute(self, debugger, args, result):
+        bc = cast(BCInsPtr, self.parse(args)).value.deref.unsigned
+
+        print(find_type('BCOp').GetEnumMembers()[bc_op(bc)].name, bc_a(bc), bc_b(bc), bc_c(bc), bc_d(bc))
 
 
 def register_commands(debugger, commands):
@@ -1494,17 +1596,25 @@ def find_luajit_module():
 def configure(debugger):
     global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, PADDING, LJ_TISNUM, target, luajit_module
     target = debugger.GetSelectedTarget()
+
+    if not target:
+        raise Exception("No target selected. Import this script while running a program.")
+
     luajit_module = find_luajit_module()
 
     LJ_DUALNUM = luajit_module.FindSymbol('lj_lib_checknumber') is not None
 
     try:
         irtype_enum = find_type('IRType').enum_members
+
         for member in irtype_enum:
             if member.name == 'IRT_PTR':
                 LJ_64 = member.unsigned & 0x1F == IRT_P64
             if member.name == 'IRT_PGC':
                 LJ_FR2 = LJ_GC64 = member.unsigned & 0x1F == IRT_P64
+
+        if dbg_eval("LJ_VMST_LFUNC").value:
+            is_tarantool = True
     except Exception:
         print('luajit_lldb.py failed to load: '
               'no debugging symbols found for libluajit')
@@ -1528,6 +1638,7 @@ def __lldb_init_module(debugger, internal_dict):
                 'lj-str': LJDumpString,
                 'lj-tab': LJDumpTable,
                 'lj-stack': LJDumpStack,
+                'lj-bc': LJDumpBC
             },
         )
         print('luajit_lldb.py is successfully loaded')
