@@ -388,43 +388,31 @@ def lightudV(tv):
 # Dumpers {{{
 
 
-def dump_lj_tnil(tv):
-    return 'nil'
+def dump_lj_tlightud(gcobj):
+    return 'light userdata @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tfalse(tv):
-    return 'false'
-
-
-def dump_lj_ttrue(tv):
-    return 'true'
-
-
-def dump_lj_tlightud(tv):
-    return 'light userdata @ {}'.format(strx64(lightudV(tv)))
-
-
-def dump_lj_tstr(tv):
+def dump_lj_tstr(gcobj):
     return 'string {body} @ {address}'.format(
-        body=strdata(gcval(tv['gcr'])),
-        address=strx64(gcval(tv['gcr']))
+        body=strdata(gcobj),
+        address=strx64(gcobj)
     )
 
 
-def dump_lj_tupval(tv):
-    return 'upvalue @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_tupval(gcobj):
+    return 'upvalue @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tthread(tv):
-    return 'thread @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_tthread(gcobj):
+    return 'thread @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tproto(tv):
-    return 'proto @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_tproto(gcobj):
+    return 'proto @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tfunc(tv):
-    func = cast('struct GCfuncC *', gcval(tv['gcr']))
+def dump_lj_tfunc(gcobj):
+    func = cast('struct GCfuncC *', gcobj)
     ffid = func['ffid']
 
     if ffid == 0:
@@ -441,20 +429,20 @@ def dump_lj_tfunc(tv):
         return 'fast function #{}'.format(int(ffid))
 
 
-def dump_lj_ttrace(tv):
-    trace = cast('struct GCtrace *', gcval(tv['gcr']))
+def dump_lj_ttrace(gcobj):
+    trace = cast('struct GCtrace *', gcobj)
     return 'trace {traceno} @ {addr}'.format(
         traceno=strx64(trace['traceno']),
         addr=strx64(trace)
     )
 
 
-def dump_lj_tcdata(tv):
-    return 'cdata @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_tcdata(gcobj):
+    return 'cdata @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_ttab(tv):
-    table = cast('GCtab *', gcval(tv['gcr']))
+def dump_lj_ttab(gcobj):
+    table = cast('GCtab *', gcobj)
     return 'table @ {gcr} (asize: {asize}, hmask: {hmask})'.format(
         gcr=strx64(table),
         asize=table['asize'],
@@ -462,28 +450,15 @@ def dump_lj_ttab(tv):
     )
 
 
-def dump_lj_tudata(tv):
-    return 'userdata @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_tudata(gcobj):
+    return 'userdata @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tnumx(tv):
-    if tvisint(tv):
-        return 'integer {}'.format(cast('int32_t', tv['i']))
-    else:
-        return 'number {}'.format(cast('double', tv['n']))
-
-
-def dump_lj_invalid(tv):
-    return 'not valid type @ {}'.format(strx64(gcval(tv['gcr'])))
-
-
-# }}}
+def dump_lj_invalid(gcobj):
+    return 'not valid type @ {}'.format(strx64(gcobj))
 
 
 dumpers = {
-    'LJ_TNIL':     dump_lj_tnil,
-    'LJ_TFALSE':   dump_lj_tfalse,
-    'LJ_TTRUE':    dump_lj_ttrue,
     'LJ_TLIGHTUD': dump_lj_tlightud,
     'LJ_TSTR':     dump_lj_tstr,
     'LJ_TUPVAL':   dump_lj_tupval,
@@ -494,12 +469,99 @@ dumpers = {
     'LJ_TCDATA':   dump_lj_tcdata,
     'LJ_TTAB':     dump_lj_ttab,
     'LJ_TUDATA':   dump_lj_tudata,
-    'LJ_TNUMX':    dump_lj_tnumx,
 }
 
 
+def tv_dump_lj_tnil(tv):
+    return 'nil'
+
+
+def tv_dump_lj_tfalse(tv):
+    return 'false'
+
+
+def tv_dump_lj_ttrue(tv):
+    return 'true'
+
+
+def tv_dump_lj_tlightud(tv):
+    return dump_lj_tlightud(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tstr(tv):
+    return dump_lj_tstr(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tupval(tv):
+    return dump_lj_tupval(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tthread(tv):
+    return dump_lj_tthread(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tproto(tv):
+    return dump_lj_tproto(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tfunc(tv):
+    return dump_lj_tfunc(gcval(tv['gcr']))
+
+
+def tv_dump_lj_ttrace(tv):
+    return dump_lj_ttrace(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tcdata(tv):
+    return dump_lj_tcdata(gcval(tv['gcr']))
+
+
+def tv_dump_lj_ttab(tv):
+    return dump_lj_ttab(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tudata(tv):
+    return dump_lj_tudata(gcval(tv['gcr']))
+
+
+def tv_dump_lj_tnumx(tv):
+    if tvisint(tv):
+        return 'integer {}'.format(cast('int32_t', tv['i']))
+    else:
+        return 'number {}'.format(cast('double', tv['n']))
+
+
+def tv_dump_lj_invalid(tv):
+    return dump_lj_invalid(gcval(tv['gcr']))
+
+
+# }}}
+
+
+tv_dumpers = {
+    'LJ_TNIL':     tv_dump_lj_tnil,
+    'LJ_TFALSE':   tv_dump_lj_tfalse,
+    'LJ_TTRUE':    tv_dump_lj_ttrue,
+    'LJ_TLIGHTUD': tv_dump_lj_tlightud,
+    'LJ_TSTR':     tv_dump_lj_tstr,
+    'LJ_TUPVAL':   tv_dump_lj_tupval,
+    'LJ_TTHREAD':  tv_dump_lj_tthread,
+    'LJ_TPROTO':   tv_dump_lj_tproto,
+    'LJ_TFUNC':    tv_dump_lj_tfunc,
+    'LJ_TTRACE':   tv_dump_lj_ttrace,
+    'LJ_TCDATA':   tv_dump_lj_tcdata,
+    'LJ_TTAB':     tv_dump_lj_ttab,
+    'LJ_TUDATA':   tv_dump_lj_tudata,
+    'LJ_TNUMX':    tv_dump_lj_tnumx,
+}
+
+
+def dump_obj(gcobj):
+    return dumpers.get(typenames(i2notu32(gcobj['gch']['gct'])), dump_lj_invalid)(gcobj)
+
+
 def dump_tvalue(tvalue):
-    return dumpers.get(typenames(itypemap(tvalue)), dump_lj_invalid)(tvalue)
+    return tv_dumpers.get(typenames(itypemap(tvalue)), tv_dump_lj_invalid)(tvalue)
 
 
 def dump_framelink_slot_address(fr):
@@ -519,7 +581,7 @@ def dump_framelink(L, fr):
             p='P' if frame_typep(fr) & FRAME_P else ''
         ),
         d=cast('TValue *', fr) - cast('TValue *', frame_prev(fr)),
-        f=dump_lj_tfunc(fr - LJ_FR2),
+        f=tv_dump_lj_tfunc(fr - LJ_FR2),
     )
 
 
@@ -812,8 +874,284 @@ The command requires no args and dumps current GC stats:
         ))
 
 
+sizeof_cache = {}
+
+
+def sizeof(typename):
+    if typename in sizeof_cache:
+        return sizeof_cache[typename]
+    size = gdb.lookup_type(typename).sizeof
+    sizeof_cache[typename] = size
+    return size
+
+
+def estimate_str(gcobj):
+    return cast('GCstr *', gcobj)['len'] + sizeof('GCstr')
+
+
+def estimate_upval(gcobj):
+    return sizeof('GCupval')
+
+
+def estimate_state(gcobj):
+    return cast('lua_State *', gcobj)['stacksize'] * sizeof('TValue') + \
+            sizeof('lua_State')
+
+
+def estimate_proto(gcobj):
+    return cast('GCproto *', gcobj)['sizept']
+
+
+FF_LUA = 0
+FF_C = 1
+
+
+def isluafunc(fn):
+    return fn['c']['ffid'] == FF_LUA
+
+
+def iscfunc(fn):
+    return fn['c']['ffid'] == FF_C
+
+
+def estimate_func(gcobj):
+    fn = cast('GCfunc *', gcobj)
+    if isluafunc(fn):
+        return sizeof('GCfuncL') - sizeof('GCRef') + \
+                sizeof('GCRef') * fn['l']['nupvalues']
+    else:
+        # Include FFuncs too.
+        return sizeof('GCfuncC') - sizeof('TValue') + \
+                sizeof('TValue') * fn['c']['nupvalues']
+
+
+def estimate_trace(gcobj):
+    trace = cast('GCtrace *', gcobj)
+    return ((sizeof('GCtrace') + 7) & ~7) + \
+        (trace['nins'] - trace['nk']) * sizeof('IRIns') + \
+        trace['nsnap'] * sizeof('SnapShot') + \
+        trace['nsnapmap'] * sizeof('SnapEntry')
+
+
+# CTypes.
+# Externally visible types.
+CT_NUM = 0                # Integer or floating-point numbers.
+CT_STRUCT = 1             # Struct or union.
+CT_PTR = 2                # Pointer or reference.
+CT_ARRAY = 3              # Array or complex type.
+CT_MAYCONVERT = CT_ARRAY
+CT_VOID = 4               # Void type.
+CT_ENUM = 5               # Enumeration.
+CT_HASSIZE = CT_ENUM      # Last type where ct->size holds the actual size.
+CT_FUNC = 6               # Function.
+CT_TYPEDEF = 7            # Typedef.
+CT_ATTRIB = 8             # Miscellaneous attributes.
+# Internal element types.
+CT_FIELD = 9              # Struct/union field or function parameter.
+CT_BITFIELD = 10          # Struct/union bitfield.
+CT_CONSTVAL = 11          # Constant value.
+CT_EXTERN = 12            # External reference.
+CT_KW = 13                # Keyword.
+
+CTSHIFT_NUM = 28
+CTMASK_CID = 0x0000ffff  # Max. 65536 type IDs.
+
+
+def ctype_type(info):
+    return info >> CTSHIFT_NUM
+
+
+def ctype_cid(info):
+    return cast('CTypeID', info & CTMASK_CID)
+
+
+def ctype_isnum(info):
+    return ctype_type(info) == CT_NUM
+
+
+def ctype_isvoid(info):
+    return ctype_type(info) == CT_VOID
+
+
+def ctype_isptr(info):
+    return ctype_type(info) == CT_PTR
+
+
+def ctype_isarray(info):
+    return ctype_type(info) == CT_ARRAY
+
+
+def ctype_isstruct(info):
+    return ctype_type(info) == CT_STRUCT
+
+
+def ctype_isfunc(info):
+    return ctype_type(info) == CT_FUNC
+
+
+def ctype_isenum(info):
+    return ctype_type(info) == CT_ENUM
+
+
+def ctype_istypedef(info):
+    return ctype_type(info) == CT_TYPEDEF
+
+
+def ctype_isattrib(info):
+    return ctype_type(info) == CT_ATTRIB
+
+
+def ctype_isfield(info):
+    return ctype_type(info) == CT_FIELD
+
+
+def ctype_isbitfield(info):
+    return ctype_type(info) == CT_BITFIELD
+
+
+def ctype_isconstval(info):
+    return ctype_type(info) == CT_CONSTVAL
+
+
+def ctype_isextern(info):
+    return ctype_type(info) == CT_EXTERN
+
+
+def ctype_hassize(info):
+    return ctype_type(info) <= CT_HASSIZE
+
+
+LJ_GC_CDATA_VAR = 0x80
+
+
+def cdataisv(cdata):
+    return cdata['marked'] & LJ_GC_CDATA_VAR
+
+
+def cdatav(cdata):
+    return cast('GCcdataVar *', cast('char *', cdata) - sizeof('GCcdataVar'))
+
+
+def ctype_ctsG(g):
+    return mref('CTState *', g['ctype_state'])
+
+
+def ctype_check(cts, ctid):
+    assert ctid > 0 and ctid < cts['top'], "Invalid ctype id"
+    return ctid
+
+
+def ctype_get(cts, ctid):
+    return cast('CType *', cts['tab'][ctype_check(cts, ctid)].address)
+
+
+def ctype_child(cts, ctype):
+    info = ctype['info']
+    assert not ctype_isvoid(info) and not ctype_isstruct(info) and \
+        not ctype_isbitfield(info), "Invalid ctype -- it has no children"
+    return ctype_get(cts, ctype_cid(info))
+
+
+def ctype_raw(cts, ctid):
+    ct = ctype_get(cts, ctid)
+    while ctype_isattrib(ct['info']):
+        ct = ctype_child(cts, ct)
+    return ct
+
+
+def estimate_cdata(gcobj):
+    cdata = cast('GCcdata *', gcobj)
+    cdata_size = sizeof('GCcdata')
+    if not cdataisv(cdata):
+        ct = ctype_raw(ctype_ctsG(G(L(None))), cdata['ctypeid'])
+        info = ct['info']
+        assert ctype_hassize(info) or ctype_isfunc(info) or \
+            ctype_isextern(info), "Invalid cdata variable"
+        size = ct['size'] if ctype_hassize(info) else CTSIZE_PTR
+        return cdata_size + size
+    cdatavar = cdatav(cdata)
+    return cdatavar['len'] + cdatavar['extra'] + cdata_size
+
+
+def estimate_tab(gcobj):
+    tab = cast('GCtab *', gcobj)
+    hpart_size = sizeof('Node') * (tab['hmask'] + 1) if tab['hmask'] else 0
+    return sizeof('GCtab') + sizeof('TValue') * tab['asize'] + hpart_size
+
+
+def estimate_udata(gcobj):
+    return sizeof('GCudata') + cast('GCudata *', gcobj)['len']
+
+
+mem_estimate = [
+    estimate_str,
+    estimate_upval,
+    estimate_state,
+    estimate_proto,
+    estimate_func,
+    estimate_trace,
+    estimate_cdata,
+    estimate_tab,
+    estimate_udata,
+]
+
+
+LJ_TNIL = ~0
+LJ_TFALSE = ~1
+LJ_TTRUE = ~2
+LJ_TLIGHTUD = ~3
+LJ_TSTR = ~4
+LJ_TUPVAL = ~5
+LJ_TTHREAD = ~6
+LJ_TPROTO = ~7
+LJ_TFUNC = ~8
+LJ_TTRACE = ~9
+LJ_TCDATA = ~10
+LJ_TTAB = ~11
+LJ_TUDATA = ~12
+
+
+def mem_estimate_wp(gcobj):
+    return mem_estimate[int(gcobj['gch']['gct'] - ~LJ_TSTR)](gcobj)
+
+
+def gctop(amount):
+    result = []
+    g = G(L(None))
+    root = g['gc']['root']
+    while gcref(root):
+        gcobj = gcref(root)
+        if len(result) < amount:
+            result.insert(len(result), gcobj)
+        else:
+            objsize = mem_estimate_wp(gcobj)
+            if objsize > mem_estimate_wp(result[len(result) - 1]):
+                result[len(result) - 1] = gcobj
+        result.sort(key=mem_estimate_wp, reverse=True)
+        root = gcref(root)['gch']['nextgc']
+    return result
+
+
+def dump_objects(objlist):
+    for obj in objlist:
+        gdb.write('{size} bytes {obj}\n'.format(
+            size=mem_estimate_wp(obj),
+            obj=dump_obj(obj)),
+        )
+
+
+class LJGCTop(LJBase):
+    '''
+lj-gctop
+
+The command requires 1 argument -- amount of the most heavy objects of Lua world and dumps them:
+    '''
+    def invoke(self, arg, from_tty):
+        dump_objects(gctop(parse_arg(arg)))
+
+
 def init(commands):
-    global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, LJ_TISNUM, PADDING
+    global LJ_64, LJ_GC64, LJ_FR2, LJ_DUALNUM, LJ_TISNUM, PADDING, CTSIZE_PTR
 
     # XXX Fragile: though connecting the callback looks like a crap but it
     # respects both Python 2 and Python 3 (see #4828).
@@ -855,6 +1193,7 @@ def init(commands):
         LJ_64 = str(gdb.parse_and_eval('IRT_PTR')) == 'IRT_P64'
         LJ_FR2 = LJ_GC64 = str(gdb.parse_and_eval('IRT_PGC')) == 'IRT_P64'
         LJ_DUALNUM = gdb.lookup_global_symbol('lj_lib_checknumber') is not None
+        CTSIZE_PTR = 8 if LJ_64 else 4
     except Exception:
         gdb.write('luajit-gdb.py failed to load: '
                   'no debugging symbols found for libluajit\n')
@@ -878,6 +1217,7 @@ def load(event=None):
         'lj-stack': LJDumpStack,
         'lj-state': LJState,
         'lj-gc':    LJGC,
+        'lj-gctop': LJGCTop,
     })
 
 
