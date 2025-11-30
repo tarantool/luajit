@@ -1,9 +1,13 @@
 # GDB extension for LuaJIT post-mortem analysis.
 # To use, just put 'source <path-to-repo>/src/luajit-gdb.py' in gdb.
 
+import bisect
 import re
 import gdb
 import sys
+import time
+from contextlib import contextmanager
+from datetime import timedelta
 
 # make script compatible with the ancient Python {{{
 
@@ -1115,21 +1119,75 @@ def mem_estimate_wp(gcobj):
     return mem_estimate[int(gcobj['gch']['gct'] - ~LJ_TSTR)](gcobj)
 
 
+class SortedList:
+    def __init__(self, key_func, num_values):
+        self.__key_func = key_func
+        self.__num_values = num_values
+        self.__keys = []
+        self.__values = []
+
+    @property
+    def values(self):
+        return self.__values
+
+    def insert(self, gco):
+        key = self.__key_func(gco)
+        i = bisect.bisect(self.__keys, key)
+        if len(self.__values) < self.__num_values:
+            self.__keys.insert(i, key)
+            self.__values.insert(i, gco)
+        elif i > 0:
+            self.__keys.insert(i, key)
+            self.__values.insert(i, gco)
+            del self.__keys[0]
+            del self.__values[0]
+
+
+@contextmanager
+def timer():
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        elapsed_time = int(time.time() - start_time)
+        gdb.write(" - took {} seconds / {}\n".format(
+            elapsed_time,
+            str(timedelta(seconds=elapsed_time)),
+        ))
+
+
+def gcobjects(gc):
+    obj = gcref(gc['root'])
+    while obj:
+        yield obj
+        obj = gcref(obj['gch']['nextgc'])
+
+
 def gctop(amount):
-    result = []
-    g = G(L(None))
-    root = g['gc']['root']
-    while gcref(root):
-        gcobj = gcref(root)
-        if len(result) < amount:
-            result.insert(len(result), gcobj)
-        else:
-            objsize = mem_estimate_wp(gcobj)
-            if objsize > mem_estimate_wp(result[len(result) - 1]):
-                result[len(result) - 1] = gcobj
-        result.sort(key=mem_estimate_wp, reverse=True)
-        root = gcref(root)['gch']['nextgc']
-    return result
+    gc = G(L(None))['gc']
+
+    with timer():
+        num_gcobjs = 0
+        for gcobj in gcobjects(gc):
+            if not num_gcobjs % 100000:
+                gdb.write("\rCalculating number of objects... {}".format(num_gcobjs))
+                gdb.flush()
+            num_gcobjs += 1
+        gdb.write("\rCalculating number of objects... {}".format(num_gcobjs))
+
+    result = SortedList(mem_estimate_wp, amount)
+
+    with timer():
+        i = 0
+        for gcobj in gcobjects(gc):
+            if not i % 10000:
+                gdb.write("\rCollecting statistic... {:5.2f}%".format(100.0 * i / num_gcobjs))
+                gdb.flush()
+            result.insert(gcobj)
+            i += 1
+        gdb.write("\rCollecting statistic... 100%")
+
+    return result.values
 
 
 def dump_objects(objlist):
