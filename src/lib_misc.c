@@ -389,6 +389,10 @@ LJLIB_CF(misc_sysprof_report)
 #endif /* !LJ_HASSYSPROF */
 }
 
+LJLIB_PUSH(top-2) LJLIB_SET(available)
+
+#include "lj_libdef.h"
+
 /* ----- misc.memprof module ---------------------------------------------- */
 
 #define LJLIB_MODULE_misc_memprof
@@ -459,6 +463,8 @@ LJLIB_CF(misc_memprof_stop)
 }
 #endif /* !LJ_TARGET_WINDOWS */
 
+LJLIB_PUSH(top-2) LJLIB_SET(available)
+
 #include "lj_libdef.h"
 
 /* ------------------------------------------------------------------------ */
@@ -477,7 +483,9 @@ LUALIB_API int luaopen_misc(struct lua_State *L)
 
   LJ_LIB_REG(L, LUAM_MISCLIBNAME, misc);
 #if !LJ_TARGET_WINDOWS
+  lua_pushboolean(L, LJ_HASMEMPROF);
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".memprof", misc_memprof);
+  lua_pushboolean(L, LJ_HASSYSPROF);
   LJ_LIB_REG(L, LUAM_MISCLIBNAME ".sysprof", misc_sysprof);
 #endif /* !LJ_TARGET_WINDOWS */
   return 1;
