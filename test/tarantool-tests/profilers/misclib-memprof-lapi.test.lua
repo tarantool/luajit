@@ -11,7 +11,7 @@ local test = tap.test("misclib-memprof-lapi"):skipcond({
   ["Memprof is disabled"] = os.getenv("LUAJIT_DISABLE_MEMPROF"),
 })
 
-test:plan(5)
+test:plan(7)
 
 local jit_opt_default = {
     3, -- level
@@ -269,5 +269,9 @@ test:test("jit-output", function(subtest)
   -- Restore default JIT settings.
   jit.opt.start(unpack(jit_opt_default))
 end)
+
+test:ok(type(misc.memprof.available) == 'boolean',
+        'misc.memprof.available exists')
+test:ok(misc.memprof.available == true, 'misc.memprof.available is true')
 
 test:done(true)

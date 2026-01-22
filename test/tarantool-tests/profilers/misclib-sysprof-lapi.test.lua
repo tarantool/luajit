@@ -10,7 +10,7 @@ local test = tap.test("misclib-sysprof-lapi"):skipcond({
   ["Disabled due to #10803"] = os.getenv("LUAJIT_TEST_USE_VALGRIND"),
 })
 
-test:plan(45)
+test:plan(47)
 
 jit.off()
 -- XXX: Run JIT tuning functions in a safe frame to avoid errors
@@ -227,5 +227,9 @@ check_mode("L", 100)
 check_mode("C", 100)
 
 os.remove(TMP_BINFILE)
+
+test:ok(type(misc.sysprof.available) == 'boolean',
+        'misc.sysprof.available exists')
+test:ok(misc.sysprof.available == true, 'misc.sysprof.available is true')
 
 test:done(true)
