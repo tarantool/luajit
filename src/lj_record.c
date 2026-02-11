@@ -509,6 +509,12 @@ static LoopEvent rec_for(jit_State *J, const BCIns *fori, int isforl)
   LoopEvent ev;
   TRef stop;
   IRType t;
+  /* Avoid semantic mismatches and always failing guards. */
+  if (tvisnan(&tv[FORL_IDX]) ||
+      tvisnan(&tv[FORL_STOP]) ||
+      tvisnan(&tv[FORL_STEP]) ||
+      tvismzero(&tv[FORL_STEP]))
+    lj_trace_err(J, LJ_TRERR_GFAIL);
   if (isforl) {  /* Handle FORL/JFORL opcodes. */
     TRef idx = tr[FORL_IDX];
     if (mref(J->scev.pc, const BCIns) == fori && tref_ref(idx) == J->scev.idx) {
