@@ -2129,7 +2129,7 @@ void lj_record_ins(jit_State *J)
   /* Need snapshot before recording next bytecode (e.g. after a store). */
   if (J->needsnap) {
     J->needsnap = 0;
-    if (J->pt) lj_snap_purge(J);
+    if (J->pt && bc_op(*J->pc) < BC_FUNCF) lj_snap_purge(J);
     lj_snap_add(J);
     J->mergesnap = 1;
   }
