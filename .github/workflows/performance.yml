@@ -58,7 +58,7 @@ jobs:
       GC64:${{ matrix.GC64 }}
       JOFF:${{ matrix.JOFF }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive

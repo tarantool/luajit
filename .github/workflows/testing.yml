@@ -67,9 +67,12 @@ jobs:
       GC64:${{ matrix.GC64 }}
       CC:${{ matrix.CC }}
     steps:
-      - uses: actions/checkout@v4
+      - name: print env for debug
+        run: env
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
           submodules: recursive
       - name: setup Linux
         uses: ./.github/actions/setup-linux
