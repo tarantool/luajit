@@ -10,10 +10,11 @@ local test = tap.test('lj-1166-error-stitch-oom-ir-buff'):skipcond({
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
 })
 
+local ffi = require('ffi')
 local jparse = require('utils').jit.parse
 local allocinject = require('allocinject')
 
-local IS_DUALNUM = tostring(tonumber('-0')) ~= tostring(-0)
+local IS_DUALNUM = ffi.abi('dualnum')
 
 -- XXX: Avoid other traces compilation due to hotcount collisions
 -- for predictable results.

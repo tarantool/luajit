@@ -4,6 +4,8 @@ local test = tap.test('fix-jit-dump-ir-conv'):skipcond({
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
 })
 
+local ffi = require('ffi')
+
 test:plan(2)
 
 -- Test file to demonstrate LuaJIT incorrect `jit.dump()` output
@@ -33,7 +35,7 @@ local traces = jparse.finish()
 
 -- Skip tests for DUALNUM mode since it has no conversions (for
 -- the same cases).
-local IS_DUALNUM = not traces[1]:has_ir('num SLOAD')
+local IS_DUALNUM = ffi.abi('dualnum')
 
 test:ok(IS_DUALNUM or traces[1]:has_ir('CONV.*int.num index'),
         'correct dump for index')
