@@ -1,4 +1,5 @@
 local tap = require('tap')
+local ffi = require('ffi')
 
 -- Test file to demonstrate the incorrect LuaJIT's behaviour
 -- for `math.ceil(x)` when argument `x`: -1 < x < -0.5.
@@ -8,7 +9,7 @@ local test = tap.test('lj-859-math-ceil-sign')
 
 test:plan(1)
 
-local IS_DUALNUM = tostring(tonumber('-0')) ~= tostring(-0)
+local IS_DUALNUM = ffi.abi('dualnum')
 local IS_X86_64 = jit.arch == 'x86' or jit.arch == 'x64'
 
 -- Use `tostring()` to compare the sign of the returned value.
