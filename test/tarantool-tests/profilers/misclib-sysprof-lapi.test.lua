@@ -36,7 +36,7 @@ local function payload()
     end
     return fib(n - 1) + fib(n - 2)
   end
-  return fib(32)
+  return fib(33)
 end
 
 local function generate_output(opts)
