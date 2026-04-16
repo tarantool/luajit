@@ -8,6 +8,9 @@
 
 #include "lj_obj.h"
 #include "lj_gc.h"
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
 
 #if LJ_HASFFI
 
@@ -434,6 +437,9 @@ static LJ_AINLINE CType *ctype_child(CTState *cts, CType *ct)
 static LJ_AINLINE CType *ctype_raw(CTState *cts, CTypeID id)
 {
   CType *ct = ctype_get(cts, id);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&ct, sizeof(ct));
+#endif
   while (ctype_isattrib(ct->info)) ct = ctype_child(cts, ct);
   return ct;
 }

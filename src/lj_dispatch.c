@@ -33,6 +33,10 @@
 #include "lj_vm.h"
 #include "luajit.h"
 
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
+
 /* Bump GG_NUM_ASMFF in lj_dispatch.h as needed. Ugly. */
 LJ_STATIC_ASSERT(GG_NUM_ASMFF == FF_NUM_ASMFUNC);
 
@@ -406,7 +410,13 @@ void LJ_FASTCALL lj_dispatch_ins(lua_State *L, const BCIns *pc)
   GCfunc *fn = curr_func(L);
   GCproto *pt = funcproto(fn);
   void *cf = cframe_raw(L->cframe);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
   const BCIns *oldpc = cframe_pc(cf);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&oldpc, sizeof(oldpc));
+#endif
   global_State *g = G(L);
   BCReg slots;
   setcframe_pc(cf, pc);
@@ -527,7 +537,13 @@ void LJ_FASTCALL lj_dispatch_stitch(jit_State *J, const BCIns *pc)
     ERRNO_SAVE
     lua_State *L = J->L;
     void *cf = cframe_raw(L->cframe);
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&cf, sizeof(cf));
+#endif
     const BCIns *oldpc = cframe_pc(cf);
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&oldpc, sizeof(oldpc));
+#endif
     setcframe_pc(cf, pc);
     /* Before dispatch, have to bias PC by 1. */
     L->top = L->base + cur_topslot(curr_proto(L), pc+1, cframe_multres_n(cf));
@@ -546,7 +562,13 @@ void LJ_FASTCALL lj_dispatch_profile(lua_State *L, const BCIns *pc)
   GCfunc *fn = curr_func(L);
   GCproto *pt = funcproto(fn);
   void *cf = cframe_raw(L->cframe);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
   const BCIns *oldpc = cframe_pc(cf);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&oldpc, sizeof(oldpc));
+#endif
   global_State *g;
   setcframe_pc(cf, pc);
   L->top = L->base + cur_topslot(pt, pc, cframe_multres_n(cf));

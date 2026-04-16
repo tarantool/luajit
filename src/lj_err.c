@@ -15,6 +15,9 @@
 #include "lj_frame.h"
 #include "lj_ff.h"
 #include "lj_trace.h"
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
 #include "lj_vm.h"
 #include "lj_strfmt.h"
 
@@ -109,9 +112,19 @@ LJ_NOINLINE static void unwindstack(lua_State *L, TValue *top)
 static void *err_unwind(lua_State *L, void *stopcf, int errcode)
 {
   TValue *frame = L->base-1;
+#if defined(LUAJIT_USE_MSAN)
+  /* cframe chain is maintained in VM assembly and can look poisoned to MSan. */
+  __msan_unpoison(&L->cframe, sizeof(L->cframe));
+#endif
   void *cf = L->cframe;
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
   while (cf) {
     int32_t nres = cframe_nres(cframe_raw(cf));
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&nres, sizeof(nres));
+#endif
     if (nres < 0) {  /* C frame without Lua frame? */
       TValue *top = restorestack(L, -nres);
       if (frame < top) {  /* Frame reached? */
@@ -422,7 +435,13 @@ LJ_FUNCA int lj_err_unwind_dwarf(int version, int actions,
   if (version != 1)
     return _URC_FATAL_PHASE1_ERROR;
   cf = (void *)_Unwind_GetCFA(ctx);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
   L = cframe_L(cf);
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&L, sizeof(L));
+#endif
   if ((actions & _UA_SEARCH_PHASE)) {
 #if LJ_UNWIND_EXT
     if (err_unwind(L, cf, 0) == NULL)
@@ -809,13 +828,31 @@ static ptrdiff_t finderrfunc(lua_State *L)
 {
   cTValue *frame = L->base-1, *bot = tvref(L->stack)+LJ_FR2;
   void *cf = L->cframe;
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
   while (frame > bot && cf) {
-    while (cframe_nres(cframe_raw(cf)) < 0) {  /* cframe without frame? */
-      if (frame >= restorestack(L, -cframe_nres(cf)))
+    while (1) {  /* cframe without frame? */
+      int32_t nres = cframe_nres(cframe_raw(cf));
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&nres, sizeof(nres));
+#endif
+      if (nres >= 0)
 	break;
-      if (cframe_errfunc(cf) >= 0)  /* Error handler not inherited (-1)? */
-	return cframe_errfunc(cf);
+      if (frame >= restorestack(L, -nres))
+	break;
+      {
+	int32_t errfunc = cframe_errfunc(cf);
+#if defined(LUAJIT_USE_MSAN)
+	__msan_unpoison(&errfunc, sizeof(errfunc));
+#endif
+	if (errfunc >= 0)  /* Error handler not inherited (-1)? */
+	  return errfunc;
+      }
       cf = cframe_prev(cf);  /* Else unwind cframe and continue searching. */
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
       if (cf == NULL)
 	return 0;
     }
@@ -826,6 +863,9 @@ static ptrdiff_t finderrfunc(lua_State *L)
       break;
     case FRAME_C:
       cf = cframe_prev(cf);
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
       /* fallthrough */
     case FRAME_VARG:
       frame = frame_prevd(frame);
@@ -833,13 +873,27 @@ static ptrdiff_t finderrfunc(lua_State *L)
     case FRAME_CONT:
       if (frame_iscont_fficb(frame))
 	cf = cframe_prev(cf);
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
       frame = frame_prevd(frame);
       break;
     case FRAME_CP:
-      if (cframe_canyield(cf)) return 0;
-      if (cframe_errfunc(cf) >= 0)
-	return cframe_errfunc(cf);
+      {
+	int32_t canyield = cframe_canyield(cf);
+	int32_t errfunc = cframe_errfunc(cf);
+#if defined(LUAJIT_USE_MSAN)
+	__msan_unpoison(&canyield, sizeof(canyield));
+	__msan_unpoison(&errfunc, sizeof(errfunc));
+#endif
+	if (canyield) return 0;
+	if (errfunc >= 0)
+	  return errfunc;
+      }
       cf = cframe_prev(cf);
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
       frame = frame_prevd(frame);
       break;
     case FRAME_PCALL:

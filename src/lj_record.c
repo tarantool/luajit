@@ -33,6 +33,9 @@
 #include "lj_snap.h"
 #include "lj_dispatch.h"
 #include "lj_vm.h"
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
 
 /* Some local macros to save typing. Undef'd at the end. */
 #define IR(ref)			(&J->cur.ir[(ref)])
@@ -2578,6 +2581,9 @@ void lj_record_ins(jit_State *J)
   }
 
   /* rc == 0 if we have no result yet, e.g. pending __index metamethod call. */
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&rc, sizeof(rc));
+#endif
   if (bcmode_a(op) == BCMdst && rc) {
     J->base[ra] = rc;
     if (ra >= J->maxslot) {

@@ -23,6 +23,10 @@
 #include "lj_bcdump.h"
 #include "lj_parse.h"
 
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
+
 /* -- Load Lua source code and bytecode ----------------------------------- */
 
 static TValue *cpparser(lua_State *L, lua_CFunction dummy, void *ud)
@@ -31,8 +35,13 @@ static TValue *cpparser(lua_State *L, lua_CFunction dummy, void *ud)
   GCproto *pt;
   GCfunc *fn;
   int bc;
+  void *cf;
   UNUSED(dummy);
-  cframe_errfunc(L->cframe) = -1;  /* Inherit error function. */
+  cf = L->cframe;
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
+  cframe_errfunc(cf) = -1;  /* Inherit error function. */
   bc = lj_lex_setup(L, ls);
   if (ls->mode && !strchr(ls->mode, bc ? 'b' : 't')) {
     setstrV(L, L->top++, lj_err_str(L, LJ_ERR_XMODE));

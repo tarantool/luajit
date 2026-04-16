@@ -647,13 +647,13 @@ static uint32_t jit_cpudetect(void)
   uint32_t flags = 0;
 #if LJ_TARGET_X86ORX64
 
-  uint32_t vendor[4];
-  uint32_t features[4];
+  uint32_t vendor[4] = {0};
+  uint32_t features[4] = {0};
   if (lj_vm_cpuid(0, vendor) && lj_vm_cpuid(1, features)) {
     flags |= ((features[2] >> 0)&1) * JIT_F_SSE3;
     flags |= ((features[2] >> 19)&1) * JIT_F_SSE4_1;
     if (vendor[0] >= 7) {
-      uint32_t xfeatures[4];
+      uint32_t xfeatures[4] = {0};
       lj_vm_cpuid(7, xfeatures);
       flags |= ((xfeatures[1] >> 8)&1) * JIT_F_BMI2;
     }

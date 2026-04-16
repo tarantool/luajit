@@ -28,6 +28,9 @@
 #include "lj_dispatch.h"
 #include "lj_vm.h"
 #include "lj_vmevent.h"
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
 
 #define GCSTEPSIZE	1024u
 #define GCSWEEPMAX	40
@@ -58,6 +61,9 @@
 static void gc_mark(global_State *g, GCobj *o)
 {
   int gct = o->gch.gct;
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&gct, sizeof(gct));
+#endif
   lj_assertG(iswhite(o), "mark of non-white object");
   lj_assertG(!isdead(g, o), "mark of dead object");
   white2gray(o);
@@ -398,8 +404,13 @@ static GCRef *gc_sweep(global_State *g, GCRef *p, uint32_t lim)
   /* Mask with other white and LJ_GC_FIXED. Or LJ_GC_SFIXED on shutdown. */
   int ow = otherwhite(g);
   GCobj *o;
+  uint8_t gct;
   while ((o = gcref(*p)) != NULL && lim-- > 0) {
-    if (o->gch.gct == ~LJ_TTHREAD)  /* Need to sweep open upvalues, too. */
+    gct = o->gch.gct;
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&gct, sizeof(gct));
+#endif
+    if (gct == ~LJ_TTHREAD)  /* Need to sweep open upvalues, too. */
       gc_fullsweep(g, &gco2th(o)->openupval);
     if (((o->gch.marked ^ LJ_GC_WHITES) & ow)) {  /* Black or current white? */
       lj_assertG(!isdead(g, o) || (o->gch.marked & LJ_GC_FIXED),
@@ -412,7 +423,11 @@ static GCRef *gc_sweep(global_State *g, GCRef *p, uint32_t lim)
       setgcrefr(*p, o->gch.nextgc);
       if (o == gcref(g->gc.root))
 	setgcrefr(g->gc.root, o->gch.nextgc);  /* Adjust list anchor. */
-      gc_freefunc[o->gch.gct - ~LJ_TSTR](g, o);
+      gct = o->gch.gct;
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&gct, sizeof(gct));
+#endif
+      gc_freefunc[gct - ~LJ_TSTR](g, o);
     }
   }
   return p;

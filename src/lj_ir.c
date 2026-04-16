@@ -32,6 +32,9 @@
 #include "lj_strscan.h"
 #include "lj_strfmt.h"
 #include "lj_lib.h"
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
 
 /* Some local macros to save typing. Undef'd at the end. */
 #define IR(ref)			(&J->cur.ir[(ref)])
@@ -118,6 +121,10 @@ TRef LJ_FASTCALL lj_ir_emit(jit_State *J)
   IRRef ref = lj_ir_nextins(J);
   IRIns *ir = IR(ref);
   IROp op = fins->o;
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&op, sizeof(op));
+  __msan_unpoison(&fins->t, sizeof(fins->t));
+#endif
   ir->prev = J->chain[op];
   J->chain[op] = (IRRef1)ref;
   ir->o = op;

@@ -25,6 +25,9 @@
 #include "lj_ctype.h"
 #include "lj_cdata.h"
 #endif
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
 
 /* Pass IR on to next optimization in chain (FOLD). */
 #define emitir(ot, a, b)	(lj_ir_set(J, (ot), (a), (b)), lj_opt_fold(J))
@@ -68,6 +71,10 @@ static MSize snapshot_slots(jit_State *J, SnapEntry *map, BCReg nslots)
   for (s = 0; s < nslots; s++) {
     TRef tr = J->slot[s];
     IRRef ref = tref_ref(tr);
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&tr, sizeof(tr));
+    __msan_unpoison(&ref, sizeof(ref));
+#endif
 #if LJ_FR2
     if (s == 1) {  /* Ignore slot 1 in LJ_FR2 mode, except if tailcalled. */
       if ((tr & TREF_FRAME))
@@ -953,12 +960,21 @@ const BCIns *lj_snap_restore(jit_State *J, void *exptr)
   BloomFilter rfilt = snap_renamefilter(T, snapno);
   const BCIns *pc = snap_pc(&map[nent]);
   lua_State *L = J->L;
+  void *cf = L->cframe;
+  void *prevcf;
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&cf, sizeof(cf));
+#endif
 
   /* Set interpreter PC to the next PC to get correct error messages.
   ** But not for returns or tail calls, since pc+1 may be out-of-range.
   */
-  setcframe_pc(L->cframe, bc_isret_or_tail(bc_op(*pc)) ? pc : pc+1);
-  setcframe_pc(cframe_raw(cframe_prev(L->cframe)), pc);
+  setcframe_pc(cf, bc_isret_or_tail(bc_op(*pc)) ? pc : pc+1);
+  prevcf = cframe_raw(cframe_prev(cf));
+#if defined(LUAJIT_USE_MSAN)
+  __msan_unpoison(&prevcf, sizeof(prevcf));
+#endif
+  setcframe_pc(prevcf, pc);
 
   /* Make sure the stack is big enough for the slots from the snapshot. */
   if (LJ_UNLIKELY(L->base + snap->topslot >= tvref(L->maxstack))) {

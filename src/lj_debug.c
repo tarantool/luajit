@@ -19,6 +19,10 @@
 #include "lj_jit.h"
 #endif
 
+#if defined(LUAJIT_USE_MSAN)
+#include <sanitizer/msan_interface.h>
+#endif
+
 /* -- Frames -------------------------------------------------------------- */
 
 /* Get frame corresponding to a level. */
@@ -61,9 +65,25 @@ static BCPos debug_framepc(lua_State *L, GCfunc *fn, cTValue *nextframe)
     return NO_BCPOS;
   } else if (nextframe == NULL) {  /* Lua function on top. */
     void *cf = cframe_raw(L->cframe);
-    if (cf == NULL || (char *)cframe_pc(cf) == (char *)cframe_L(cf))
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&cf, sizeof(cf));
+#endif
+    if (cf == NULL)
       return NO_BCPOS;
+    {
+      const BCIns *cfpc = cframe_pc(cf);
+      lua_State *cfL = cframe_L(cf);
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cfpc, sizeof(cfpc));
+      __msan_unpoison(&cfL, sizeof(cfL));
+#endif
+      if ((char *)cfpc == (char *)cfL)
+	return NO_BCPOS;
+    }
     ins = cframe_pc(cf);  /* Only happens during error/hook handling. */
+#if defined(LUAJIT_USE_MSAN)
+    __msan_unpoison(&ins, sizeof(ins));
+#endif
     if (!ins) return NO_BCPOS;
   } else {
     if (frame_islua(nextframe)) {
@@ -73,6 +93,9 @@ static BCPos debug_framepc(lua_State *L, GCfunc *fn, cTValue *nextframe)
     } else {
       /* Lua function below errfunc/gc/hook: find cframe to get the PC. */
       void *cf = cframe_raw(L->cframe);
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
       TValue *f = L->base-1;
       for (;;) {
 	if (cf == NULL)
@@ -81,6 +104,9 @@ static BCPos debug_framepc(lua_State *L, GCfunc *fn, cTValue *nextframe)
 	  if (f >= restorestack(L, -cframe_nres(cf)))
 	    break;
 	  cf = cframe_raw(cframe_prev(cf));
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
 	  if (cf == NULL)
 	    return NO_BCPOS;
 	}
@@ -91,10 +117,16 @@ static BCPos debug_framepc(lua_State *L, GCfunc *fn, cTValue *nextframe)
 	} else {
 	  if (frame_isc(f) || (frame_iscont(f) && frame_iscont_fficb(f)))
 	    cf = cframe_raw(cframe_prev(cf));
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&cf, sizeof(cf));
+#endif
 	  f = frame_prevd(f);
 	}
       }
       ins = cframe_pc(cf);
+#if defined(LUAJIT_USE_MSAN)
+      __msan_unpoison(&ins, sizeof(ins));
+#endif
       if (!ins) return NO_BCPOS;
     }
   }
