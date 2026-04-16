@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Wrapper for MemorySanitizer runtime that expects llvm-symbolizer
+find_symbolizer() {
+  {
+    command -v llvm-symbolizer 2>/dev/null
+
+    for path in \
+      /usr/bin/llvm-symbolizer-* \
+      /usr/local/bin/llvm-symbolizer-* \
+      /usr/lib/llvm-*/bin/llvm-symbolizer
+    do
+      [ -x "$path" ] && printf '%s\n' "$path"
+    done
+  } | awk '!seen[$0]++' | sort -V -r | head -n 1
+}
+
+symbolizer=$(find_symbolizer)
+
+if [ -n "$symbolizer" ]; then
+  exec "$symbolizer" "$@"
+fi
+
+echo "llvm-symbolizer not found" >&2
+exit 1

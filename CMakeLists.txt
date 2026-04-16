@@ -322,6 +322,38 @@ if(LUAJIT_USE_ASAN)
   )
 endif()
 
+option(LUAJIT_USE_MSAN "Build LuaJIT with MemorySanitizer" OFF)
+if(LUAJIT_USE_MSAN)
+  if(LUAJIT_USE_VALGRIND OR LUAJIT_USE_ASAN)
+    message(FATAL_ERROR
+      "MemorySanitizer cannot be used with AddressSanitizer or Valgrind."
+    )
+  endif()
+  if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    message(FATAL_ERROR "MemorySanitizer is only supported for Clang.")
+  endif()
+  if(NOT LUAJIT_USE_SYSMALLOC)
+    message(FATAL_ERROR
+      "MemorySanitizer requires system allocator "
+      "(i.e. -DLUAJIT_USE_SYSMALLOC=ON)."
+    )
+  endif()
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64" AND NOT LUAJIT_ENABLE_GC64)
+    message(FATAL_ERROR
+      "MemorySanitizer on x64 requires GC64 mode "
+      "(i.e. -DLUAJIT_ENABLE_GC64=ON)."
+    )
+  endif()
+  AppendFlags(CMAKE_C_FLAGS
+    # Enable hints for MemorySanitizer.
+    -DLUAJIT_USE_MSAN
+    # XXX: To get nicer stack traces in error messages.
+    -fno-omit-frame-pointer
+    # Enable MemorySanitizer support.
+    -fsanitize=memory
+  )
+endif()
+
 option(LUAJIT_USE_UBSAN "Build LuaJIT with UndefinedBehaviorSanitizer" OFF)
 if(LUAJIT_USE_UBSAN)
   # Use all needed checks from the UndefinedBehaviorSanitizer
