@@ -60,18 +60,31 @@ static int munmap_test(void *test_state)
     return skip("Requires build with ASAN");
 #else
 	size_t size = DEFAULT_GRANULARITY - TOTAL_REDZONE_SIZE;
-	size_t algn = ALIGN_SIZE(size, SIZE_ALIGNMENT) - size;
 	void *p = MALLOC(size);
+	void *raw = mem2alloc(p);
+	size_t full_size;
 
 	if (p == MFAIL) {
 		perror("mmap memory allocation error");
 		return TEST_EXIT_FAILURE;
 	}
 
+	full_size = asan_get_size(p, POISON_SIZE);
 	FREE(p, size);
-	if (IS_POISONED_REGION(p - REDZONE_SIZE, TOTAL_REDZONE_SIZE + size + algn))
+
+	/*
+	** Do not check shadow for an unmapped VA: ASan may report it as
+	** poisoned/noaccess. The real invariant is that a future mapping at
+	** the same VA must not inherit our user-poison shadow.
+	*/
+	p = mmap(raw, full_size, MMAP_PROT, MMAP_FLAGS | MAP_FIXED, -1, 0);
+	if (p == raw) {
+		((volatile char *)p)[0] = 0;
+		((volatile char *)p)[full_size - 1] = 0;
+		munmap(p, full_size);
 		return TEST_EXIT_SUCCESS;
-	perror("Not correct poison and unpoison areas");
+	}
+	perror("mmap memory remapping error");
 	return TEST_EXIT_FAILURE;
 #endif
 }

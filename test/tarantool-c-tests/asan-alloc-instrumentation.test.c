@@ -121,6 +121,49 @@ static int realloc_test(void *test_state)
 #endif
 }
 
+static int huge_malloc_test(void *test_state)
+{
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
+    UNUSED(test_state);
+    return skip("Requires build with ASAN");
+#else
+    void *p = lj_alloc_f(main_GS->allocd, NULL, 0, MAX_SIZE_T - SIZE_ALIGNMENT);
+    return p == NULL ? TEST_EXIT_SUCCESS : TEST_EXIT_FAILURE;
+#endif
+}
+
+static int free_release_after_quarantine_test(void *test_state)
+{
+#if !LUAJIT_USE_ASAN_HARDENING || LUAJIT_USE_SYSMALLOC
+    UNUSED(test_state);
+    return skip("Requires build with ASAN");
+#else
+    enum { ALLOC_COUNT = ASAN_QUARANTINE_MAX + 1 };
+    void *freed[ALLOC_COUNT];
+    size_t size = 64;
+
+    asan_quarantine_drain_msp(main_GS->allocd);
+    for (size_t i = 0; i < ALLOC_COUNT; i++) {
+        freed[i] = lj_mem_new(main_LS, size);
+        if (freed[i] == NULL)
+            return TEST_EXIT_FAILURE;
+    }
+
+    for (size_t i = 0; i < ALLOC_COUNT; i++)
+        lj_mem_free(main_GS, freed[i], size);
+
+    if (asan_quarantine_count != ASAN_QUARANTINE_MAX)
+        return TEST_EXIT_FAILURE;
+    if (IS_POISONED_REGION(freed[0], size))
+        return TEST_EXIT_FAILURE;
+    if (!IS_POISONED_REGION(freed[ALLOC_COUNT - 1], size))
+        return TEST_EXIT_FAILURE;
+
+    asan_quarantine_drain_msp(main_GS->allocd);
+    return TEST_EXIT_SUCCESS;
+#endif
+}
+
 int main(void)
 {
     lua_State *L = utils_lua_init();
@@ -133,6 +176,8 @@ int main(void)
         test_unit_def(large_malloc_test),
         test_unit_def(free_test),
         test_unit_def(realloc_test),
+        test_unit_def(huge_malloc_test),
+        test_unit_def(free_release_after_quarantine_test),
     };
 
     const int test_result = test_run_group(tgroup, L);

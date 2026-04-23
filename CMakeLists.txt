@@ -303,7 +303,7 @@ if(LUAJIT_USE_ASAN_HARDENING)
       "ASAN only with GC64."
     )
   endif()
-  AppendFlags(CMAKE_C_FLAGS
+  AppendFlags(TARGET_C_FLAGS
     # Enable ASAN instrumentation of internal LuaJIT memory allocator
     # see (src/lj_alloc.c)
     -DLUAJIT_USE_ASAN_HARDENING
@@ -329,9 +329,11 @@ if(LUAJIT_USE_ASAN)
   endif()
   # Use all recommendations described in AddressSanitize docs:
   # https://clang.llvm.org/docs/AddressSanitizer.html.
-  AppendFlags(CMAKE_C_FLAGS
+  AppendFlags(TARGET_C_FLAGS
     # Enable hints for AddressSanitizer (see src/lj_str.c).
     -DLUAJIT_USE_ASAN
+  )
+  AppendFlags(CMAKE_C_FLAGS
     # XXX: To get nicer stack traces in error messages.
     -fno-omit-frame-pointer
     # Enable AddressSanitizer support.
