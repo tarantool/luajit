@@ -11,7 +11,9 @@ runs:
         apt install -y curl luarocks util-linux
       shell: bash
     - name: Install Lua modules
-      run: luarocks install lua-cjson
+      run: >
+        luarocks --lua-version=5.1 show lua-cjson ||
+        luarocks --lua-version=5.1 install lua-cjson
       shell: bash
     - name: Run script to setup Linux environment
       run: sh ./perf/helpers/setup_env.sh
