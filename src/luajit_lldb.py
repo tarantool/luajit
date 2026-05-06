@@ -5,6 +5,7 @@
 import abc
 import re
 import lldb
+import struct
 
 LJ_64 = None
 LJ_GC64 = None
@@ -24,213 +25,132 @@ LJ_TISNUM = None
 target = None
 
 
-class Ptr:
-    def __init__(self, value, normal_type):
-        self.value = value
-        self.normal_type = normal_type
+def lldb_tp_isfp(tp):
+    return tp.GetBasicType() in [
+        lldb.eBasicTypeFloat,
+        lldb.eBasicTypeDouble,
+        lldb.eBasicTypeLongDouble
+    ]
 
-    @property
-    def __deref(self):
-        return self.normal_type(self.value.Dereference())
 
-    def __add__(self, other):
-        assert isinstance(other, int)
-        return self.__class__(
-            cast(
-                self.normal_type.__name__ + ' *',
-                cast(
-                    'uintptr_t',
-                    self.value.unsigned + other * self.value.deref.size,
-                ),
-            ),
-        )
+def lldb_value_from_raw(raw_value, size, tp):
+    isfp = lldb_tp_isfp(tp)
+    pack_flag = '<d' if isfp else '<Q'
+    raw_data = struct.pack(pack_flag, raw_value)
+    sbdata = lldb.SBData()
+    sbdata.SetData(
+        lldb.SBError(),
+        raw_data,
+        lldb.eByteOrderLittle,
+        size
+    )
+    sbval_res = target.CreateValueFromData(
+        # XXX: The name is required. Let's make it meaningful.
+        '({tp}){val}'.format(
+            tp=tp.name,
+            val=raw_value if isfp else hex(raw_value)
+        ),
+        sbdata,
+        tp
+    )
+    return lldb.value(sbval_res)
 
-    def __sub__(self, other):
-        assert isinstance(other, int) or isinstance(other, Ptr)
-        if isinstance(other, int):
-            return self.__add__(-other)
+
+def lldb__add__(self, other):
+    other = int(other)
+    sbvalue = self.sbvalue
+    if sbvalue.TypeIsPointerType():
+        tp = sbvalue.GetType()
+        sz = sbvalue.deref.size
+        addr = sbvalue.GetValueAsUnsigned() + other * sz
+        return lldb_value_from_raw(addr, sbvalue.GetByteSize(), tp)
+    else:
+        return int(self) + other
+
+
+def lldb__bool__(self):
+    return int(self) != 0
+
+
+def lldb__ge__(self, other):
+    return int(self) >= int(other)
+
+
+def lldb__getitem__(self, key):
+    if type(key) is lldb.value:
+        key = int(key)
+    if type(key) is int:
+        # Allow array access.
+        return lldb.value(self.sbvalue.GetValueForExpressionPath('[%i]' % key))
+    elif type(key) is str:
+        return lldb.value(self.sbvalue.GetChildMemberWithName(key))
+    raise Exception(TypeError('No item of type %s' % str(type(key))))
+
+
+def lldb__gt__(self, other):
+    return int(self) > int(other)
+
+
+def lldb__le__(self, other):
+    return int(self) <= int(other)
+
+
+def lldb__lt__(self, other):
+    return int(self) < int(other)
+
+
+def lldb__str__(self):
+    # Instead of default GetSummary.
+    if not self.sbvalue.TypeIsPointerType():
+        tp = self.sbvalue.GetType()
+        is_float = lldb_tp_isfp(tp)
+        if is_float:
+            return self.sbvalue.GetValue()
         else:
-            return int((self.value.unsigned - other.value.unsigned)
-                       / sizeof(self.normal_type.__name__))
+            return str(int(self))
 
-    def __eq__(self, other):
-        assert isinstance(other, Ptr) or isinstance(other, int) and other >= 0
-        if isinstance(other, Ptr):
-            return self.value.unsigned == other.value.unsigned
-        else:
-            return self.value.unsigned == other
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __gt__(self, other):
-        assert isinstance(other, Ptr)
-        return self.value.unsigned > other.value.unsigned
-
-    def __ge__(self, other):
-        assert isinstance(other, Ptr)
-        return self.value.unsigned >= other.value.unsigned
-
-    def __bool__(self):
-        return self.value.unsigned != 0
-
-    def __int__(self):
-        return self.value.unsigned
-
-    def __str__(self):
-        return self.value.value
-
-    def __getattr__(self, name):
-        if name != '__deref':
-            return getattr(self.__deref, name)
-        return self.__deref
+    s = self.sbvalue.GetValue()
+    if s[:2] == '0x':
+        # Strip useless leading zeros.
+        res = s[2:].lstrip('0')
+        return '0x' + (res if res else '0')
+    return s
 
 
-class MetaStruct(type):
-    def __init__(cls, name, bases, nmspc):
-        super(MetaStruct, cls).__init__(name, bases, nmspc)
-
-        def make_general(field, tp):
-            builtin = {
-                        'uint':   'unsigned',
-                        'int':    'signed',
-                        'string': 'value',
-                    }
-            if tp in builtin.keys():
-                return lambda self: getattr(self[field], builtin[tp])
-            else:
-                return lambda self: globals()[tp](self[field])
-
-        if hasattr(cls, 'metainfo'):
-            for field in cls.metainfo:
-                if not isinstance(field[0], str):
-                    setattr(cls, field[1], field[0])
-                else:
-                    setattr(
-                        cls,
-                        field[1],
-                        property(make_general(field[1], field[0])),
-                    )
+def lldb__sub__(self, other):
+    if type(other) is not lldb.value or \
+       type(other) is lldb.value and not other.sbvalue.TypeIsPointerType():
+        other = int(other)
+    if type(other) is int:
+        return lldb__add__(self, -other)
+    elif self.sbvalue.TypeIsPointerType():
+        ssbval = self.sbvalue
+        osbval = other.sbvalue
+        self_tp = ssbval.GetType()
+        other_tp = osbval.GetType()
+        # Subtract pointers of the same size only.
+        elsz = self_tp.GetDereferencedType().size
+        if other_tp.GetDereferencedType().size != elsz:
+            raise Exception('Attempt to substruct {otp} from {stp}'.format(
+                stp=self_tp.name,
+                otp=other_tp.name
+            ))
+        diff = ssbval.GetValueAsUnsigned() - osbval.GetValueAsUnsigned()
+        return int(diff / elsz)
+    else:
+        return int(self) - int(other)
 
 
-class Struct(metaclass=MetaStruct):
-    def __init__(self, value):
-        self.value = value
-
-    def __getitem__(self, name):
-        return self.value.GetChildMemberWithName(name)
-
-    @property
-    def addr(self):
-        return self.value.address_of
-
-
-c_structs = {
-    'MRef': [
-        (property(lambda self: self['ptr64'].unsigned if LJ_GC64
-                  else self['ptr32'].unsigned), 'ptr')
-    ],
-    'GCRef': [
-        (property(lambda self: self['gcptr64'].unsigned if LJ_GC64
-                  else self['gcptr32'].unsigned), 'gcptr')
-    ],
-    'TValue': [
-        ('GCRef', 'gcr'),
-        ('uint', 'it'),
-        ('uint', 'i'),
-        ('int', 'it64'),
-        ('string', 'n'),
-        (property(lambda self: FR(self['fr']) if not LJ_GC64 else None), 'fr'),
-        (property(lambda self: self['ftsz'].signed if LJ_GC64 else None),
-         'ftsz')
-    ],
-    'GCState': [
-        ('GCRef', 'root'),
-        ('GCRef', 'gray'),
-        ('GCRef', 'grayagain'),
-        ('GCRef', 'weak'),
-        ('GCRef', 'mmudata'),
-        ('uint', 'state'),
-        ('uint', 'total'),
-        ('uint', 'threshold'),
-        ('uint', 'debt'),
-        ('uint', 'estimate'),
-        ('uint', 'stepmul'),
-        ('uint', 'pause'),
-        ('uint', 'sweepstr')
-    ],
-    'lua_State': [
-        ('MRef', 'glref'),
-        ('MRef', 'stack'),
-        ('MRef', 'maxstack'),
-        ('TValuePtr', 'top'),
-        ('TValuePtr', 'base')
-    ],
-    'global_State': [
-        ('GCState', 'gc'),
-        ('uint', 'vmstate'),
-        ('uint', 'strmask')
-    ],
-    'jit_State': [
-        ('uint', 'state')
-    ],
-    'GChead': [
-        ('GCRef', 'nextgc')
-    ],
-    'GCobj': [
-        ('GChead', 'gch')
-    ],
-    'GCstr': [
-        ('uint', 'hash'),
-        ('uint', 'len')
-    ],
-    'FrameLink': [
-        ('MRef', 'pcr'),
-        ('int', 'ftsz')
-    ],
-    'FR': [
-        ('FrameLink', 'tp')
-    ],
-    'GCfuncC': [
-        ('MRef', 'pc'),
-        ('uint', 'ffid'),
-        ('uint', 'nupvalues'),
-        ('uint', 'f')
-    ],
-    'GCtab': [
-        ('MRef', 'array'),
-        ('MRef', 'node'),
-        ('GCRef', 'metatable'),
-        ('uint', 'asize'),
-        ('uint', 'hmask')
-    ],
-    'GCproto': [
-        ('GCRef', 'chunkname'),
-        ('int', 'firstline')
-    ],
-    'GCtrace': [
-        ('uint', 'traceno')
-    ],
-    'Node': [
-        ('TValue', 'key'),
-        ('TValue', 'val'),
-        ('MRef', 'next')
-    ],
-    'BCIns': []
-}
-
-
-for cls in c_structs.keys():
-    globals()[cls] = type(cls, (Struct, ), {'metainfo': c_structs[cls]})
-
-
-for cls in Struct.__subclasses__():
-    ptr_name = cls.__name__ + 'Ptr'
-
-    globals()[ptr_name] = type(ptr_name, (Ptr,), {
-        '__init__':
-            lambda self, value: super(type(self), self).__init__(value, cls)
-    })
+# Monkey-patch the lldb.value class.
+lldb.value.__add__ = lldb__add__
+lldb.value.__bool__ = lldb__bool__
+lldb.value.__ge__ = lldb__ge__
+lldb.value.__getitem__ = lldb__getitem__
+lldb.value.__gt__ = lldb__gt__
+lldb.value.__le__ = lldb__le__
+lldb.value.__lt__ = lldb__lt__
+lldb.value.__str__ = lldb__str__
+lldb.value.__sub__ = lldb__sub__
 
 
 class Command(object):
@@ -280,52 +200,38 @@ class Command(object):
         """
 
 
-def cast(typename, value):
-    pointer_type = False
-    name = None
-    if isinstance(value, Struct) or isinstance(value, Ptr):
-        # Get underlying value, if passed object is a wrapper.
-        value = value.value
+gtype_cache = {}
 
-    # Obtain base type name, decide whether it's a pointer.
-    if isinstance(typename, type):
-        name = typename.__name__
-        if name.endswith('Ptr'):
-            pointer_type = True
-            name = name[:-3]
-    else:
-        name = typename
-        if name[-1] == '*':
-            name = name[:-1].strip()
-            pointer_type = True
 
-    # Get the lldb type representation.
-    t = target.FindFirstType(name)
-    if pointer_type:
-        t = t.GetPointerType()
+def gtype(typestr):
+    if typestr in gtype_cache:
+        return gtype_cache[typestr]
 
-    if isinstance(value, int):
-        # Integer casts require some black magic for lldb to behave properly.
-        if pointer_type:
-            casted = target.CreateValueFromAddress(
-                'value',
-                lldb.SBAddress(value, target),
-                t.GetPointeeType(),
-            ).address_of
-        else:
-            casted = target.CreateValueFromData(
-                name='value',
-                data=lldb.SBData.CreateDataFromInt(value, size=8),
-                type=t,
-            )
-    else:
-        casted = value.Cast(t)
+    m = re.match(r'((?:(?:struct|union) )?\S*)\s*[*]', typestr)
 
-    if isinstance(typename, type):
-        # Wrap lldb object, if possible
-        return typename(casted)
-    else:
-        return casted
+    gtype = target.FindFirstType(typestr) if m is None \
+        else target.FindFirstType(m.group(1)).GetPointerType()
+
+    gtype_cache[typestr] = gtype
+    return gtype
+
+
+def cast(typestr, val):
+    if isinstance(val, lldb.value):
+        val = val.sbvalue
+    elif type(val) is int:
+        tp = gtype(typestr)
+        return lldb_value_from_raw(val, tp.GetByteSize(), tp)
+    elif not isinstance(val, lldb.SBValue):
+        raise Exception('unexpected cast from type: {t}'.format(t=type(val)))
+
+    # XXX: Simply SBValue.Cast() works incorrectly since it may
+    # take the 8 bytes of memory instead of 4, before the cast.
+    # Construct the value on the fly.
+    tp = gtype(typestr)
+    is_fp = lldb_tp_isfp(tp)
+    rawval = float(val.GetValue()) if is_fp else val.GetValueAsUnsigned()
+    return lldb_value_from_raw(rawval, val.GetByteSize(), tp)
 
 
 def lookup_global(name):
@@ -336,28 +242,20 @@ def type_member(type_obj, name):
     return next((x for x in type_obj.members if x.name == name), None)
 
 
-def find_type(typename):
-    return target.FindFirstType(typename)
-
-
 def offsetof(typename, membername):
-    type_obj = find_type(typename)
+    type_obj = gtype(typename)
     member = type_member(type_obj, membername)
     assert member is not None
     return member.GetOffsetInBytes()
 
 
 def sizeof(typename):
-    type_obj = find_type(typename)
+    type_obj = gtype(typename)
     return type_obj.GetByteSize()
 
 
-def vtou64(value):
-    return value.unsigned & 0xFFFFFFFFFFFFFFFF
-
-
-def vtoi(value):
-    return value.signed
+def tou64(val):
+    return cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF
 
 
 def dbg_eval(expr):
@@ -371,17 +269,17 @@ def dbg_eval(expr):
 
 
 def gcval(obj):
-    return cast(GCobjPtr, cast('uintptr_t', obj.gcptr & LJ_GCVMASK) if LJ_GC64
-                else cast('uintptr_t', obj.gcptr))
+    return cast('GCobj *', obj['gcptr64'] & LJ_GCVMASK if LJ_GC64
+                else cast('uintptr_t', obj['gcptr32']))
 
 
 def gcref(obj):
-    return cast(GCobjPtr, obj.gcptr if LJ_GC64
-                else cast('uintptr_t', obj.gcptr))
+    return cast('GCobj *', obj['gcptr64'] if LJ_GC64
+                else cast('uintptr_t', obj['gcptr32']))
 
 
 def gcnext(obj):
-    return gcref(obj).gch.nextgc
+    return gcref(obj)['gch']['nextgc']
 
 
 def gclistlen(root, end=0x0):
@@ -412,15 +310,15 @@ gclen = {
 
 
 def dump_gc(g):
-    gc = g.gc
+    gc = g['gc']
     stats = ['{key}: {value}'.format(key=f, value=getattr(gc, f)) for f in (
         'total', 'threshold', 'debt', 'estimate', 'stepmul', 'pause'
     )]
 
     stats += ['sweepstr: {sweepstr}/{strmask}'.format(
-        sweepstr=gc.sweepstr,
+        sweepstr=gc['sweepstr'],
         # String hash mask (size of hash table - 1).
-        strmask=g.strmask + 1,
+        strmask=g['strmask'] + 1,
     )]
 
     stats += ['{key}: {number} objects'.format(
@@ -431,20 +329,17 @@ def dump_gc(g):
 
 
 def mref(typename, obj):
-    return cast(typename, obj.ptr)
+    return cast(typename, obj['ptr64'] if LJ_GC64 else obj['ptr32'])
 
 
 def J(g):
     g_offset = offsetof('GG_State', 'g')
     J_offset = offsetof('GG_State', 'J')
-    return cast(
-        jit_StatePtr,
-        vtou64(cast('char *', g)) - g_offset + J_offset,
-    )
+    return cast('jit_State *', (cast('char *', g) - g_offset + J_offset))
 
 
 def G(L):
-    return mref(global_StatePtr, L.glref)
+    return mref('global_State *', L['glref'])
 
 
 def L(L=None):
@@ -459,7 +354,7 @@ def L(L=None):
         # TODO: Add more
     ))):
         if lstate:
-            return lua_State(lstate)
+            return cast('lua_State *', lstate)
 
 
 def tou32(val):
@@ -481,7 +376,7 @@ def vm_state(g):
         i2notu32(6): 'RECORD',
         i2notu32(7): 'OPT',
         i2notu32(8): 'ASM',
-    }.get(int(tou32(g.vmstate)), 'TRACE')
+    }.get(int(tou32(g['vmstate'])), 'TRACE')
 
 
 def gc_state(g):
@@ -493,7 +388,7 @@ def gc_state(g):
         4: 'SWEEP',
         5: 'FINALIZE',
         6: 'LAST',
-    }.get(g.gc.state, 'INVALID')
+    }.get(int(g['gc']['state']), 'INVALID')
 
 
 def jit_state(g):
@@ -505,31 +400,29 @@ def jit_state(g):
         0x13: 'END',
         0x14: 'ASM',
         0x15: 'ERR',
-    }.get(J(g).state, 'INVALID')
+    }.get(int(J(g).state), 'INVALID')
 
 
 def strx64(val):
     return re.sub('L?$', '',
-                  hex(int(val) & 0xFFFFFFFFFFFFFFFF))
+                  hex(int(cast('uint64_t', val) & 0xFFFFFFFFFFFFFFFF)))
 
 
 def funcproto(func):
     assert func.ffid == 0
-    proto_size = sizeof('GCproto')
-    value = cast('uintptr_t', vtou64(mref('char *', func.pc)) - proto_size)
-    return cast(GCprotoPtr, value)
+    return cast('GCproto *', mref('char *', func.pc) - sizeof('GCproto'))
 
 
 def strdata(obj):
     try:
-        ptr = cast('char *', obj + 1)
-        return ptr.summary
+        ptr = cast('char *', cast('GCstr *', obj) + 1)
+        return ptr.sbvalue.summary
     except UnicodeEncodeError:
         return "<luajit-lldb: error occurred while rendering non-ascii slot>"
 
 
 def itype(o):
-    return tou32(o.it64 >> 47) if LJ_GC64 else o.it
+    return tou32(o['it64'] >> 47) if LJ_GC64 else o['it']
 
 
 def tvisint(o):
@@ -538,7 +431,7 @@ def tvisint(o):
 
 def tvislightud(o):
     if LJ_64 and not LJ_GC64:
-        return (vtoi(cast('int32_t', itype(o))) >> 15) == -2
+        return (int(cast('int32_t', itype(o))) >> 15) == -2
     else:
         return itype(o) == LJ_T['LIGHTUD']
 
@@ -560,80 +453,80 @@ def dump_lj_ttrue(tv):
 
 
 def dump_lj_tlightud(tv):
-    return 'light userdata @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'light userdata @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 def dump_lj_tstr(tv):
     return 'string {body} @ {address}'.format(
-        body=strdata(cast(GCstrPtr, gcval(tv.gcr))),
-        address=strx64(gcval(tv.gcr))
+        body=strdata(cast('GCstr *', gcval(tv['gcr']))),
+        address=strx64(gcval(tv['gcr']))
     )
 
 
 def dump_lj_tupval(tv):
-    return 'upvalue @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'upvalue @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 def dump_lj_tthread(tv):
-    return 'thread @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'thread @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 def dump_lj_tproto(tv):
-    return 'proto @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'proto @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 def dump_lj_tfunc(tv):
-    func = cast(GCfuncCPtr, gcval(tv.gcr))
-    ffid = func.ffid
+    func = cast('GCfuncC *', gcval(tv['gcr']))
+    ffid = func['ffid']
 
     if ffid == 0:
         pt = funcproto(func)
         return 'Lua function @ {addr}, {nups} upvalues, {chunk}:{line}'.format(
             addr=strx64(func),
-            nups=func.nupvalues,
-            chunk=strdata(cast(GCstrPtr, gcval(pt.chunkname))),
-            line=pt.firstline
+            nups=func['nupvalues'],
+            chunk=strdata(cast('GCstr *', gcval(pt['chunkname']))),
+            line=pt['firstline']
         )
     elif ffid == 1:
-        return 'C function @ {}'.format(strx64(func.f))
+        return 'C function @ {}'.format(strx64(func['f']))
     else:
         return 'fast function #{}'.format(ffid)
 
 
 def dump_lj_ttrace(tv):
-    trace = cast(GCtracePtr, gcval(tv.gcr))
+    trace = cast('GCtrace *', gcval(tv['gcr']))
     return 'trace {traceno} @ {addr}'.format(
-        traceno=strx64(trace.traceno),
+        traceno=strx64(trace['traceno']),
         addr=strx64(trace)
     )
 
 
 def dump_lj_tcdata(tv):
-    return 'cdata @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'cdata @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 def dump_lj_ttab(tv):
-    table = cast(GCtabPtr, gcval(tv.gcr))
+    table = cast('GCtab *', gcval(tv['gcr']))
     return 'table @ {gcr} (asize: {asize}, hmask: {hmask})'.format(
         gcr=strx64(table),
-        asize=table.asize,
-        hmask=strx64(table.hmask),
+        asize=table['asize'],
+        hmask=strx64(table['hmask']),
     )
 
 
 def dump_lj_tudata(tv):
-    return 'userdata @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'userdata @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 def dump_lj_tnumx(tv):
     if tvisint(tv):
-        return 'integer {}'.format(cast('int32_t', tv.i))
+        return 'integer {}'.format(cast('int32_t', tv['i']))
     else:
-        return 'number {}'.format(tv.n)
+        return 'number {}'.format(cast('double', tv['n']))
 
 
 def dump_lj_invalid(tv):
-    return 'not valid type @ {}'.format(strx64(gcval(tv.gcr)))
+    return 'not valid type @ {}'.format(strx64(gcval(tv['gcr'])))
 
 
 dumpers = {
@@ -686,8 +579,8 @@ def typenames(value):
     }.get(int(value), 'LJ_TINVALID')
 
 
-def dump_tvalue(tvptr):
-    return dumpers.get(typenames(itypemap(tvptr)), dump_lj_invalid)(tvptr)
+def dump_tvalue(tvalue):
+    return dumpers.get(typenames(itypemap(tvalue)), dump_lj_invalid)(tvalue)
 
 
 FRAME_TYPE = 0x3
@@ -720,23 +613,17 @@ def bc_a(ins):
 
 
 def frame_ftsz(framelink):
-    return vtou64(cast('ptrdiff_t', framelink.ftsz if LJ_FR2
-                       else framelink.fr.tp.ftsz))
+    return cast('ptrdiff_t', framelink['ftsz'] if LJ_FR2
+                else framelink['fr']['tp']['ftsz'])
 
 
 def frame_pc(framelink):
-    return cast(BCInsPtr, frame_ftsz(framelink)) if LJ_FR2 \
-        else mref(BCInsPtr, framelink.fr.tp.pcr)
+    return cast('BCIns *', frame_ftsz(framelink)) if LJ_FR2 \
+        else mref('BCIns *', framelink['fr']['tp']['pcr'])
 
 
 def frame_prevl(framelink):
-    # We are evaluating the `frame_pc(framelink)[-1])` with lldb's
-    # REPL, because the lldb API is faulty and it's not possible to cast
-    # a struct member of 32-bit type to 64-bit type without getting onto
-    # the next property bits, despite the fact that it's an actual value, not
-    # a pointer to it.
-    bcins = vtou64(dbg_eval('((BCIns *)' + str(frame_pc(framelink)) + ')[-1]'))
-    return framelink - (1 + LJ_FR2 + bc_a(bcins))
+    return framelink - (1 + LJ_FR2 + bc_a(frame_pc(framelink)[-1]))
 
 
 def frame_ispcall(framelink):
@@ -770,14 +657,14 @@ def frame_prev(framelink):
 
 
 def frame_sentinel(L):
-    return mref(TValuePtr, L.stack) + LJ_FR2
+    return mref('TValue *', L['stack']) + LJ_FR2
 
 
 # The generator that implements frame iterator.
 # Every frame is represented as a tuple of framelink and frametop.
 def frames(L):
-    frametop = L.top
-    framelink = L.base - 1
+    frametop = L['top']
+    framelink = L['base'] - 1
     framelink_sentinel = frame_sentinel(L)
     while True:
         yield framelink, frametop
@@ -788,14 +675,8 @@ def frames(L):
 
 
 def dump_framelink_slot_address(fr):
-    return '{start:{padding}}:{end:{padding}}'.format(
-        start=hex(int(fr - 1)),
-        end=hex(int(fr)),
-        padding=len(PADDING),
-    ) if LJ_FR2 else '{addr:{padding}}'.format(
-        addr=hex(int(fr)),
-        padding=len(PADDING),
-    )
+    return '{}:{}'.format(fr - 1, fr) if LJ_FR2 \
+        else '{}'.format(fr) + PADDING
 
 
 def dump_framelink(L, fr):
@@ -809,30 +690,30 @@ def dump_framelink(L, fr):
             frname=frametypes(int(frame_type(fr))),
             p='P' if frame_typep(fr) & FRAME_P else ''
         ),
-        d=fr - frame_prev(fr),
+        d=cast('TValue *', fr) - cast('TValue *', frame_prev(fr)),
         f=dump_lj_tfunc(fr - LJ_FR2),
     )
 
 
 def dump_stack_slot(L, slot, base=None, top=None):
-    base = base or L.base
-    top = top or L.top
+    base = base or L['base']
+    top = top or L['top']
 
-    return '{addr:{padding}} [ {B}{T}{M}] VALUE: {value}'.format(
+    return '{addr}{padding} [ {B}{T}{M}] VALUE: {value}'.format(
         addr=strx64(slot),
-        padding=2 * len(PADDING) + 1,
+        padding=PADDING,
         B='B' if slot == base else ' ',
         T='T' if slot == top else ' ',
-        M='M' if slot == mref(TValuePtr, L.maxstack) else ' ',
+        M='M' if slot == mref('TValue *', L['maxstack']) else ' ',
         value=dump_tvalue(slot),
     )
 
 
 def dump_stack(L, base=None, top=None):
-    base = base or L.base
-    top = top or L.top
-    stack = mref(TValuePtr, L.stack)
-    maxstack = mref(TValuePtr, L.maxstack)
+    base = base or L['base']
+    top = top or L['top']
+    stack = mref('TValue *', L['stack'])
+    maxstack = mref('TValue *', L['maxstack'])
     red = 5 + 3 * LJ_FR2
 
     dump = [
@@ -848,19 +729,13 @@ def dump_stack(L, base=None, top=None):
     dump.extend([
         '{padding} Stack: {nstackslots: >5} slots {padding}'.format(
             padding='-' * len(PADDING),
-            nstackslots=int((maxstack - stack) >> 3),
+            nstackslots=int((tou64(maxstack) - tou64(stack)) >> 3),
         ),
         dump_stack_slot(L, maxstack, base, top),
         '{start}:{end} [    ] {nfreeslots} slots: Free stack slots'.format(
-            start='{address:{padding}}'.format(
-                address=strx64(top + 1),
-                padding=len(PADDING),
-            ),
-            end='{address:{padding}}'.format(
-                address=strx64(maxstack - 1),
-                padding=len(PADDING),
-            ),
-            nfreeslots=int((maxstack - top - 8) >> 3),
+            start=strx64(top + 1),
+            end=strx64(maxstack - 1),
+            nfreeslots=int((tou64(maxstack) - tou64(top) - 8) >> 3),
         ),
     ])
 
@@ -905,7 +780,7 @@ Whether the type of the given address differs from the listed above, then
 error message occurs.
     '''
     def execute(self, debugger, args, result):
-        tvptr = TValuePtr(cast('TValue *', self.parse(args)))
+        tvptr = cast('TValue *', self.parse(args))
         print('{}'.format(dump_tvalue(tvptr)))
 
 
@@ -984,11 +859,11 @@ the payload, size in bytes and hash.
 is replaced with the corresponding error when decoding fails.
     '''
     def execute(self, debugger, args, result):
-        string_ptr = GCstrPtr(cast('GCstr *', self.parse(args)))
+        string = cast('GCstr *', self.parse(args))
         print("String: {body} [{len} bytes] with hash {hash}".format(
-            body=strdata(string_ptr),
-            hash=strx64(string_ptr.hash),
-            len=string_ptr.len,
+            body=strdata(string),
+            hash=strx64(string['hash']),
+            len=string['len'],
         ))
 
 
@@ -1004,13 +879,13 @@ The command receives a GCtab address and dumps the table contents:
   <hnode ptr>: { <tv> } => { <tv> }; next = <next hnode ptr>
     '''
     def execute(self, debugger, args, result):
-        t = GCtabPtr(cast('GCtab *', self.parse(args)))
-        array = mref(TValuePtr, t.array)
-        nodes = mref(NodePtr, t.node)
-        mt = gcval(t.metatable)
+        t = cast('GCtab *', self.parse(args))
+        array = mref('TValue *', t['array'])
+        nodes = mref('Node *', t['node'])
+        mt = gcval(t['metatable'])
         capacity = {
-            'apart': int(t.asize),
-            'hpart': int(t.hmask + 1) if t.hmask > 0 else 0
+            'apart': int(t['asize']),
+            'hpart': int(t['hmask'] + 1) if t['hmask'] > 0 else 0
         }
 
         if mt:
@@ -1031,9 +906,9 @@ The command receives a GCtab address and dumps the table contents:
             node = nodes + i
             print('{ptr}: {{ {key} }} => {{ {val} }}; next = {n}'.format(
                 ptr=strx64(node),
-                key=dump_tvalue(TValuePtr(node.key.addr)),
-                val=dump_tvalue(TValuePtr(node.val.addr)),
-                n=strx64(mref(NodePtr, node.next))
+                key=dump_tvalue(node['key']),
+                val=dump_tvalue(node['val']),
+                n=strx64(mref('Node *', node['next']))
             ))
 
 
@@ -1070,9 +945,7 @@ coroutine guest stack:
 If L is omitted the main coroutine is used.
     '''
     def execute(self, debugger, args, result):
-        lstate = self.parse(args)
-        lstate_ptr = cast('lua_State *', lstate) if coro is not None else None
-        print('{}'.format(dump_stack(L(lstate_ptr))))
+        print('{}'.format(dump_stack(L(self.parse(args)))))
 
 
 def register_commands(debugger, commands):
@@ -1106,7 +979,7 @@ def configure(debugger):
               'no debugging symbols found for libluajit')
         return
 
-    PADDING = ' ' * len(strx64((TValuePtr(L().addr))))
+    PADDING = ' ' * len(':' + hex((1 << (47 if LJ_GC64 else 32)) - 1))
     LJ_TISNUM = 0xfffeffff if LJ_64 and not LJ_GC64 else LJ_T['NUMX']
 
 
