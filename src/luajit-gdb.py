@@ -872,12 +872,12 @@ def init(commands):
 def load(event=None):
     init({
         'lj-arch':  LJDumpArch,
-        'lj-tv':    LJDumpTValue,
-        'lj-str':   LJDumpString,
-        'lj-tab':   LJDumpTable,
+        'lj-gc':    LJGC,
         'lj-stack': LJDumpStack,
         'lj-state': LJState,
-        'lj-gc':    LJGC,
+        'lj-str':   LJDumpString,
+        'lj-tab':   LJDumpTable,
+        'lj-tv':    LJDumpTValue,
     })
 
 

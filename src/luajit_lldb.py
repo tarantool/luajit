@@ -958,7 +958,7 @@ def register_commands(debugger, commands):
                 cmd=cls.command,
             )
         )
-        print('{cmd} command intialized'.format(cmd=cls.command))
+        print('{cmd} command initialized'.format(cmd=cls.command))
 
 
 def configure(debugger):
@@ -986,12 +986,12 @@ def configure(debugger):
 def __lldb_init_module(debugger, internal_dict):
     configure(debugger)
     register_commands(debugger, {
-        'lj-tv':    LJDumpTValue,
-        'lj-state': LJState,
         'lj-arch':  LJDumpArch,
         'lj-gc':    LJGC,
+        'lj-stack': LJDumpStack,
+        'lj-state': LJState,
         'lj-str':   LJDumpString,
         'lj-tab':   LJDumpTable,
-        'lj-stack': LJDumpStack,
+        'lj-tv':    LJDumpTValue,
     })
     print('luajit_lldb.py is successfully loaded')
