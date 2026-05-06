@@ -127,22 +127,20 @@ class TestCaseBase(unittest.TestCase):
             self.assertRegex(self.output, self.pattern.strip())
 
 
-# FIXME: Skip for LLDB since it has different order.
-if not LLDB:
-    class TestLoad(TestCaseBase):
-        extension_cmds = ''
-        location = 'lj_cf_print'
-        lua_script = 'print(1)'
-        pattern = (
-            r'lj-arch command initialized\n'
-            r'lj-tv command initialized\n'
-            r'lj-str command initialized\n'
-            r'lj-tab command initialized\n'
-            r'lj-stack command initialized\n'
-            r'lj-state command initialized\n'
-            r'lj-gc command initialized\n'
-            r'.*is successfully loaded'
-        )
+class TestLoad(TestCaseBase):
+    extension_cmds = ''
+    location = 'lj_cf_print'
+    lua_script = 'print(1)'
+    pattern = (
+        r'lj-arch command initialized\n'
+        r'lj-gc command initialized\n'
+        r'lj-stack command initialized\n'
+        r'lj-state command initialized\n'
+        r'lj-str command initialized\n'
+        r'lj-tab command initialized\n'
+        r'lj-tv command initialized\n'
+        r'.*is successfully loaded'
+    )
 
 
 class TestLJArch(TestCaseBase):
