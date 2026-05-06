@@ -127,20 +127,22 @@ class TestCaseBase(unittest.TestCase):
             self.assertRegex(self.output, self.pattern.strip())
 
 
-class TestLoad(TestCaseBase):
-    extension_cmds = ''
-    location = 'lj_cf_print'
-    lua_script = 'print(1)'
-    pattern = (
-        r'lj-arch command initialized\n'
-        r'lj-tv command initialized\n'
-        r'lj-str command initialized\n'
-        r'lj-tab command initialized\n'
-        r'lj-stack command initialized\n'
-        r'lj-state command initialized\n'
-        r'lj-gc command initialized\n'
-        r'.*is successfully loaded'
-    )
+# FIXME: Skip for LLDB since it has different order.
+if not LLDB:
+    class TestLoad(TestCaseBase):
+        extension_cmds = ''
+        location = 'lj_cf_print'
+        lua_script = 'print(1)'
+        pattern = (
+            r'lj-arch command initialized\n'
+            r'lj-tv command initialized\n'
+            r'lj-str command initialized\n'
+            r'lj-tab command initialized\n'
+            r'lj-stack command initialized\n'
+            r'lj-state command initialized\n'
+            r'lj-gc command initialized\n'
+            r'.*is successfully loaded'
+        )
 
 
 class TestLJArch(TestCaseBase):
@@ -283,6 +285,5 @@ class TestLJTab(TestCaseBase):
 for test_cls in TestCaseBase.__subclasses__():
     test_cls.test = lambda self: self.check()
 
-# FIXME: skip for LLDB since most commands are not working anyway.
-if __name__ == '__main__' and not LLDB:
+if __name__ == '__main__':
     unittest.main(verbosity=2)
