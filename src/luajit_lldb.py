@@ -18,6 +18,12 @@ IRT_P64 = 9
 LJ_GCVMASK = ((1 << 47) - 1)
 LJ_TISNUM = None
 
+# These constants are meaningful only for 'LJ_64' mode.
+LJ_LIGHTUD_BITS_SEG = 8
+LJ_LIGHTUD_BITS_LO = 47 - LJ_LIGHTUD_BITS_SEG
+LIGHTUD_SEG_MASK = (1 << LJ_LIGHTUD_BITS_SEG) - 1
+LIGHTUD_LO_MASK = (1 << LJ_LIGHTUD_BITS_LO) - 1
+
 # Debugger specific {{{
 
 
@@ -440,6 +446,18 @@ def tvisnumber(o):
     return itype(o) <= LJ_TISNUM
 
 
+def lightudV(tv):
+    if LJ_64:
+        u = int(tv['u64'])
+        # lightudseg macro expanded.
+        seg = (u >> LJ_LIGHTUD_BITS_LO) & LIGHTUD_SEG_MASK
+        segmap = mref('uint32_t *', G(L(None))['gc']['lightudseg'])
+        # lightudlo macro expanded.
+        return (int(segmap[seg]) << 32) | (u & LIGHTUD_LO_MASK)
+    else:
+        return gcval(tv['gcr'])
+
+
 def dump_lj_tnil(tv):
     return 'nil'
 
@@ -453,7 +471,7 @@ def dump_lj_ttrue(tv):
 
 
 def dump_lj_tlightud(tv):
-    return 'light userdata @ {}'.format(strx64(gcval(tv['gcr'])))
+    return 'light userdata @ {}'.format(strx64(lightudV(tv)))
 
 
 def dump_lj_tstr(tv):
