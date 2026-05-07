@@ -213,23 +213,28 @@ class TestLJTV(TestCaseBase):
         'lj-tv L->base + 9\n'
         'lj-tv L->base + 10\n'
         'lj-tv L->base + 11\n'
+        'lj-tv L->base + 12\n'
+        'lj-tv L->base + 13\n'
     )
 
+    # Sorted in LJT order.
     lua_script = (
         'local ffi = require("ffi")\n'
         'print(\n'
         '  nil,\n'
         '  false,\n'
         '  true,\n'
+        '  debug.upvalueid(print, 1), \n'  # lightuserdata
         '  "hello",\n'
-        '  {1},\n'
-        '  1,\n'
-        '  1.1,\n'
         '  coroutine.create(function() end),\n'
-        '  ffi.new("int*"),\n'
         '  function() end,\n'
+        '  require,\n'
         '  print,\n'
-        '  require\n'
+        '  ffi.new("int*"),\n'
+        '  {1},\n'
+        '  newproxy(),\n'
+        '  1,\n'
+        '  1.1\n'
         ')\n'
     )
 
@@ -237,15 +242,17 @@ class TestLJTV(TestCaseBase):
         r'nil\n'
         r'false\n'
         r'true\n'
+        r'light userdata @ ' + RX_ADDR + r'\n'
         r'string \"hello\" @ ' + RX_ADDR + r'\n'
+        r'thread @ ' + RX_ADDR + r'\n'
+        r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
+        r'C function @ ' + RX_ADDR + r'\n'
+        r'fast function #[0-9]+\n'
+        r'cdata @ ' + RX_ADDR + r'\n'
         r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
+        r'userdata @ ' + RX_ADDR + r'\n'
         r'(number|integer) .*1.*\n'
         r'number 1.1\d+\n'
-        r'thread @ ' + RX_ADDR + r'\n'
-        r'cdata @ ' + RX_ADDR + r'\n'
-        r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
-        r'fast function #[0-9]+\n'
-        r'C function @ ' + RX_ADDR + r'\n'
     )
 
 
