@@ -1,0 +1,61 @@
+name: Debuggers
+
+on:
+  push:
+    branches-ignore:
+      - '**-notest'
+      - 'upstream-**'
+    tags-ignore:
+      - '**'
+
+concurrency:
+  # An update of a developer branch cancels the previously
+  # scheduled workflow run for this branch. However, the default
+  # branch, and long-term branch (tarantool/release/2.11,
+  # tarantool/release/2.10, etc) workflow runs are never canceled.
+  #
+  # We use a trick here: define the concurrency group as 'workflow
+  # run ID' + # 'workflow run attempt' because it is a unique
+  # combination for any run. So it effectively discards grouping.
+  #
+  # XXX: we cannot use `github.sha` as a unique identifier because
+  # pushing a tag may cancel a run that works on a branch push
+  # event.
+  group: ${{ startsWith(github.ref, 'refs/heads/tarantool/')
+    && format('{0}-{1}', github.run_id, github.run_attempt)
+    || format('{0}-{1}', github.workflow, github.ref) }}
+  cancel-in-progress: true
+
+jobs:
+  test-debuggers:
+    strategy:
+      fail-fast: false
+      matrix:
+        ARCH: [ARM64, x86_64]
+        GC64: [ON, OFF]
+        exclude:
+          - ARCH: ARM64
+            GC64: OFF
+    runs-on: [self-hosted, regular, Linux, '${{ matrix.ARCH }}']
+    name: >
+      LuaJIT
+      (${{ matrix.ARCH }})
+      GC64:${{ matrix.GC64 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: setup debuggers
+        uses: ./.github/actions/setup-debuggers
+      - name: configure
+        run: >
+          cmake -S . -B ${{ env.BUILDDIR }}
+          -DCMAKE_BUILD_TYPE=Debug
+          -DLUAJIT_ENABLE_GC64=${{ matrix.GC64 }}
+      - name: build
+        run: cmake --build . --parallel
+        working-directory: ${{ env.BUILDDIR }}
+      - name: test
+        run: cmake --build . --parallel --target tarantool-debugger-tests
+        working-directory: ${{ env.BUILDDIR }}

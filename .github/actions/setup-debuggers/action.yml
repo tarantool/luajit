@@ -1,0 +1,12 @@
+name: Setup CI environment for testing the debugger extension
+description: The Linux machine setup for tests of the debugger extension
+runs:
+  using: composite
+  steps:
+    - name: Setup CI environment (Linux)
+      uses: ./.github/actions/setup-linux
+    - name: Install dependencies for the tests
+      run: |
+        apt -y update
+        apt install -y python3 gdb lldb
+      shell: bash
