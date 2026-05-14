@@ -16,7 +16,7 @@ LUAJIT_BINARY = os.environ['LUAJIT_TEST_BINARY']
 EXTENSION_PATH = os.environ['DEBUGGER_EXTENSION_PATH']
 DEBUGGER = os.environ['DEBUGGER_COMMAND']
 LLDB = 'lldb' in DEBUGGER
-EXTENSION = EXTENSION_PATH + ('/luajit_lldb.py' if LLDB else '/luajit-gdb.py')
+EXTENSION = EXTENSION_PATH + '/luajit_dbg.py'
 TIMEOUT = 10
 
 if LLDB:
@@ -139,7 +139,7 @@ class TestLoad(TestCaseBase):
         r'lj-str command initialized\n'
         r'lj-tab command initialized\n'
         r'lj-tv command initialized\n'
-        r'.*is successfully loaded'
+        r'LuaJIT debug extension is successfully loaded'
     )
 
 
