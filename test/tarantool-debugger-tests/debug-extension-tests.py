@@ -96,6 +96,10 @@ IS_DUALNUM = execute_process([
     LUAJIT_BINARY, '-e', "print(require('ffi').abi('dualnum'))"
 ]).strip() == 'true'
 
+IS_GC64 = execute_process([
+    LUAJIT_BINARY, '-e', "print(require('ffi').abi('gc64'))"
+]).strip() == 'true'
+
 # If it is the guaranteed DUALNUM build (for example, on aarch64),
 # we use this regexp for the guaranteed 'integer' check and
 # 'number' for single-number build.
@@ -138,6 +142,46 @@ class TestCaseBase(unittest.TestCase):
             self.assertRegex(self.output, self.pattern.strip())
 
 
+# Test that the emitted debug information supports macro
+# definitions.
+def check_macro_debug_info():
+    cmd_file = persist('\n'.join([
+        'b lj_cf_print',
+        *PROCESS_RUN,
+        'n',
+        'p gcval(L->base)',
+        'q',
+    ]))
+    process_cmd = [
+        DEBUGGER,
+        *RUN_CMD_FILE,
+        cmd_file.name,
+        INFERIOR_ARGS,
+        LUAJIT_BINARY,
+        '-e',
+        'print("")'
+    ]
+    output = execute_process(process_cmd)
+    cmd_file.close()
+    return re.search(r'\(GCobj \*\) ' + RX_ADDR, output) is not None
+
+
+SUPPORT_MACRO_EXPAND = check_macro_debug_info()
+
+
+# LLDB + Clang on macOS (for example) can't produce debug info
+# for the C-defined macros. Thus, we hardcoded its value manually.
+def gcval(arg):
+    if SUPPORT_MACRO_EXPAND:
+        return 'gcval(' + arg + ')'
+    else:
+        if IS_GC64:
+            LJ_GCVMASK = '(((uint64_t)1 << 47) - 1)'
+            return '(((' + arg + ')->gcr).gcptr64 & ' + LJ_GCVMASK + ')'
+        else:
+            return '((' + arg + ')->gcr).gcptr32'
+
+
 class TestLoad(TestCaseBase):
     extension_cmds = ''
     location = 'lj_cf_print'
@@ -145,6 +189,7 @@ class TestLoad(TestCaseBase):
     pattern = (
         r'lj-arch command initialized\n'
         r'lj-gc command initialized\n'
+        r'lj-gco command initialized\n'
         r'lj-stack command initialized\n'
         r'lj-state command initialized\n'
         r'lj-str command initialized\n'
@@ -223,6 +268,31 @@ class TestLJStackFunc(TestCaseBase):
     pattern = STACK_RX
 
 
+# Sorted in LJT order.
+GCO_ARGS = (
+    '"hello",\n'
+    'coroutine.create(function() end),\n'
+    'function() end,\n'
+    'require,\n'
+    'print,\n'
+    'ffi.new("int*"),\n'
+    '{1},\n'
+    'newproxy(),\n'
+)
+
+
+GCO_RX = (
+    r'string \"hello\" @ ' + RX_ADDR + r'\n'
+    r'thread @ ' + RX_ADDR + r'\n'
+    r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
+    r'C function @ ' + RX_ADDR + r'\n'
+    r'fast function #[0-9]+\n'
+    r'cdata @ ' + RX_ADDR + r'\n'
+    r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
+    r'userdata @ ' + RX_ADDR + r'\n'
+)
+
+
 class TestLJTV(TestCaseBase):
     location = 'lj_cf_print'
     extension_cmds = (
@@ -249,15 +319,8 @@ class TestLJTV(TestCaseBase):
         '  nil,\n'
         '  false,\n'
         '  true,\n'
-        '  debug.upvalueid(print, 1), \n'  # lightuserdata
-        '  "hello",\n'
-        '  coroutine.create(function() end),\n'
-        '  function() end,\n'
-        '  require,\n'
-        '  print,\n'
-        '  ffi.new("int*"),\n'
-        '  {1},\n'
-        '  newproxy(),\n'
+        '  debug.upvalueid(print, 1), \n' +  # lightuserdata
+        GCO_ARGS +
         '  1,\n'
         '  1.1\n'
         ')\n'
@@ -267,15 +330,8 @@ class TestLJTV(TestCaseBase):
         r'nil\n'
         r'false\n'
         r'true\n'
-        r'light userdata @ ' + RX_ADDR + r'\n'
-        r'string \"hello\" @ ' + RX_ADDR + r'\n'
-        r'thread @ ' + RX_ADDR + r'\n'
-        r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
-        r'C function @ ' + RX_ADDR + r'\n'
-        r'fast function #[0-9]+\n'
-        r'cdata @ ' + RX_ADDR + r'\n'
-        r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
-        r'userdata @ ' + RX_ADDR + r'\n'
+        r'light userdata @ ' + RX_ADDR + r'\n' +
+        GCO_RX +
         RX_INT + r' .*1.*\n'
         r'number 1.1\d+\n'
     )
@@ -310,6 +366,30 @@ class TestLJTab(TestCaseBase):
         r'{ .+ 1 }; next = 0x0\n' +
         RX_ADDR + r': { nil } => { nil }; next = 0x0\n'
     )
+
+
+class TestLJGCo(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'lj-gco ' + gcval('L->base + 0') + '\n'
+        'lj-gco ' + gcval('L->base + 1') + '\n'
+        'lj-gco ' + gcval('L->base + 2') + '\n'
+        'lj-gco ' + gcval('L->base + 3') + '\n'
+        'lj-gco ' + gcval('L->base + 4') + '\n'
+        'lj-gco ' + gcval('L->base + 5') + '\n'
+        'lj-gco ' + gcval('L->base + 6') + '\n'
+        'lj-gco ' + gcval('L->base + 7') + '\n'
+    )
+
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'print(\n' +
+        GCO_ARGS +
+        '  1\n'  # Stub for the pattern.
+        ')\n'
+    )
+
+    pattern = GCO_RX
 
 
 for test_cls in TestCaseBase.__subclasses__():
