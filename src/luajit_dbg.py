@@ -882,44 +882,29 @@ def lightudV(tv):
 
 # Dumpers.
 
+# GCobj dumpers.
 
-def dump_lj_tnil(tv):
-    return 'nil'
-
-
-def dump_lj_tfalse(tv):
-    return 'false'
-
-
-def dump_lj_ttrue(tv):
-    return 'true'
-
-
-def dump_lj_tlightud(tv):
-    return 'light userdata @ {}'.format(strx64(lightudV(tv)))
-
-
-def dump_lj_tstr(tv):
+def dump_lj_gco_str(gcobj):
     return 'string {body} @ {address}'.format(
-        body=strdata(gcval(tv['gcr'])),
-        address=strx64(gcval(tv['gcr']))
+        body=strdata(gcobj),
+        address=strx64(gcobj)
     )
 
 
-def dump_lj_tupval(tv):
-    return 'upvalue @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_gco_upval(gcobj):
+    return 'upvalue @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tthread(tv):
-    return 'thread @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_gco_thread(gcobj):
+    return 'thread @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tproto(tv):
-    return 'proto @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_gco_proto(gcobj):
+    return 'proto @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tfunc(tv):
-    func = dbg.cast('struct GCfuncC *', gcval(tv['gcr']))
+def dump_lj_gco_func(gcobj):
+    func = dbg.cast('struct GCfuncC *', gcobj)
     ffid = func['ffid']
 
     if ffid == 0:
@@ -936,20 +921,20 @@ def dump_lj_tfunc(tv):
         return 'fast function #{}'.format(int(ffid))
 
 
-def dump_lj_ttrace(tv):
-    trace = dbg.cast('struct GCtrace *', gcval(tv['gcr']))
+def dump_lj_gco_trace(gcobj):
+    trace = dbg.cast('struct GCtrace *', gcobj)
     return 'trace {traceno} @ {addr}'.format(
         traceno=strx64(trace['traceno']),
         addr=strx64(trace)
     )
 
 
-def dump_lj_tcdata(tv):
-    return 'cdata @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_gco_cdata(gcobj):
+    return 'cdata @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_ttab(tv):
-    table = dbg.cast('GCtab *', gcval(tv['gcr']))
+def dump_lj_gco_tab(gcobj):
+    table = dbg.cast('GCtab *', gcobj)
     return 'table @ {gcr} (asize: {asize}, hmask: {hmask})'.format(
         gcr=strx64(table),
         asize=table['asize'],
@@ -957,41 +942,94 @@ def dump_lj_ttab(tv):
     )
 
 
-def dump_lj_tudata(tv):
-    return 'userdata @ {}'.format(strx64(gcval(tv['gcr'])))
+def dump_lj_gco_udata(gcobj):
+    return 'userdata @ {}'.format(strx64(gcobj))
 
 
-def dump_lj_tnumx(tv):
+def dump_lj_gco_invalid(gcobj):
+    return 'not valid type @ {}'.format(strx64(gcobj))
+
+
+# TValue dumpers
+
+def dump_lj_tv_nil(tv):
+    return 'nil'
+
+
+def dump_lj_tv_false(tv):
+    return 'false'
+
+
+def dump_lj_tv_true(tv):
+    return 'true'
+
+
+def dump_lj_tv_lightud(tv):
+    return 'light userdata @ {}'.format(strx64(lightudV(tv)))
+
+
+# Generate wrappers for TValues containing GCobj.
+gco_fn_dumpers = [
+    fn for fn in globals().keys() if fn.startswith('dump_lj_gco')
+]
+for fn_name in gco_fn_dumpers:
+    wrapped_fn_name = fn_name.replace('gco', 'tv')
+    # Lambda takes `fn_name` as a reference, so the additional
+    # lambda is needed to fixate the correct wrapper.
+    globals()[wrapped_fn_name] = (lambda f: (
+        lambda tv: globals()[f](gcval(tv['gcr']))
+    ))(fn_name)
+
+
+def dump_lj_tv_numx(tv):
     if tvisint(tv):
         return 'integer {}'.format(dbg.cast('int32_t', tv['i']))
     else:
         return 'number {}'.format(dbg.cast('double', tv['n']))
 
 
-def dump_lj_invalid(tv):
-    return 'not valid type @ {}'.format(strx64(gcval(tv['gcr'])))
-
-
-dumpers = {
-    'LJ_TNIL':     dump_lj_tnil,
-    'LJ_TFALSE':   dump_lj_tfalse,
-    'LJ_TTRUE':    dump_lj_ttrue,
-    'LJ_TLIGHTUD': dump_lj_tlightud,
-    'LJ_TSTR':     dump_lj_tstr,
-    'LJ_TUPVAL':   dump_lj_tupval,
-    'LJ_TTHREAD':  dump_lj_tthread,
-    'LJ_TPROTO':   dump_lj_tproto,
-    'LJ_TFUNC':    dump_lj_tfunc,
-    'LJ_TTRACE':   dump_lj_ttrace,
-    'LJ_TCDATA':   dump_lj_tcdata,
-    'LJ_TTAB':     dump_lj_ttab,
-    'LJ_TUDATA':   dump_lj_tudata,
-    'LJ_TNUMX':    dump_lj_tnumx,
+gco_dumpers = {
+    'LJ_TSTR':     dump_lj_gco_str,
+    'LJ_TUPVAL':   dump_lj_gco_upval,
+    'LJ_TTHREAD':  dump_lj_gco_thread,
+    'LJ_TPROTO':   dump_lj_gco_proto,
+    'LJ_TFUNC':    dump_lj_gco_func,
+    'LJ_TTRACE':   dump_lj_gco_trace,
+    'LJ_TCDATA':   dump_lj_gco_cdata,
+    'LJ_TTAB':     dump_lj_gco_tab,
+    'LJ_TUDATA':   dump_lj_gco_udata,
 }
 
 
+tv_dumpers = {
+    'LJ_TNIL':     dump_lj_tv_nil,
+    'LJ_TFALSE':   dump_lj_tv_false,
+    'LJ_TTRUE':    dump_lj_tv_true,
+    'LJ_TLIGHTUD': dump_lj_tv_lightud,
+    'LJ_TSTR':     dump_lj_tv_str,  # noqa: F821 # Generated.
+    'LJ_TUPVAL':   dump_lj_tv_upval,  # noqa: F821 # Generated.
+    'LJ_TTHREAD':  dump_lj_tv_thread,  # noqa: F821 # Generated.
+    'LJ_TPROTO':   dump_lj_tv_proto,  # noqa: F821 # Generated.
+    'LJ_TFUNC':    dump_lj_tv_func,  # noqa: F821 # Generated.
+    'LJ_TTRACE':   dump_lj_tv_trace,  # noqa: F821 # Generated.
+    'LJ_TCDATA':   dump_lj_tv_cdata,  # noqa: F821 # Generated.
+    'LJ_TTAB':     dump_lj_tv_tab,  # noqa: F821 # Generated.
+    'LJ_TUDATA':   dump_lj_tv_udata,  # noqa: F821 # Generated.
+    'LJ_TNUMX':    dump_lj_tv_numx,
+}
+
+
+def dump_gcobj(gcobj):
+    return gco_dumpers.get(
+        typenames(i2notu32(gcobj['gch']['gct'])), dump_lj_gco_invalid
+    )(gcobj)
+
+
 def dump_tvalue(tvalue):
-    return dumpers.get(typenames(itypemap(tvalue)), dump_lj_invalid)(tvalue)
+    return tv_dumpers.get(
+        typenames(itypemap(tvalue)),
+        dump_lj_tv_invalid  # noqa: F821 # Generated.
+    )(tvalue)
 
 
 def dump_framelink_slot_address(fr):
@@ -1011,7 +1049,7 @@ def dump_framelink(L, fr):
             p='P' if frame_typep(fr) & FRAME_P else ''
         ),
         d=dbg.cast('TValue *', fr) - dbg.cast('TValue *', frame_prev(fr)),
-        f=dump_lj_tfunc(fr - LJ_FR2),
+        f=dump_lj_tv_func(fr - LJ_FR2),  # noqa: F821 # Generated.
     )
 
 
@@ -1140,6 +1178,35 @@ The command requires no args and dumps current GC stats:
             state=gc_state(g),
             stats=dump_gc(g)
         ))
+
+
+class LJDumpGCobj(dbg.LJBase):
+    '''
+lj-gco <GCobj *>
+
+The command receives a pointer to <GCobj> (GCobj address) and dumps
+the type and some info related to it.
+
+* LJ_TSTR: string <string payload> @ <gcr>
+* LJ_TUPVAL: upvalue @ <gcr>
+* LJ_TTHREAD: thread @ <gcr>
+* LJ_TPROTO: proto @ <gcr>
+* LJ_TFUNC: <LFUNC|CFUNC|FFUNC>
+  <LFUNC>: Lua function @ <gcr>, <nupvals> upvalues, <chunk:line>
+  <CFUNC>: C function <mcode address>
+  <FFUNC>: fast function #<ffid>
+* LJ_TTRACE: trace <traceno> @ <gcr>
+* LJ_TCDATA: cdata @ <gcr>
+* LJ_TTAB: table @ <gcr> (asize: <asize>, hmask: <hmask>)
+* LJ_TUDATA: userdata @ <gcr>
+
+Whether the type of the given address differs from the listed above, then
+error message occurs.
+    '''
+
+    def execute(self, arg):
+        gcobj = dbg.cast('GCobj *', dbg.eval(arg))
+        dbg.write('{}\n'.format(dump_gcobj(gcobj)))
 
 
 class LJDumpStack(dbg.LJBase):
@@ -1303,6 +1370,7 @@ def load(event=None):
     dbg.initialize_extension({
         'lj-arch':  LJDumpArch,
         'lj-gc':    LJGC,
+        'lj-gco':   LJDumpGCobj,
         'lj-stack': LJDumpStack,
         'lj-state': LJState,
         'lj-str':   LJDumpString,
