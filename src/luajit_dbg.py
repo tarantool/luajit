@@ -255,15 +255,31 @@ class _GDBDebugger(Debugger):
 
 class _LLDBDebugger(Debugger):
     def _lldb_tp_isfp(self, tp):
-        return tp.GetBasicType() in [
+        return tp.GetCanonicalType().GetBasicType() in [
             lldb.eBasicTypeFloat,
             lldb.eBasicTypeDouble,
             lldb.eBasicTypeLongDouble
         ]
 
+    def _lldb_tp_issigned(self, tp):
+        return tp.GetCanonicalType().GetBasicType() in [
+            lldb.eBasicTypeChar,
+            lldb.eBasicTypeSignedChar,
+            lldb.eBasicTypeShort,
+            lldb.eBasicTypeInt,
+            lldb.eBasicTypeLong,
+            lldb.eBasicTypeLongLong,
+            lldb.eBasicTypeInt128
+        ]
+
     def _lldb_value_from_raw(self, raw_value, size, tp):
         isfp = self._lldb_tp_isfp(tp)
-        pack_flag = '<d' if isfp else '<Q'
+        if isfp:
+            pack_flag = '<d'
+        elif self._lldb_tp_issigned(tp):
+            pack_flag = '<q'
+        else:
+            pack_flag = '<Q'
         raw_data = struct.pack(pack_flag, raw_value)
         sbdata = lldb.SBData()
         sbdata.SetData(
@@ -308,9 +324,24 @@ class _LLDBDebugger(Debugger):
                 key = int(key)
             if type(key) is int:
                 # Allow array access.
-                return lldb.value(
-                    lldbval.sbvalue.GetValueForExpressionPath('[%i]' % key)
-                )
+                if key >= 0:
+                    return lldb.value(
+                        lldbval.sbvalue.GetValueForExpressionPath('[%i]' % key)
+                    )
+                else:
+                    # GetValueForExpressionPath doesn't work for
+                    # negative offsets.
+                    sbvalue = lldbval.sbvalue
+                    assert sbvalue.TypeIsPointerType(), \
+                        'attempt to get index of non-pointer type'
+                    tp = sbvalue.GetType().GetPointeeType()
+                    sz = sbvalue.deref.size
+                    addr = sbvalue.GetValueAsUnsigned() + key * sz
+                    return lldb.value(self.target.CreateValueFromAddress(
+                            '({tp}){addr}'.format(tp=tp, addr=addr),
+                            lldb.SBAddress(addr, self.target),
+                            tp,
+                    ))
             elif type(key) is str:
                 return lldb.value(lldbval.sbvalue.GetChildMemberWithName(key))
             raise Exception(TypeError('No item of type %s' % str(type(key))))
@@ -417,8 +448,12 @@ class _LLDBDebugger(Debugger):
         # may take the 8 bytes of memory instead of 4, before the
         # cast. Construct the value on the fly.
         tp = self._dbgtype(typestr)
-        is_fp = self._lldb_tp_isfp(tp)
-        rawval = float(val.GetValue()) if is_fp else val.GetValueAsUnsigned()
+        if self._lldb_tp_isfp(tp):
+            rawval = float(val.GetValue())
+        elif self._lldb_tp_issigned(tp):
+            rawval = val.GetValueAsSigned()
+        else:
+            rawval = val.GetValueAsUnsigned()
         return self._lldb_value_from_raw(rawval, val.GetByteSize(), tp)
 
     def sizeof(self, typestr):
