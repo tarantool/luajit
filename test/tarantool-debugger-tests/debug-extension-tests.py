@@ -186,16 +186,30 @@ class TestLJGC(TestCaseBase):
     )
 
 
-class TestLJStack(TestCaseBase):
+STACK_RX = (
+    r'-+ Red zone:\s+\d+ slots -+\n'
+    r'(' + RX_ADDR + r'\s+' + RX_FRAME + r' VALUE: nil\n?)*\n'
+    r'-+ Stack:\s+\d+ slots -+\n'
+    r'(' + RX_ADDR + r'(:' + RX_ADDR + r')?\s+' + RX_FRAME + r'.*\n?)+\n'
+)
+
+
+class TestLJStackBase(TestCaseBase):
     extension_cmds = 'lj-stack'
     location = 'lj_cf_print'
     lua_script = 'print(1)'
-    pattern = (
-        r'-+ Red zone:\s+\d+ slots -+\n'
-        r'(' + RX_ADDR + r'\s+' + RX_FRAME + r' VALUE: nil\n?)*\n'
-        r'-+ Stack:\s+\d+ slots -+\n'
-        r'(' + RX_ADDR + r'(:' + RX_ADDR + r')?\s+' + RX_FRAME + r'.*\n?)+\n'
+    pattern = STACK_RX
+
+
+# Check LLDB correctness for the specific stack.
+class TestLJStackFunc(TestCaseBase):
+    extension_cmds = 'lj-stack'
+    location = 'lj_cf_print'
+    lua_script = (
+        'local function nop() end\n'
+        'print()\n'
     )
+    pattern = STACK_RX
 
 
 class TestLJTV(TestCaseBase):
