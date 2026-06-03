@@ -92,6 +92,17 @@ def execute_process(cmd, timeout=TIMEOUT):
         return process.stdout
 
 
+IS_DUALNUM = execute_process([
+    LUAJIT_BINARY, '-e', "print(require('ffi').abi('dualnum'))"
+]).strip() == 'true'
+
+# If it is the guaranteed DUALNUM build (for example, on aarch64),
+# we use this regexp for the guaranteed 'integer' check and
+# 'number' for single-number build.
+RX_INT = r'integer' if IS_DUALNUM else r'number'
+RX_ISDUALNUM = r'True' if IS_DUALNUM else r'False'
+
+
 class TestCaseBase(unittest.TestCase):
     @classmethod
     def construct_cmds(cls):
@@ -150,7 +161,7 @@ class TestLJArch(TestCaseBase):
     pattern = (
         r'LJ_64: (True|False), '
         r'LJ_GC64: (True|False), '
-        r'LJ_DUALNUM: (True|False)'
+        r'LJ_DUALNUM: ' + RX_ISDUALNUM
     )
 
 
@@ -265,7 +276,7 @@ class TestLJTV(TestCaseBase):
         r'cdata @ ' + RX_ADDR + r'\n'
         r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
         r'userdata @ ' + RX_ADDR + r'\n'
-        r'(number|integer) .*1.*\n'
+        RX_INT + r' .*1.*\n'
         r'number 1.1\d+\n'
     )
 
