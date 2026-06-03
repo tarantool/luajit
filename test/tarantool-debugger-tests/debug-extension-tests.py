@@ -45,6 +45,7 @@ else:
 
 RX_ADDR = r'0x[a-f0-9]+'
 RX_HASH = RX_ADDR  # The same pattern for hexademic values.
+RX_BCN = r'00\d\d'
 RX_FRAME = r'\[(S|\s)(B|\s)(T|\s)(M|\s)\]'
 
 
@@ -182,14 +183,27 @@ def gcval(arg):
             return '((' + arg + ')->gcr).gcptr32'
 
 
+def mref(arg, tp):
+    if SUPPORT_MACRO_EXPAND:
+        return 'mref(' + arg + ', ' + tp + ')'
+    else:
+        if IS_GC64:
+            return '((' + tp + '*)(' + arg + ').ptr64)'
+        else:
+            return '((' + tp + '*)(' + arg + ').ptr32)'
+
+
 class TestLoad(TestCaseBase):
     extension_cmds = ''
     location = 'lj_cf_print'
     lua_script = 'print(1)'
     pattern = (
         r'lj-arch command initialized\n'
+        r'lj-bc command initialized\n'
+        r'lj-func command initialized\n'
         r'lj-gc command initialized\n'
         r'lj-gco command initialized\n'
+        r'lj-proto command initialized\n'
         r'lj-stack command initialized\n'
         r'lj-state command initialized\n'
         r'lj-str command initialized\n'
@@ -390,6 +404,73 @@ class TestLJGCo(TestCaseBase):
     )
 
     pattern = GCO_RX
+
+
+PROTO_FUNC_SCRIPT = (
+    'local uvname = false\n'
+    'local function testf(...)\n'
+    '  local a = ...\n'
+    '  local s1 = a + 42\n'
+    '  uvname = "conststr"\n'
+    '  if a >= 42 then\n'
+    '    return a - s1\n'
+    '  end\n'
+    'end\n'
+    'print(testf)\n'
+)
+
+
+PROTO_FUNC_BC_RX = (
+    RX_BCN + r' FUNCV  rbase:   \d\s*\n' +
+    RX_BCN + r' VARG   base:    \d lit:     \d lit:     \d\s*\n' +
+    RX_BCN + r' ADDVN  dst:     \d var:     \d num: +\d' +
+             r' ; ' + RX_INT + r' 42\s*\n' +
+    RX_BCN + r' USETS  uv:      \d str:     \d' +
+             r' ; upvalue "uvname" @ ' + RX_ADDR +
+             r' ; string "conststr" @ ' + RX_ADDR + r'\s*\n' +
+    RX_BCN + r' KSHORT dst:     \d lits:   42\s*\n' +
+    RX_BCN + r' ISGT   var:     \d var:     \d\s*\n' +
+    RX_BCN + r' JMP    rbase:   \d jump:  => ' + RX_BCN + r'\s*\n' +
+    RX_BCN + r' SUBVV  dst:     \d var:     \d var:     \d\s*\n' +
+    RX_BCN + r' RET1   rbase:   \d lit:     \d\s*\n' +
+    RX_BCN + r' RET0   rbase:   \d lit:     \d\s*\n'
+)
+
+
+class TestLJFunc(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = 'lj-func ' + gcval('L->base')
+    lua_script = PROTO_FUNC_SCRIPT
+    pattern = PROTO_FUNC_BC_RX
+
+
+class TestLJProto(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'lj-proto '
+        '  ((char *) ' + mref(
+            '((GCfuncL *)' + gcval('L->base') + ')->pc', 'char'
+        ) + ') - sizeof(GCproto)\n'
+    )
+    lua_script = PROTO_FUNC_SCRIPT
+    pattern = PROTO_FUNC_BC_RX
+
+
+class TestLJBC(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'lj-bc ' + mref(
+            '((GCfuncL *)' + gcval('L->base') + ')->pc', 'BCIns'
+        ) + '\n'
+        'lj-bc ' + mref(
+            '((GCfuncL *)' + gcval('L->base') + ')->pc', 'BCIns'
+        ) + ' + 6\n'
+    )
+    lua_script = PROTO_FUNC_SCRIPT
+    pattern = (
+        r'FUNCV  rbase:   \d\s*\n'
+        r'JMP    rbase:   \d jump:  \+\d\n'
+    )
 
 
 for test_cls in TestCaseBase.__subclasses__():

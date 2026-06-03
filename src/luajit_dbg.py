@@ -324,7 +324,7 @@ class _LLDBDebugger(Debugger):
                 key = int(key)
             if type(key) is int:
                 # Allow array access.
-                if key >= 0:
+                if key >= 0 and not lldbval.sbvalue.TypeIsPointerType():
                     return lldb.value(
                         lldbval.sbvalue.GetValueForExpressionPath('[%i]' % key)
                     )
@@ -475,7 +475,22 @@ class _LLDBDebugger(Debugger):
         return strptr.sbvalue.summary
 
     def lookup_global(self, symbol):
-        return self.target.FindFirstGlobalVariable(symbol)
+        sbvalue = self.target.FindFirstGlobalVariable(symbol)
+        tp = sbvalue.GetType()
+        # XXX: LLDB in versions 17 - 19 can't use an array object
+        # as the initializer for `lldb.value` since `GetValue()`
+        # for it returns `None` leading to the invalid result.
+        # See https://github.com/llvm/llvm-project/pull/90144.
+        if (self.version < 17 or self.version > 19) or \
+           tp.GetTypeClass() != lldb.eTypeClassArray:
+            return lldb.value(sbvalue)
+        else:
+            ptr_tp = tp.GetArrayElementType().GetPointerType()
+            return self._lldb_value_from_raw(
+                sbvalue.GetLoadAddress(),
+                ptr_tp.GetByteSize(),
+                ptr_tp
+            )
 
     def eval(self, command):
         if not command:
@@ -648,6 +663,202 @@ def itypemap(o):
         return LJ_T['NUMX'] if tvisnumber(o) else itype(o)
 
 
+# Bytecode.
+
+def bc_op(ins):
+    return int(ins) & 0xff
+
+
+def bc_a(ins):
+    return (int(ins) >> 8) & 0xff
+
+
+def bc_b(ins):
+    return int(ins) >> 24
+
+
+def bc_c(ins):
+    return (int(ins) >> 16) & 0xff
+
+
+def bc_d(ins):
+    return int(ins) >> 16
+
+
+BCMODE = [
+    'none', 'dst', 'base', 'var', 'rbase', 'uv',
+    'lit', 'lits', 'pri', 'num', 'str', 'tab', 'func', 'jump', 'cdata',
+]
+
+
+lj_bc_mode_ = None
+
+
+def lj_bc_mode():
+    global lj_bc_mode_
+    if lj_bc_mode_:
+        return lj_bc_mode_
+    lj_bc_mode_ = dbg.lookup_global('lj_bc_mode')
+    return lj_bc_mode_
+
+
+def bcmode_a(op):
+    return int(lj_bc_mode()[op] & 7)
+
+
+def bcmode_b(op):
+    return int((lj_bc_mode()[op] >> 3) & 15)
+
+
+def bcmode_cd(op):
+    return int((lj_bc_mode()[op] >> 7) & 15)
+
+
+# Unfortunately, there is no place in the VM except the generated
+# Lua table, where the bytecode names are stored. So duplicate
+# them here.
+BYTECODES = [
+    # Comparison ops. ORDER OPR.
+    'ISLT',
+    'ISGE',
+    'ISLE',
+    'ISGT',
+
+    'ISEQV',
+    'ISNEV',
+    'ISEQS',
+    'ISNES',
+    'ISEQN',
+    'ISNEN',
+    'ISEQP',
+    'ISNEP',
+
+    # Unary test and copy ops.
+    'ISTC',
+    'ISFC',
+    'IST',
+    'ISF',
+    'ISTYPE',
+    'ISNUM',
+    'MOV',
+    'NOT',
+    'UNM',
+    'LEN',
+    'ADDVN',
+    'SUBVN',
+    'MULVN',
+    'DIVVN',
+    'MODVN',
+
+    # Binary ops. ORDER OPR.
+    'ADDNV',
+    'SUBNV',
+    'MULNV',
+    'DIVNV',
+    'MODNV',
+
+    'ADDVV',
+    'SUBVV',
+    'MULVV',
+    'DIVVV',
+    'MODVV',
+
+    'POW',
+    'CAT',
+
+    # Constant ops.
+    'KSTR',
+    'KCDATA',
+    'KSHORT',
+    'KNUM',
+    'KPRI',
+    'KNIL',
+
+    # Upvalue and function ops.
+    'UGET',
+    'USETV',
+    'USETS',
+    'USETN',
+    'USETP',
+    'UCLO',
+    'FNEW',
+
+    # Table ops.
+    'TNEW',
+    'TDUP',
+    'GGET',
+    'GSET',
+    'TGETV',
+    'TGETS',
+    'TGETB',
+    'TGETR',
+    'TSETV',
+    'TSETS',
+    'TSETB',
+    'TSETM',
+    'TSETR',
+
+    # Calls and vararg handling. T = tail call.
+    'CALLM',
+    'CALL',
+    'CALLMT',
+    'CALLT',
+    'ITERC',
+    'ITERN',
+    'VARG',
+    'ISNEXT',
+
+    # Returns.
+    'RETM',
+    'RET',
+    'RET0',
+    'RET1',
+
+    # Loops and branches. I/J = interp/JIT.
+    # I/C/L = init/call/loop.
+    'FORI',
+    'JFORI',
+
+    'FORL',
+    'IFORL',
+    'JFORL',
+
+    'ITERL',
+    'IITERL',
+    'JITERL',
+
+    'LOOP',
+    'ILOOP',
+    'JLOOP',
+
+    'JMP',
+
+    # Function headers. I/J = interp/JIT.
+    # F/V/C = fixarg/vararg/C func.
+    'FUNCF',
+    'IFUNCF',
+    'JFUNCF',
+    'FUNCV',
+    'IFUNCV',
+    'JFUNCV',
+    'FUNCC',
+    'FUNCCW',
+]
+
+
+def proto_bc(proto):
+    return dbg.cast('BCIns *',
+                    dbg.cast('char *', proto) + dbg.sizeof('GCproto'))
+
+
+def proto_kgc(pt, idx):
+    return gcref(mref('GCRef *', pt['k'])[idx])
+
+
+def proto_knumtv(pt, idx):
+    return mref('TValue *', pt['k'])[idx]
+
+
 # Frames.
 
 
@@ -674,10 +885,6 @@ def frametypes(ft):
         FRAME['CONT']: 'M',
         FRAME['VARG']: 'V',
     }.get(ft, '?')
-
-
-def bc_a(ins):
-    return (ins >> 8) & 0xff
 
 
 def frame_ftsz(framelink):
@@ -1129,6 +1336,137 @@ def dump_gc(g):
     return '\n'.join(map(lambda s: '\t' + s, stats))
 
 
+def proto_loc(proto):
+    return '{chunk}:{firstline}'.format(
+        chunk=strdata(dbg.cast('GCstr *', gcval(proto['chunkname']))),
+        firstline=proto['firstline'],
+    )
+
+
+def funck(pt, idx):
+    if idx >= 0:
+        assert idx < pt['sizekn'], 'invalid idx for numeric constant in proto'
+        tv = proto_knumtv(pt, idx)
+        return dump_tvalue(tv)
+    else:
+        assert ~idx < pt['sizekgc'], 'invalid idx for GC constant in proto'
+        gcobj = proto_kgc(pt, idx)
+        if typenames(i2notu32(gcobj['gch']['gct'])) == 'LJ_TPROTO':
+            return proto_loc(dbg.cast('GCproto *', gcobj))
+        return dump_gcobj(gcobj)
+
+
+def funcuvname(pt, idx):
+    assert idx < pt['sizeuv'], 'invalid idx for upvalue in proto'
+    uvinfo = mref('uint8_t *', pt['uvinfo'])
+    if not uvinfo:
+        return ''
+
+    # if (idx) while (*uvinfo++ || --idx);
+    while idx > 0:
+        while uvinfo[0]:
+            uvinfo += 1
+        uvinfo += 1
+        idx -= 1
+
+    return 'upvalue {name} @ {addr}'.format(
+        name=dbg.cstr(dbg.cast('char *', uvinfo)),
+        addr=strx64(uvinfo)
+    )
+
+
+def dump_reg(rtype, value, jmp_format=None, jmp_ctx=None):
+    if rtype == 'jump':
+        # Destination of jump instruction encoded as offset from
+        # BCBIAS_J.
+        delta = value - 0x7fff
+        if jmp_format:
+            value = jmp_format(jmp_ctx, delta)
+        else:
+            prefix = '+' if delta >= 0 else ''
+            value = prefix + str(delta)
+    else:
+        value = '{:3d}'.format(value)
+
+    return '{rtype:6} {value}'.format(
+        rtype=rtype + ':',
+        value=value,
+    )
+
+
+def dump_kc(rtype, value, proto):
+    kc = ''
+    if proto:
+        if rtype == 'str' or rtype == 'func':
+            kc = funck(proto, ~value)
+        elif rtype == 'num':
+            kc = funck(proto, value)
+        elif rtype == 'uv':
+            kc = funcuvname(proto, value)
+
+        if kc != '':
+            kc = ' ; ' + kc
+    return kc
+
+
+def dump_bc(ins, jmp_format=None, jmp_ctx=None, proto=None):
+    op = bc_op(ins)
+    if op >= len(BYTECODES):
+        return 'INVALID'
+
+    bcname = BYTECODES[op]
+    bcma = bcmode_a(op)
+    bcmb = bcmode_b(op)
+    bcmcd = bcmode_cd(op)
+
+    kca = dump_kc(BCMODE[bcma], bc_a(ins), proto) if bcma else ''
+    kcc = dump_kc(
+        BCMODE[bcmcd], bc_c(ins) if bcmb else bc_d(ins), proto
+    ) if bcmcd else ''
+
+    return '{name:6} {ra}{rb}{rcd}{kc}'.format(
+        name=bcname,
+        ra=dump_reg(BCMODE[bcma], bc_a(ins)) + ' ' if bcma else '',
+        rb=dump_reg(BCMODE[bcmb], bc_b(ins)) + ' ' if bcmb else '',
+        rcd=dump_reg(
+            BCMODE[bcmcd], bc_c(ins) if bcmb else bc_d(ins),
+            jmp_format=jmp_format, jmp_ctx=jmp_ctx
+        ) if bcmcd else '',
+        kc=kca + kcc
+    )
+
+
+def dump_proto(proto):
+    startbc = proto_bc(proto)
+    func_loc = proto_loc(proto)
+    # Location has the following format: '{chunk}:{firstline}'.
+    dump = '{func_loc}-{lastline}\n'.format(
+        func_loc=func_loc,
+        lastline=proto['firstline'] + proto['numline'],
+    )
+
+    def jmp_format(npc_from, delta):
+        return '=> ' + str(npc_from + delta).zfill(4)
+
+    for bcnum in range(0, int(proto['sizebc'])):
+        dump += (str(bcnum).zfill(4) + ' ' + dump_bc(
+            startbc[bcnum], jmp_format=jmp_format, jmp_ctx=bcnum, proto=proto,
+        ) + '\n')
+    return dump
+
+
+def dump_func(func):
+    ffid = func['ffid']
+
+    if ffid == 0:
+        pt = funcproto(func)
+        return dump_proto(pt)
+    elif ffid == 1:
+        return 'C function @ {}\n'.format(strx64(func['f']))
+    else:
+        return 'fast function #{}\n'.format(int(ffid))
+
+
 # Extension commands. ############################################
 
 
@@ -1151,6 +1489,59 @@ compile-time flag to inspect if LuaJIT is built in dual-number mode.
                 LJ_DUALNUM=LJ_DUALNUM
             )
         )
+
+
+class LJDumpBC(dbg.LJBase):
+    '''
+lj-bc <BCIns *>
+
+The command receives a pointer to a bytecode instruction and dumps
+the type of the instruction and the values of RA, RB, and RC (or RD)
+virtual registers and their modes (operand types):
+
+<BCNAME>  <modeA>: <RA>
+<BCNAME>  <modeA>: <RA>  <modeB>: <RB>  <modeC>: <RC> ; <const> ; <uvname>
+<BCNAME>  <modeA>: <RA>  <modeD>: <RD>
+
+<BCNAME>: Name of the bytecode instruction
+<R[ABCD]>: The value of the R[ABCD] virtual register operand
+<mode[ABCD]>: The operand type for the R[ABCD] register
+<const>: The value of the constant associated with the operand, if any
+<uvname>: The name of the upvalue, if any
+
+For the list of bytecode names and modes (operand types), see:
+https://github.com/tarantool/tarantool/wiki/LuaJIT-Bytecodes.
+    '''
+
+    def execute(self, arg):
+        dbg.write('{}\n'.format(
+            dump_bc(dbg.cast('BCIns *', dbg.eval(arg))[0])
+        ))
+
+
+class LJDumpFunc(dbg.LJBase):
+    '''
+lj-func <GCfunc *>
+
+The command receives a <gcr> of the corresponding GCfunc object and dumps
+the chunk name, where the corresponding function is defined, the
+corresponding range of lines, and a list of bytecodes related to this
+function:
+
+<file>:<start>-<end>
+<bcnum>  <BC>
+...
+<bcnum>  <BC>
+
+<file>: The location of the corresponding function definition
+<start>: The number of the line where the function starts
+<end>: The number of the line where the function ends
+<bcnum>: The sequential number of the bytecode instruction
+<BC>: The encoded bytecode instruction. Type "help lj-bc" for details.
+    '''
+
+    def execute(self, arg):
+        dbg.write('{}'.format(dump_func(dbg.cast('GCfuncC *', dbg.eval(arg)))))
 
 
 class LJGC(dbg.LJBase):
@@ -1207,6 +1598,33 @@ error message occurs.
     def execute(self, arg):
         gcobj = dbg.cast('GCobj *', dbg.eval(arg))
         dbg.write('{}\n'.format(dump_gcobj(gcobj)))
+
+
+class LJDumpProto(dbg.LJBase):
+    '''
+lj-proto <GCproto *>
+
+The command receives a <gcr> of the corresponding GCproto object and dumps
+the chunk name, where the corresponding function is defined, the
+corresponding range of lines, and a list of bytecodes related to this
+function:
+
+<file>:<start>-<end>
+<bcnum>  <BC>
+...
+<bcnum>  <BC>
+
+<file>: The location of the corresponding function definition
+<start>: The number of the line where the function starts
+<end>: The number of the line where the function ends
+<bcnum>: The sequential number of the bytecode instruction
+<BC>: The encoded bytecode instruction. Type "help lj-bc" for details.
+    '''
+
+    def execute(self, arg):
+        dbg.write('{}'.format(
+            dump_proto(dbg.cast('GCproto *', dbg.eval(arg)))
+        ))
 
 
 class LJDumpStack(dbg.LJBase):
@@ -1369,8 +1787,11 @@ error message occurs.
 def load(event=None):
     dbg.initialize_extension({
         'lj-arch':  LJDumpArch,
+        'lj-bc':    LJDumpBC,
+        'lj-func':  LJDumpFunc,
         'lj-gc':    LJGC,
         'lj-gco':   LJDumpGCobj,
+        'lj-proto': LJDumpProto,
         'lj-stack': LJDumpStack,
         'lj-state': LJState,
         'lj-str':   LJDumpString,
