@@ -498,7 +498,8 @@ class _LLDBDebugger(Debugger):
         global LJ_64, LJ_DUALNUM, LJ_FR2, LJ_GC64
         IRT_P64 = 9
         module = self.target.modules[0]
-        LJ_DUALNUM = module.FindSymbol('lj_lib_checknumber') is not None
+        dualnum_sym = module.FindSymbol('lj_lib_checknumber')
+        LJ_DUALNUM = dualnum_sym is not None and dualnum_sym.IsValid()
         irtype_enum = self.target.FindFirstType('IRType').enum_members
         for member in irtype_enum:
             if member.name == 'IRT_PTR':
