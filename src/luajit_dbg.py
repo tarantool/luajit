@@ -1100,7 +1100,8 @@ lj-arch
 
 The command requires no args and dumps values of LJ_64 and LJ_GC64
 compile-time flags. These values define the sizes of host and GC
-pointers, respectively.
+pointers, respectively. Also, it dumps the value for the LJ_DUALNUM
+compile-time flag to inspect if LuaJIT is built in dual-number mode.
     '''
 
     def execute(self, arg):
