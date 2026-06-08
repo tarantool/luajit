@@ -307,7 +307,8 @@ int test_2_large_agg_a16(int x, large_agg_a16 s1, large_agg_a16 s2)
 	const int *v1 = s1.v;
 	const int *v2 = s2.v;
 	int sum = x;
-	for (int i = 0; i < lengthof(s1.v); i++) {
+	int i;
+	for (i = 0; i < lengthof(s1.v); i++) {
 		sum += v1[i] + v2[i];
 	}
 	return sum;
