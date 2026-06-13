@@ -242,9 +242,10 @@ LJLIB_CF(os_time)
     ts.tm_mon = getfield(L, "month", -1) - 1;
     ts.tm_year = getfield(L, "year", -1) - 1900;
     ts.tm_isdst = getboolfield(L, "isdst");
+    errno = 0;
     t = mktime(&ts);
   }
-  if (t == (time_t)(-1))
+  if (t == (time_t)(-1) && errno != 0)
     lua_pushnil(L);
   else
     lua_pushnumber(L, (lua_Number)t);
