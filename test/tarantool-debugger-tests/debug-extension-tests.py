@@ -46,7 +46,9 @@ else:
 RX_ADDR = r'0x[a-f0-9]+'
 RX_HASH = RX_ADDR  # The same pattern for hexademic values.
 RX_BCN = r'00\d\d'
+RX_IRN = RX_BCN  # The same as for the bytecodes.
 RX_FRAME = r'\[(S|\s)(B|\s)(T|\s)(M|\s)\]'
+RX_IRREF = r'0x\d\d\d\d'
 
 
 def persist(data):
@@ -101,11 +103,26 @@ IS_GC64 = execute_process([
     LUAJIT_BINARY, '-e', "print(require('ffi').abi('gc64'))"
 ]).strip() == 'true'
 
+# Regexp for pointer type in IR.
+RX_P = 'p64' if IS_GC64 else 'p32'
+
 # If it is the guaranteed DUALNUM build (for example, on aarch64),
 # we use this regexp for the guaranteed 'integer' check and
 # 'number' for single-number build.
 RX_INT = r'integer' if IS_DUALNUM else r'number'
 RX_ISDUALNUM = r'True' if IS_DUALNUM else r'False'
+
+
+# Assume not cross-platform debugging.
+machine = os.uname().machine
+if machine == 'x86_64':
+    RX_GPR = r'r\w\w'
+    RX_FPR = r'xmm\d+'
+elif machine == 'arm64' or machine == 'aarch64':
+    RX_GPR = r'x\d+'
+    RX_FPR = r'd\d+'
+else:
+    raise Exception('Unknown architecture in testing')
 
 
 class TestCaseBase(unittest.TestCase):
@@ -193,6 +210,16 @@ def mref(arg, tp):
             return '((' + tp + '*)(' + arg + ').ptr32)'
 
 
+def gcref(arg):
+    if SUPPORT_MACRO_EXPAND:
+        return 'gcref(' + arg + ')'
+    else:
+        if IS_GC64:
+            return '(' + arg + ').gcptr64'
+        else:
+            return '(' + arg + ').gcptr32'
+
+
 class TestLoad(TestCaseBase):
     extension_cmds = ''
     location = 'lj_cf_print'
@@ -203,11 +230,14 @@ class TestLoad(TestCaseBase):
         r'lj-func command initialized\n'
         r'lj-gc command initialized\n'
         r'lj-gco command initialized\n'
+        r'lj-ir command initialized\n'
+        r'lj-jslots command initialized\n'
         r'lj-proto command initialized\n'
         r'lj-stack command initialized\n'
         r'lj-state command initialized\n'
         r'lj-str command initialized\n'
         r'lj-tab command initialized\n'
+        r'lj-trace command initialized\n'
         r'lj-tv command initialized\n'
         r'LuaJIT debug extension is successfully loaded'
     )
@@ -470,6 +500,341 @@ class TestLJBC(TestCaseBase):
     pattern = (
         r'FUNCV  rbase:   \d\s*\n'
         r'JMP    rbase:   \d jump:  \+\d\n'
+    )
+
+
+# JIT engine.
+
+
+class TestLJTraceBase(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'for _ = 1, 4 do end\n'
+        'print()\n'
+    )
+    pattern = (
+        r'Trace 1 start\n'
+        r'\t*proto: ' + RX_ADDR + r'\n' +
+        r'\t*BC: ' + RX_ADDR + r'\n' +
+        r'---- TRACE IR\n' +
+        RX_IRN + r'\s+    int SLOAD  \[L \] lit: #[12]   lit: C?I\n' +
+        RX_IRN + r'\s+ \+ int ADD    \[C \] ref: ' + RX_IRN +
+                 r' ref: integer 1\n' +
+        RX_IRN + r'\s+ >  int LE     \[N \] ref: ' + RX_IRN +
+                 r' ref: integer 4\n' +
+        RX_IRN + r'\s+ >  --- LOOP   \[S \]\s*\n' +
+        RX_IRN + r'\s+ \+ int ADD    \[C \] ref: ' + RX_IRN +
+                 r' ref: integer 1\n' +
+        RX_IRN + r'\s+ >  int LE     \[N \] ref: ' + RX_IRN +
+                 r' ref: integer 4\n' +
+        RX_IRN + r'\s+    int PHI    \[S \] ref: ' + RX_IRN + r' ref: ' +
+                 RX_IRN + r'\n' +
+        RX_IRN + r'\s+        NOP    \[N \]\s*\n'
+    )
+
+
+# Check the IR enumeration correcness by test the lowest (LT) and
+# the highest (CARG) IRs. Also, checks CALL* occasionally.
+class TestLJTraceIRRange(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'ffi.cdef[[int getpid(int, int);]]\n'  # Use argument for testing.
+        'jit.opt.start("hotloop=1")\n'
+        'for i = 1, 4 do\n'
+        '  if i < 100 then\n'  # LT.
+        '    ffi.C.getpid(i, 1LL)\n'  # CARG and CALLXS.
+        '  end\n'
+        'end\n'
+        'print()\n'
+    )
+    # IRs from variant part of the trace.
+    pattern = (
+        RX_IRN + r'\s+ >  int LT     \[N \] ref: ' +
+                 RX_IRN + r' ref: integer 100\n' +
+        RX_IRN + r'\s+    nil CARG   \[N \] ref: ' +
+                 RX_IRN + r' ref: integer 1\n' +
+        RX_IRN + r'\s+    int CALLXS \[S \] \[' + RX_ADDR +
+                 r'\]\(\{' + RX_IRN + r'\}, \{integer 1\}\)'
+    )
+
+
+# Test /rs flags.
+class TestLJTraceFlags(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace /rs ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'local r = 0.1\n'
+        'for i = 1, 4 do\n'
+        '  r = i + r\n'
+        'end\n'
+        'print()\n'
+    )
+    # IRs and snapshot from variant part of the trace.
+    pattern = (
+        RX_IRN + r'\s+' + RX_FPR + r'\s* \+ num ADD.*\n' +
+        RX_IRN + r'\s+' + RX_GPR + r'\s* \+ int ADD.*\n' +
+        r'\.\.\.\.\s* SNAP   #\d   \[ (---- )*' + RX_IRN + r' \]'
+    )
+
+
+class TestLJIRConst(TestCaseBase):
+    location = 'trace_stop'
+
+    # No narrowing of 42.
+    if IS_DUALNUM:
+        # KNUM occupies 2 slots.
+        _knum_irnum = '6'
+        _kgc_irnum = '8' if IS_GC64 else '7'
+        _kptr_irnum = '10' if IS_GC64 else '8'
+    else:
+        # KNUM occupies 2 slots.
+        _knum_irnum = '8'
+        _kgc_irnum = '10' if IS_GC64 else '9'
+        _kptr_irnum = '12' if IS_GC64 else '10'
+    extension_cmds = (
+        'n\n'  # Load J.
+        'lj-ir &J->cur.ir[0x8000 - 0]\n'
+        'lj-ir &J->cur.ir[0x8000 - 1]\n'
+        'lj-ir &J->cur.ir[0x8000 - 2]\n'
+        'lj-ir &J->cur.ir[0x8000 - 3]\n'
+        'lj-ir &J->cur.ir[0x8000 - 4]\n'
+        # Skip non-DUALNUM narrowed value.
+        'lj-ir &J->cur.ir[0x8000 - ' + _knum_irnum + ']\n'
+        'lj-ir &J->cur.ir[0x8000 - ' + _kgc_irnum + ']\n'
+        'lj-ir &J->cur.ir[0x8000 - ' + _kptr_irnum + ']\n'
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'local function trace(x)\n'
+        '   return x + 42, x + 0.5, x .. "1"\n'
+        'end\n'
+        'trace(1)\n'
+        'trace(1)\n'
+    )
+    pattern = (
+        RX_P + r' BASE.*\n' +
+        r'\s* nil KPRI.*\n'
+        r'\s* fal KPRI.*\n'
+        r'\s* tru KPRI.*\n'
+        r'\s* int KINT.*cst: integer 42\s*\n'
+        r'\s* num KNUM.*cst: number 0.5\s*\n'
+        r'\s* str KGC.*cst: string "1".*\n' +
+        r'\s*' + RX_P + r' KPTR.*cst: \[' + RX_ADDR + r'\]'
+    )
+
+
+class TestLJIRFloadNeg(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'local function trace(a)\n'
+        '  local x = -a\n'
+        '  return x\n'
+        'end\n'
+        'trace(1.1)\n'
+        'trace(1.1)\n'
+        'print()\n'
+    )
+    pattern = (
+        r'num FLOAD .* ref: nil  lit: offsetof\(GG, J\.ksimd\[LJ_KSIMD_NEG\]\)'
+    )
+
+
+class TestLJIRFloadAbs(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'local math_abs = math.abs\n'
+        'local function trace(a)\n'
+        '  local x = math_abs(a)\n'
+        '  return x\n'
+        'end\n'
+        'trace(1)\n'
+        'trace(1)\n'
+        'print()\n'
+    )
+    pattern = (
+        r'num FLOAD .* ref: nil  lit: offsetof\(GG, J\.ksimd\[LJ_KSIMD_ABS\]\)'
+    )
+
+
+# XXX: Implemented only for GC64 in LuaJIT until backporting the
+# corresponding commit.
+if IS_GC64:
+    class TestLJIRFloadGCRootBaseMT(TestCaseBase):
+        location = 'lj_cf_print'
+        extension_cmds = (
+            'n\n'  # Load L.
+            'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+        )
+        lua_script = (
+            'jit.opt.start("hotloop=1")\n'
+            'local function trace(a)\n'
+            'local x = a.sub(1, 2)\n'
+            '  return x\n'
+            'end\n'
+            'trace("12")\n'
+            'trace("12")\n'
+            'print()\n'
+        )
+        pattern = (
+            r'tab FLOAD .* ref: nil  lit: '
+            r'offsetof\(GG, g\.gcroot\[GCROOT_BASEMT_STR\]\.gcptr64\)'
+        )
+
+    class TestLJIRFloadGCRootIO(TestCaseBase):
+        location = 'lj_cf_print'
+        extension_cmds = (
+            'n\n'  # Load L.
+            'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+        )
+        lua_script = (
+            'jit.opt.start("hotloop=1")\n'
+            'local io_flush = io.flush\n'
+            'local function trace()\n'
+            '  io_flush()\n'
+            'end\n'
+            'trace()\n'
+            'trace()\n'
+            'print()\n'
+        )
+        pattern = (
+            r'udt FLOAD .* ref: nil  lit: '
+            r'offsetof\(GG, g\.gcroot\[GCROOT_IO_OUTPUT\]\.gcptr64\)'
+        )
+
+
+# Some IRs related to tables.
+class TestLJIRTable(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'local function trace(t)\n'
+        '  t.a = nil\n'
+        '  t.b = 1\n'
+        '  return t\n'
+        'end\n'
+        'trace({a = 1})\n'
+        'trace({a = 1})\n'
+        'print()\n'
+    )
+    pattern = (
+        r'(?s)int FLOAD .* tab\.hmask\n'
+        r'.*' + RX_P + r' FLOAD .* tab\.node\n'
+        r'.*' + RX_P + r' HREFK .* string "a" @ ' + RX_ADDR +
+                       r' KSLOT: @\d\n'
+        r'.*' + RX_P + r' HREF .* string "b" @ ' + RX_ADDR + r'\s*\n'
+        r'.*' + RX_P + r' EQ .* \[g->nilnode\]'
+    )
+
+
+class TestLJIRUref(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'local uv = 0\n'
+        'local function trace(a)\n'
+        '  uv = a\n'
+        '  return uv\n'
+        'end\n'
+        'trace(1)\n'
+        'trace(1)\n'
+        'print()\n'
+    )
+    pattern = r'UREFO .* lit: #0'
+
+
+# Check border values (that always avalable) of CALL IRs.
+class TestLJIRCall(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'jit.opt.start("hotloop=1")\n'
+        'local function trace(a, b)\n'
+        '  return a < b, ffi.errno()\n'
+        'end\n'
+        'trace("abc", "abd")\n'
+        'trace("abc", "abd")\n'
+        'print(1)\n'
+    )
+    pattern = (
+        r'(?s)int CALLN .* '
+        r'lj_str_cmp\(\{' + RX_IRN + r'\}, \{' + RX_IRN + r'\}\)'
+        r'.*int CALLS .* lj_vm_errno\(\)'
+    )
+
+
+# Test ffi call with ctype stored in CARG.
+class TestLJIRCallXSCType(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + gcref('((GG_State *)L)->J->trace[1]')
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'ffi.cdef[[int printf(const char *fmt, ...);]]\n'
+        'jit.opt.start("hotloop=1")\n'
+        'local function trace()\n'
+        '  local t = ffi.C.printf("")\n'
+        '  return t\n'
+        'end\n'
+        'trace()\n'
+        'trace()\n'
+        'print()\n'
+    )
+    pattern = r'int CALLXS .* [' + RX_ADDR + r'\]\(.*\) ctype: \d+'
+
+
+class TestLJJSlotsBase(TestCaseBase):
+    location = 'trace_stop'
+    extension_cmds = (
+        'n\n'  # Load J.
+        'lj-jslots J->L\n'
+    )
+    lua_script = (
+        'jit.opt.start("hotloop=1")\n'
+        'for _ = 1, 4 do end\n'
+    )
+    pattern = (
+        r'(?s)(.*' +
+        RX_ADDR + ' ' + RX_IRN + r' (B|\s) \[(F|\s)(C|\s)\] \w\w\w ' +
+        RX_IRREF +
+        r'.*)+'
     )
 
 
