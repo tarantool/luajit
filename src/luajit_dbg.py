@@ -58,6 +58,26 @@ class Debugger(object):
             self.LLDB = True
             return super(Debugger, self).__new__(_LLDBDebugger)
 
+    def parse_flags(self, raw_flags, permitted_flags):
+        flags = {}
+        for flag in raw_flags:
+            if flag not in permitted_flags:
+                raise self.error('Unrecognized option: "{}"'.format(flag))
+            flags[flag] = True
+        return flags
+
+    def extract_flags(self, arg, permitted_flags):
+        if not arg:
+            return None, None
+        flags = {}
+        if arg.startswith('/'):
+            match = re.match(r'/(\S*)\s+(.*)$', arg)
+            if not match:
+                return arg, flags
+            raw_flags, arg = match.group(1, 2)
+            flags = self.parse_flags(raw_flags, permitted_flags)
+        return arg, flags
+
     def configure(self):
         global PADDING, LJ_TISNUM
         if not self.check_libluajit():
@@ -70,6 +90,17 @@ class Debugger(object):
             self.write('luajit_dbg.py failed to load: '
                        'no debugging symbols found for libluajit\n')
             return False
+
+        # Setup arch.
+        try:
+            self.arch = str(self.eval('LJ_ARCH_NAME')).split('"')[1]
+        except Exception:
+            try:
+                self.arch = self.detect_arch()
+            except Exception:
+                # Setup on demand if necessary.
+                pass
+
         return True
 
     def initialize_extension(self, commands):
@@ -100,7 +131,17 @@ class Debugger(object):
         pass
 
     @abc.abstractmethod
+    def address(self, obj):
+        '''Return the address in memory of the given object.'''
+        pass
+
+    @abc.abstractmethod
     def lookup_global(self, symbol):
+        '''Look up the global C symbol by the given name.'''
+        pass
+
+    @abc.abstractmethod
+    def member_by_offset(self, typename, offset, prev_name=None):
         '''Look up the global C symbol by the given name.'''
         pass
 
@@ -110,8 +151,19 @@ class Debugger(object):
         pass
 
     @abc.abstractmethod
+    def detect_arch(self):
+        '''Detect the CPU architecture and canonicalize it to the LuaJIT
+        notation.'''
+        pass
+
+    @abc.abstractmethod
     def write(self, msg):
         '''Print the message.'''
+        pass
+
+    @abc.abstractmethod
+    def error(self, msg):
+        '''Create the error object with message.'''
         pass
 
     @abc.abstractmethod
@@ -172,9 +224,49 @@ class _GDBDebugger(Debugger):
         # A string is printed with a pointer to it. Just strip it.
         return re.sub(r'^0x[a-f0-9]+\s+(?=")', '', str(strptr))
 
+    def address(self, obj):
+        return obj.address
+
     def lookup_global(self, symbol):
         variable, _ = gdb.lookup_symbol(symbol)
         return variable.value() if variable else None
+
+    def member_by_offset(self, tp, offset, prev_name=None):
+        if isinstance(tp, str):
+            tp = self._dbgtype(tp)
+        assert offset < tp.sizeof, 'offset is bigger than object size'
+        if tp.code == gdb.TYPE_CODE_TYPEDEF:
+            tp = tp.strip_typedefs()
+        if tp.code == gdb.TYPE_CODE_STRUCT:
+            fields = tp.fields()
+            for n_field in range(len(fields)):
+                islast = n_field == (len(fields) - 1)
+                field = fields[n_field]
+                start_field = field.bitpos / 8
+                end_field = fields[n_field + 1].bitpos / 8 if not islast \
+                    else tp.sizeof
+                if start_field <= offset and offset < end_field:
+                    next_name = self.member_by_offset(
+                        field.type,
+                        offset - start_field,
+                        prev_name=field.name
+                    )
+                    return '.{field}{suffix}'.format(
+                        field=field.name,
+                        suffix=next_name if next_name else ''
+                    )
+        elif tp.code == gdb.TYPE_CODE_ARRAY:
+            # Get array field type.
+            target = tp.target()
+            tsize = target.sizeof
+            idx = int(offset // tsize)
+            next_name = self.member_by_offset(target, offset - idx * tsize)
+            idxname = idx_name(prev_name)
+            if idxname and idx in idxname:
+                idx = idxname[idx]
+            return '[{}]{}'.format(idx, next_name if next_name else '')
+        else:
+            return None
 
     def eval(self, command):
         if not command:
@@ -185,8 +277,22 @@ class _GDBDebugger(Debugger):
             raise gdb.GdbError('table argument empty')
         return ret
 
+    def detect_arch(self):
+        if hasattr(self, 'arch'):
+            return self.arch
+        target = str(gdb.execute('info target', False, True))
+        if re.match('.*x86-64.*', target, flags=re.DOTALL):
+            return 'x64'
+        elif re.match('.*aarch64.*', target, flags=re.DOTALL):
+            return 'arm64'
+        else:
+            return ''
+
     def write(self, msg):
         gdb.write(msg)
+
+    def error(self, errmsg):
+        return gdb.GdbError(errmsg)
 
     def check_libluajit(self):
         # XXX Fragile: Though connecting the callback looks bad,
@@ -322,8 +428,26 @@ class _LLDBDebugger(Debugger):
         def lldb__getitem__(lldbval, key):
             if type(key) is lldb.value:
                 key = int(key)
+            if type(key) is bool:
+                key = int(key)
             if type(key) is int:
                 # Allow array access.
+                ltp = lldbval.sbvalue.GetType()
+                # XXX: LLDB in versions 17 - 19 can't use an array
+                # object as the initializer for `lldb.value` since
+                # `GetValue()` for it returns `None` leading to
+                # the invalid result. See
+                # https://github.com/llvm/llvm-project/pull/90144.
+                if (self.version < 17 or self.version > 19) or \
+                   ltp.GetTypeClass() != lldb.eTypeClassArray:
+                    pass
+                else:
+                    ptr_tp = ltp.GetArrayElementType().GetPointerType()
+                    lldbval = self._lldb_value_from_raw(
+                        lldbval.sbvalue.GetLoadAddress(),
+                        ptr_tp.GetByteSize(),
+                        ptr_tp
+                    )
                 if key >= 0 and not lldbval.sbvalue.TypeIsPointerType():
                     return lldb.value(
                         lldbval.sbvalue.GetValueForExpressionPath('[%i]' % key)
@@ -348,6 +472,9 @@ class _LLDBDebugger(Debugger):
 
         def lldb__gt__(lldbval, other):
             return int(lldbval) > int(other)
+
+        def lldb__index__(lldbval):
+            return int(lldbval)
 
         def lldb__le__(lldbval, other):
             return int(lldbval) <= int(other)
@@ -406,6 +533,7 @@ class _LLDBDebugger(Debugger):
         lldb.value.__ge__ = lldb__ge__
         lldb.value.__getitem__ = lldb__getitem__
         lldb.value.__gt__ = lldb__gt__
+        lldb.value.__index__ = lldb__index__
         lldb.value.__le__ = lldb__le__
         lldb.value.__lt__ = lldb__lt__
         lldb.value.__str__ = lldb__str__
@@ -474,6 +602,9 @@ class _LLDBDebugger(Debugger):
     def cstr(self, strptr):
         return strptr.sbvalue.summary
 
+    def address(self, obj):
+        return lldb.value(obj.sbvalue.address_of)
+
     def lookup_global(self, symbol):
         sbvalue = self.target.FindFirstGlobalVariable(symbol)
         tp = sbvalue.GetType()
@@ -492,6 +623,46 @@ class _LLDBDebugger(Debugger):
                 ptr_tp
             )
 
+    def member_by_offset(self, tp, offset, prev_name=None):
+        if isinstance(tp, str):
+            tp = self._dbgtype(tp)
+        assert offset < tp.GetByteSize(), 'offset is bigger than object size'
+        tp = tp.GetCanonicalType()
+        if tp.GetTypeClass() == lldb.eTypeClassStruct:
+            len_fields = tp.GetNumberOfFields()
+            for n_field in range(len_fields):
+                islast = n_field == (len_fields - 1)
+                field = tp.GetFieldAtIndex(n_field)
+                start_field = field.GetOffsetInBytes()
+                if not islast:
+                    end_field = tp.GetFieldAtIndex(
+                        n_field + 1
+                    ).GetOffsetInBytes()
+                else:
+                    end_field = tp.GetByteSize()
+                if start_field <= offset and offset < end_field:
+                    next_name = self.member_by_offset(
+                        field.GetType(),
+                        offset - start_field,
+                        prev_name=field.GetName()
+                    )
+                    return '.{field}{suffix}'.format(
+                        field=field.GetName(),
+                        suffix=next_name if next_name else ''
+                    )
+        elif tp.GetTypeClass() == lldb.eTypeClassArray:
+            # Get array field type.
+            target = tp.GetArrayElementType()
+            tsize = target.GetByteSize()
+            idx = int(offset // tsize)
+            next_name = self.member_by_offset(target, offset - idx * tsize)
+            idxname = idx_name(prev_name)
+            if idxname and idx in idxname:
+                idx = idxname[idx]
+            return '[{}]{}'.format(idx, next_name if next_name else '')
+        else:
+            return None
+
     def eval(self, command):
         if not command:
             return None
@@ -502,8 +673,22 @@ class _LLDBDebugger(Debugger):
         ret = frame.EvaluateExpression(command)
         return ret
 
+    def detect_arch(self):
+        if hasattr(self, 'arch'):
+            return self.arch
+        target = self.target.GetTriple().split('-')[0]
+        if target == 'x86_64':
+            return 'x64'
+        elif target == 'arm64' or target == 'aarch64':
+            return 'arm64'
+        else:
+            return ''
+
     def write(self, msg):
         sys.stdout.write(msg)
+
+    def error(self, errmsg):
+        return Exception(errmsg)
 
     def check_libluajit(self):
         # TODO: Implement postpone loading for LLDB too.
@@ -997,6 +1182,86 @@ def J(g):
     return dbg.cast('jit_State *', dbg.cast('char *', g) - g_offset + J_offset)
 
 
+# Matched `MMDEF(_)`.
+MM_NAMES = [
+    'index',
+    'newindex',
+    'gc',
+    'mode',
+    'eq',
+    'len',
+    'lt',
+    'le',
+    'concat',
+    'call',
+    'add',
+    'sub',
+    'mul',
+    'div',
+    'mod',
+    'pow',
+    'unm',
+    'metatable',
+    'tostring',
+    # TODO: depends on LJ_HASFFI, see `MMDEF_FFI(_)`.
+    'new',
+    # TODO: depends on LJ_52 || LJ_HASFFI, see `MMDEF_PAIRS(_)`.
+    'pairs',
+    'ipairs',
+]
+
+
+GCROOT_MMNAME = 0
+GCROOT_BASEMT = GCROOT_MMNAME + len(MM_NAMES)
+GCROOT_IO_INPUT = GCROOT_BASEMT + i2notu32(LJ_T['NUMX']) + 1
+GCROOT_IO_OUTPUT = GCROOT_IO_INPUT + 1
+
+
+# Get the name of the index in the predefined arrays.
+def idx_name(field_name):
+    # Don't use **{ to be compatible with Python 2.
+    gcroot = {}
+    gcroot.update({
+        i: 'GCROOT_MMNAME_' + MM_NAMES[i] for i in range(len(MM_NAMES))
+    })
+    gcroot.update({
+        i2notu32(LJ_T[k]) + GCROOT_BASEMT: 'GCROOT_BASEMT_' + k
+        for k in LJ_T.keys()
+    })
+    gcroot.update({
+        GCROOT_IO_INPUT:  'GCROOT_IO_INPUT',
+        GCROOT_IO_OUTPUT: 'GCROOT_IO_OUTPUT',
+    })
+    return {
+        # May be one of 2 slots depending on the result address.
+        'ksimd': {
+            0 * 2 + 0: 'LJ_KSIMD_ABS',
+            0 * 2 + 1: 'LJ_KSIMD_ABS',
+            1 * 2 + 0: 'LJ_KSIMD_NEG',
+            1 * 2 + 1: 'LJ_KSIMD_NEG',
+        },
+        'gcroot': gcroot,
+    }.get(field_name, None)
+
+
+ggfname_cache = {}
+
+
+# Get GG field name by given offset. Use in JIT dump.
+def ggfname_by_offset(offset):
+    if offset in ggfname_cache:
+        return ggfname_cache[offset]
+
+    field_path = dbg.member_by_offset('GG_State', offset)
+    if not field_path:
+        return None
+
+    # Remove first '.'.
+    ggfname = 'offsetof(GG, {})'.format(field_path[1:])
+    ggfname_cache[offset] = ggfname
+    return ggfname
+
+
 def vm_state(g):
     return {
         i2notu32(0): 'INTERP',
@@ -1085,6 +1350,559 @@ def lightudV(tv):
         return (int(segmap[seg]) << 32) | (u & LIGHTUD_LO_MASK)
     else:
         return gcval(tv['gcr'])
+
+
+# JIT engine.
+
+
+IRS = [
+    # Guarded assertions.
+    'LT',
+    'GE',
+    'LE',
+    'GT',
+
+    'ULT',
+    'UGE',
+    'ULE',
+    'UGT',
+
+    'EQ',
+    'NE',
+
+    'ABC',
+    'RETF',
+
+    # Miscellaneous ops.
+    'NOP',
+    'BASE',
+    'PVAL',
+    'GCSTEP',
+    'HIOP',
+    'LOOP',
+    'USE',
+    'PHI',
+    'RENAME',
+    'PROF',
+
+    # Constants.
+    'KPRI',
+    'KINT',
+    'KGC',
+    'KPTR',
+    'KKPTR',
+    'KNULL',
+    'KNUM',
+    'KINT64',
+    'KSLOT',
+
+    # Bit ops.
+    'BNOT',
+    'BSWAP',
+    'BAND',
+    'BOR',
+    'BXOR',
+    'BSHL',
+    'BSHR',
+    'BSAR',
+    'BROL',
+    'BROR',
+
+    # Arithmetic ops. ORDER ARITH
+    'ADD',
+    'SUB',
+    'MUL',
+    'DIV',
+    'MOD',
+    'POW',
+    'NEG',
+
+    'ABS',
+    'LDEXP',
+    'MIN',
+    'MAX',
+    'FPMATH',
+
+    # Overflow-checking arithmetic ops.
+    'ADDOV',
+    'SUBOV',
+    'MULOV',
+
+    # Memory ops. A = array, H = hash, U = upvalue, F = field,
+    # S = stack.
+
+    # Memory references.
+    'AREF',
+    'HREFK',
+    'HREF',
+    'NEWREF',
+    'UREFO',
+    'UREFC',
+    'FREF',
+    'STRREF',
+    'LREF',
+
+    # Loads and Stores. These must be in the same order.
+    'ALOAD',
+    'HLOAD',
+    'ULOAD',
+    'FLOAD',
+    'XLOAD',
+    'SLOAD',
+    'VLOAD',
+
+    'ASTORE',
+    'HSTORE',
+    'USTORE',
+    'FSTORE',
+    'XSTORE',
+
+    # Allocations.
+    'SNEW',
+    'XSNEW',
+    'TNEW',
+    'TDUP',
+    'CNEW',
+    'CNEWI',
+
+    # Buffer operations.
+    'BUFHDR',
+    'BUFPUT',
+    'BUFSTR',
+
+    # Barriers.
+    'TBAR',
+    'OBAR',
+    'XBAR',
+
+    # Type conversions.
+    'CONV',
+    'TOBIT',
+    'TOSTR',
+    'STRTO',
+
+    # Calls.
+    'CALLN',
+    'CALLA',
+    'CALLL',
+    'CALLS',
+    'CALLXS',
+    'CARG',
+]
+
+
+# Mode bits: Commutative, {Normal/Ref, Alloc, Load, Store},
+# Non-weak guard.
+IRM_BITS_W = 0x80
+IRM_BITS = {
+    0x00: 'N',
+    0x10: 'C',
+    0x20: 'A',
+    0x40: 'L',
+    0x60: 'S',
+}
+IRM_BITS_MASK = 0x70
+
+
+# IR operand mode (2 bit).
+IRM = [
+  'ref',
+  'lit',
+  'cst',
+  '',  # none
+]
+
+
+lj_ir_mode_ = None
+
+
+def lj_ir_mode():
+    global lj_ir_mode_
+    if lj_ir_mode_:
+        return lj_ir_mode_
+    lj_ir_mode_ = dbg.lookup_global('lj_ir_mode')
+    return lj_ir_mode_
+
+
+def ir_left(op):
+    return IRM[int(lj_ir_mode()[op] & 3)]
+
+
+def ir_right(op):
+    return IRM[int(lj_ir_mode()[op] >> 2 & 3)]
+
+
+def ir_mode(op):
+    irmode = int((lj_ir_mode()[op]))
+    isweak = not bool(irmode & IRM_BITS_W)
+    mode = IRM_BITS[irmode & IRM_BITS_MASK]
+    mode += 'W' if isweak else ''
+    return mode
+
+
+IRTYPES = [
+  'nil',
+  'fal',
+  'tru',
+  'lud',
+  'str',
+  'p32',
+  'thr',
+  'pro',
+  'fun',
+  'p64',
+  'cdt',
+  'tab',
+  'udt',
+  'flt',
+  'num',
+  'i8 ',
+  'u8 ',
+  'i16',
+  'u16',
+  'int',
+  'u32',
+  'i64',
+  'u64',
+  'sfp',
+]
+
+
+IRT_NUM = 14
+assert IRTYPES[IRT_NUM] == 'num', 'incorrect IRT_NUM definition'
+
+
+IRFIELDS = [
+    'str.len',
+    'func.env',
+    'func.pc',
+    'func.ffid',
+    'thread.env',
+    'tab.meta',
+    'tab.array',
+    'tab.node',
+    'tab.asize',
+    'tab.hmask',
+    'tab.nomm',
+    'udata.meta',
+    'udata.udtype',
+    'udata.file',
+    'cdata.ctypeid',
+    'cdata.ptr',
+    'cdata.int',
+    'cdata.int64',
+    'cdata.int64_4',
+]
+
+
+IRFPMS = [
+    'floor',
+    'ceil',
+    'trunc',
+    'sqrt',
+    'exp2',
+    'log',
+    'log2',
+    'other'
+]
+
+
+# Don't use *[ to be compatible with Python 2.
+REGISTERS = {
+    'x64': [
+        'rax',
+        'rcx',
+        'rdx',
+        'rbx',
+        'rsp',
+        'rbp',
+        'rsi',
+        'rdi',
+    ] + [
+        'r{}'.format(i) for i in range(8, 16)  # r8 .. r15
+    ] + [
+        'xmm{}'.format(i) for i in range(0, 16)  # xmm0 .. xmm15
+    ],
+    'arm64': [
+        'x{}'.format(i) for i in range(0, 31)  # x0 .. x30
+    ] + [
+        'sp'  # x31
+    ] + [
+        'd{}'.format(i) for i in range(0, 32)  # d0 .. d31
+    ]
+}
+
+
+IR_CALLS = [
+    'lj_str_cmp',
+    'lj_str_find',
+    'lj_str_new',
+    'lj_strscan_num',
+    'lj_strfmt_int',
+    'lj_strfmt_num',
+    'lj_strfmt_char',
+    'lj_strfmt_putint',
+    'lj_strfmt_putnum',
+    'lj_strfmt_putquoted',
+    'lj_strfmt_putfxint',
+    'lj_strfmt_putfnum_int',
+    'lj_strfmt_putfnum_uint',
+    'lj_strfmt_putfnum',
+    'lj_strfmt_putfstr',
+    'lj_strfmt_putfchar',
+    'lj_buf_putmem',
+    'lj_buf_putstr',
+    'lj_buf_putchar',
+    'lj_buf_putstr_reverse',
+    'lj_buf_putstr_lower',
+    'lj_buf_putstr_upper',
+    'lj_buf_putstr_rep',
+    'lj_buf_puttab',
+    'lj_buf_tostr',
+    'lj_tab_new_ah',
+    'lj_tab_new1',
+    'lj_tab_dup',
+    'lj_tab_clear',
+    'lj_tab_newkey',
+    'lj_tab_len',
+    'lj_gc_step_jit',
+    'lj_gc_barrieruv',
+    'lj_mem_newgco',
+    'lj_math_random_step',
+    'lj_vm_modi',
+    'log10',
+    'exp',
+    'sin',
+    'cos',
+    'tan',
+    'asin',
+    'acos',
+    'atan',
+    'sinh',
+    'cosh',
+    'tanh',
+    'fputc',
+    'fwrite',
+    'fflush',
+    'lj_vm_floor',
+    'lj_vm_ceil',
+    'lj_vm_trunc',
+    'sqrt',
+    'log',
+    'lj_vm_log2',
+    'pow',
+    'atan2',
+    'ldexp',
+    'lj_vm_tobit',
+    'softfp_add',
+    'softfp_sub',
+    'softfp_mul',
+    'softfp_div',
+    'softfp_cmp',
+    'softfp_i2d',
+    'softfp_d2i',
+    'lj_vm_sfmin',
+    'lj_vm_sfmax',
+    'lj_vm_tointg',
+    'softfp_ui2d',
+    'softfp_f2d',
+    'softfp_d2ui',
+    'softfp_d2f',
+    'softfp_i2f',
+    'softfp_ui2f',
+    'softfp_f2i',
+    'softfp_f2ui',
+    'fp64_l2d',
+    'fp64_ul2d',
+    'fp64_l2f',
+    'fp64_ul2f',
+    'fp64_d2l',
+    'fp64_d2ul',
+    'fp64_f2l',
+    'fp64_f2ul',
+    'lj_carith_divi64',
+    'lj_carith_divu64',
+    'lj_carith_modi64',
+    'lj_carith_modu64',
+    'lj_carith_powi64',
+    'lj_carith_powu64',
+    'lj_cdata_newv',
+    'lj_cdata_setfin',
+    'strlen',
+    'memcpy',
+    'memset',
+    'lj_vm_errno',
+    'lj_carith_mul64',
+    'lj_carith_shl64',
+    'lj_carith_shr64',
+    'lj_carith_sar64',
+    'lj_carith_rol64',
+    'lj_carith_ror64',
+]
+
+
+def regname(reg_number):
+    if not hasattr(dbg, 'arch'):
+        dbg.arch = dbg.detect_arch()
+    return REGISTERS[dbg.arch][reg_number]
+
+
+def litname_sload(mode):
+    modes_str = ''
+    modes_str += 'P' if mode & 0x1 else ''
+    modes_str += 'F' if mode & 0x2 else ''
+    modes_str += 'T' if mode & 0x4 else ''
+    modes_str += 'C' if mode & 0x8 else ''
+    modes_str += 'R' if mode & 0x10 else ''
+    modes_str += 'I' if mode & 0x20 else ''
+    return modes_str
+
+
+def litname_xload(mode):
+    flags = ['-', 'R', 'V', 'RV', 'U', 'RU', 'VU', 'RVU']
+    return flags[mode]
+
+
+def litname_conv(mode):
+    IRCONV_DSH = 5
+    IRCONV_CSH = 12
+    IRCONV_SEXT = 0x800
+    IRCONV_SRCMASK = 0x1f
+    conv_str = '{to}.{frm}'.format(
+        to=IRTYPES[(mode >> IRCONV_DSH) & IRCONV_SRCMASK],
+        frm=IRTYPES[mode & IRCONV_SRCMASK]
+    )
+    conv_str += ' sext' if mode & IRCONV_SEXT else ''
+    num2int_mode = mode >> IRCONV_CSH
+    if num2int_mode == 2:
+        conv_str += ' index'
+    elif num2int_mode == 3:
+        conv_str += ' check'
+    return conv_str
+
+
+def litname_irfield(mode):
+    if mode >= len(IRFIELDS):
+        return 'unknown irfield'
+    return IRFIELDS[mode]
+
+
+def litname_fpm(mode):
+    if mode >= len(IRFPMS):
+        return 'unknown irfpm'
+    return IRFPMS[mode]
+
+
+def litname_bufhdr(mode):
+    modes = ['RESET', 'APPEND']
+    if mode >= len(modes):
+        return 'unknown bufhdr mode'
+    return modes[mode]
+
+
+def litname_tostr(mode):
+    modes = ['INT', 'NUM', 'CHAR']
+    if mode >= len(modes):
+        return 'unknown tostr mode'
+    return modes[mode]
+
+
+IR_LITNAMES = {
+    'SLOAD':  litname_sload,
+    'XLOAD':  litname_xload,
+    'CONV':   litname_conv,
+    'FLOAD':  litname_irfield,
+    'FREF':   litname_irfield,
+    'FPMATH': litname_fpm,
+    'BUFHDR': litname_bufhdr,
+    'TOSTR':  litname_tostr
+}
+
+# Additional flags.
+IRT_MARK = 0x20  # Marker for misc. purposes.
+IRT_ISPHI = 0x40  # Instruction is left or right PHI operand.
+IRT_GUARD = 0x80  # Instruction is a guard.
+# Masks.
+IRT_TYPE = 0x1f
+
+RID_NONE = 0x80
+RID_MASK = 0x7f
+RID_INIT = (RID_NONE | RID_MASK)
+RID_SINK = (RID_INIT - 1)
+RID_SUNK = (RID_INIT - 2)
+# Spill slot 0 means no spill slot has been allocated.
+SPS_NONE = 0
+
+REF_BIAS = 0x8000
+REF_NIL = REF_BIAS - 1
+
+TREF_SHIFT = 24
+
+TREF_REFMASK = 0x0000ffff
+TREF_FRAME = 0x00010000
+TREF_CONT = 0x00020000
+# Snapshot flags and masks.
+SNAP_FRAME = 0x010000
+SNAP_NORESTORE = 0x040000
+SNAP_SOFTFPNUM = 0x080000
+
+SNAP_FR2_SLOT = (1 << TREF_SHIFT) | SNAP_FRAME | SNAP_NORESTORE + REF_NIL
+
+
+def irt_type(t):
+    return dbg.cast('IRType', t['irt'] & IRT_TYPE)
+
+
+def tref_type(tr):
+    return dbg.cast('IRType', (tr >> TREF_SHIFT) & IRT_TYPE)
+
+
+def tref_ref(tr):
+    return int(tr & TREF_REFMASK)
+
+
+def irt_ismarked(t):
+    return bool(t['irt'] & IRT_MARK)
+
+
+def irt_isphi(t):
+    return bool(t['irt'] & IRT_ISPHI)
+
+
+def irt_isguard(t):
+    return bool(t['irt'] & IRT_GUARD)
+
+
+def irt_toitype(irt):
+    t = irt_type(irt)
+    if LJ_DUALNUM and t > IRT_NUM:
+        return LJ_T['NUMX']
+    else:
+        return i2notu32(t)
+
+
+def ir_kptr(ir):
+    irname = IRS[ir['o']]
+    assert irname == 'KPTR' or irname == 'KKPTR', 'wrong IR for ir_kptr()'
+    return mref('void *', dbg.cast('IRIns *', dbg.address(ir))[LJ_GC64]['ptr'])
+
+
+def ir_kgc(ir):
+    irname = IRS[ir['o']]
+    assert irname == 'KGC', 'wrong IR for ir_kgc()'
+    return gcref(dbg.cast('IRIns *', dbg.address(ir))[LJ_GC64]['gcr'])
+
+
+def ir_knum(ir):
+    irname = IRS[ir['o']]
+    assert irname == 'KNUM', 'wrong IR for ir_knum()'
+    return dbg.address(dbg.cast('IRIns *', dbg.address(ir))[1]['tv'])
+
+
+def ir_kint64(ir):
+    irname = IRS[ir['o']]
+    assert irname == 'KINT64', 'wrong IR for ir_kint64()'
+    return dbg.address(dbg.cast('IRIns *', dbg.address(ir))[1]['tv'])
 
 
 # Dumpers.
@@ -1467,6 +2285,325 @@ def dump_func(func):
         return 'fast function #{}\n'.format(int(ffid))
 
 
+# JIT dumpers.
+
+
+def dump_call_func(trace, callop):
+    ctype = ''
+    if callop > 0:
+        ir = trace['ir'][REF_BIAS + callop]
+        if IRTYPES[irt_type(ir['t'])] == 'nil':  # nil == CARG(func, ctype)
+            callop = int(ir['op1']) - REF_BIAS
+            cdt_idx_irk = trace['ir'][ir['op2']]
+            assert IRS[cdt_idx_irk['o']] == 'KINT', \
+                   'unexpected IR for ctype storage'
+            ctype_idx = cdt_idx_irk['i']
+            ctype = 'ctype: {}'.format(ctype_idx)
+
+    func_str = ''
+    if callop < 0:
+        irk = trace['ir'][REF_BIAS + callop]
+        assert IRS[irk['o']] == 'KINT64', \
+               'unexpected IR for FFI function storage'
+        func_addr = int(ir_kint64(irk)['u64'])
+        # TODO: Symbol demangling.
+        func_str = '[{:#x}]'.format(func_addr)
+    else:
+        func_str = '[{:04d}]'.format(callop)
+
+    return func_str, ctype
+
+
+def dump_call_args(trace, ins):
+    if ins < 0:
+        return '{{{}}}'.format(dump_irk(trace, ins))
+    else:
+        ir = trace['ir'][REF_BIAS + ins]
+        irname = IRS[ir['o']]
+        if irname == 'CARG':
+            last_arg = ''
+            args = dump_call_args(trace, int(ir['op1']) - REF_BIAS)
+            op2 = int(ir['op2']) - REF_BIAS
+            if op2 < 0:
+                last_arg = '{{{}}}'.format(dump_irk(trace, op2))
+            else:
+                last_arg = '{{{:04d}}}'.format(op2)
+            return args + ', ' + last_arg
+        else:
+            return '{{{:04d}}}'.format(ins)
+
+
+# Special FP constant.
+CONST_BIAS = 2 ** 52 + 2 ** 51
+
+
+def dump_irk(trace, idx):
+    ref = idx + REF_BIAS
+    assert ref >= trace['nk'] and ref < REF_BIAS, 'bad constant in IR dump'
+    irins = trace['ir'][ref]
+    irname = IRS[irins['o']]
+    slot = ''
+    if irname == 'KSLOT':
+        slot = ' KSLOT: @{}'.format(int(irins['op2']))
+        irins = trace['ir'][irins['op1']]
+        irname = IRS[irins['o']]
+
+    irtype = irins['t']
+    if irname == 'KPRI':
+        typename = typenames(irt_toitype(irtype))
+        # Trivial dump for primitives.
+        irk = tv_dumpers.get(
+            typename, dump_lj_tv_invalid  # noqa: F821 # Generated.
+        )(0)
+    elif irname == 'KINT':
+        irk = 'integer {}'.format(dbg.cast('int32_t', irins['i']))
+    elif irname == 'KGC':
+        typename = typenames(irt_toitype(irtype))
+        irk = gco_dumpers.get(typename, dump_lj_gco_invalid)(ir_kgc(irins))
+    elif irname == 'KKPTR':
+        addr = ir_kptr(irins)
+        if addr == dbg.address(G(L())['nilnode']):
+            return '[g->nilnode]' + slot
+        irk = '[{}]'.format(strx64(addr))
+    elif irname == 'KPTR':
+        irk = '[{}]'.format(strx64(ir_kptr(irins)))
+    elif irname == 'KNULL':
+        irk = 'NULL'
+    elif irname == 'KNUM':
+        tv_num = ir_knum(irins)
+        if float(tv_num['n']) == CONST_BIAS:
+            return 'bias'
+        irk = dump_lj_tv_numx(tv_num)
+    elif irname == 'KINT64':
+        irk = 'int64_t {}'.format(dbg.cast(
+            'int64_t', int(ir_kint64(irins)['u64'])
+        ))
+    else:
+        return 'Unknown IRK: ' + irname
+    return irk + slot
+
+
+def dump_irins(irins, trace=None):
+    irop = int(irins['o'])
+    if irop >= len(IRS):
+        return 'INVALID'
+
+    irname = IRS[irop]
+    leftop = ir_left(irop)
+    rightop = ir_right(irop)
+    irt = irins['t']
+    is_sinksunk = irins['r'] == RID_SINK or irins['r'] == RID_SUNK
+    flags = '{is_sinksunk}{is_marked}{is_guard}{is_phi}'.format(
+        # Sink flag should be the first to match sink slots during
+        # the dump of registers.
+        is_sinksunk='}' if is_sinksunk else ' ',
+        is_marked='!' if irt_ismarked(irt) else ' ',
+        is_guard='>' if irt_isguard(irt) else ' ',
+        is_phi='+' if irt_isphi(irt) else ' '
+    )
+
+    if not trace:
+        g = G(L(None))
+        compiling = jit_state(g) != 'IDLE'
+        assert compiling, 'attempt to dump IR for J.cur trace in bad VM state'
+        trace = J(g)['cur']
+
+    left = ''
+    right = ''
+    lisref = leftop == 'ref'
+    risref = rightop == 'ref'
+    op1 = int((irins['op1'] - REF_BIAS) if lisref else irins['op1'])
+    op2 = int((irins['op2'] - REF_BIAS) if risref else irins['op2'])
+
+    skip_right = False
+    if re.match('CALL', irname):
+        ctype = ''
+        args = ''
+        if rightop == 'lit':
+            func = IR_CALLS[op2]
+        else:
+            func, ctype = dump_call_func(trace, op2)
+
+        if op1 != -1:
+            args = dump_call_args(trace, int(op1))
+
+        return '{flags} {type} {name:6} [{mode:2}] {f}({args}) {ct}\n'.format(
+            flags=flags,
+            name=irname,
+            mode=ir_mode(irop),
+            type=IRTYPES[irt_type(irt)],
+            ct=ctype,
+            args=args,
+            f=func,
+        )
+    elif irname == 'CNEW' and op2 == -1:
+        left = dump_irk(trace, op1)
+        skip_right = True
+    elif leftop:
+        if op1 < 0:
+            left = dump_irk(trace, op1)
+        elif leftop == 'cst':
+            idx = irins - dbg.address(trace['ir'][REF_BIAS])
+            left = dump_irk(trace, idx)
+        else:
+            left = ('{:04d}' if lisref else '#{:<3d}').format(op1)
+
+        if rightop:
+            if rightop == 'lit':
+                litname = IR_LITNAMES.get(irname, None)
+                if litname:
+                    # Try to handle `lj_ir_ggfload()`.
+                    ggfname = None
+                    if irname == 'FLOAD' and left == 'nil' \
+                       and op2 >= len(IRFIELDS):
+                        ggfname = ggfname_by_offset(op2 << 2)
+
+                    if ggfname:
+                        right = ggfname
+                    else:
+                        right = litname(op2)
+                elif irname == 'UREFO' or irname == 'UREFC':
+                    right = '#{:<3d}'.format(op2 >> 8)
+                else:
+                    right = '#{:<3d}'.format(op2)
+            elif op2 < 0:
+                right = dump_irk(trace, op2)
+            else:
+                right = ('{:04d}').format(op2)
+
+    typename = ''
+    if irname == 'LOOP':
+        typename = '---'
+    elif irname == 'NOP':
+        typename = '   '
+    else:
+        typename = IRTYPES[irt_type(irt)]
+
+    return '{flags} {type} {name:6} [{mode:2}] {left:<9s} {right}\n'.format(
+        flags=flags,
+        name=irname,
+        mode=ir_mode(irop),
+        type=typename,
+        left=(leftop + ': ' + left) if leftop else '',
+        right=(rightop + ': ' + right) if rightop and not skip_right else '',
+    )
+
+
+def dump_snap(trace, snapno, snap):
+    dump = 'SNAP   #{:<3d} ['.format(snapno)
+    snap_map = dbg.address(trace['snapmap'][snap['mapofs']])
+    snap_entry_num = 0
+    for slot in range(0, snap['nslots']):
+        dump += ' '
+        snap_entry = int(snap_map[snap_entry_num])
+        if snap_entry_num < snap['nent'] and snap_entry >> TREF_SHIFT == slot:
+            snap_entry_num += 1
+            ref = int((snap_entry & TREF_REFMASK) - REF_BIAS)
+            if ref < 0:
+                if int(snap_entry) == SNAP_FR2_SLOT:
+                    dump += '----'
+                    continue
+                elif (snap_entry & TREF_CONT):
+                    dump += 'contpc'
+                elif (snap_entry & TREF_FRAME):
+                    dump += 'ftsz '
+                else:
+                    dump += '{{{const}}}'.format(const=dump_irk(trace, ref))
+            elif snap_entry & SNAP_SOFTFPNUM:
+                dump += '{:04d}/{:04d}'.format(ref, ref + 1)
+            else:
+                dump += '{:04d}'.format(ref)
+
+            if snap_entry & SNAP_FRAME:
+                dump += '|'
+        else:
+            dump += '----'
+
+    dump += ' ]\n'
+    return dump
+
+
+def dump_sink_slot(rid, spill, ins_number):
+    assert rid == RID_SINK or rid == RID_SUNK, 'incorrect rid in sink dump'
+    tp = 'sink' if rid == RID_SINK else 'sunk'
+    return '{{{}'.format(tp) if spill == RID_INIT or spill == SPS_NONE \
+           else '{{{:04d}'.format(int(ins_number - spill))
+
+
+def dump_regsp(irins, ins_number):
+    rid = irins['r']
+    spill = irins['s']
+    if rid == RID_SINK or rid == RID_SUNK:
+        return dump_sink_slot(rid, spill, ins_number)
+    elif irins['prev'] > 255:
+        return '[{:#05x}]'.format(int(spill * 4))
+    elif rid < 128:
+        return regname(rid)
+    else:
+        return ''
+
+
+def dump_trace(trace, flags):
+    dump = 'Trace {num} start\n\tproto: {start_pt}\n\tBC: {start_bc}\n'.format(
+        num=trace['traceno'],
+        start_pt=gcref(trace['startpt']),
+        start_bc=mref('BCIns *', trace['startpc']),
+    )
+
+    nins = trace['nins'] - REF_BIAS
+    dump += '---- TRACE IR\n'
+    nsnap = 0
+    snap = trace['snap'][nsnap]
+    snapref = snap['ref']
+    for irnum in range(1, nins):
+        irref = REF_BIAS + irnum
+        if 's' in flags and irref >= snapref and nsnap < trace['nsnap']:
+            dump += '....          '
+            if 'r' in flags:
+                dump += ' ' * 7
+            dump += dump_snap(trace, nsnap, snap)
+            nsnap += 1
+            snap = trace['snap'][nsnap]
+            snapref = snap['ref']
+        dump += '{:04d} '.format(irnum)
+        if 'r' in flags:
+            dump += '{:>7}'.format(dump_regsp(trace['ir'][irref], irnum))
+        dump += dump_irins(trace['ir'][irref], trace)
+    return dump
+
+
+def dump_tref(tref):
+    return '[{F}{C}] {tp} {ref:#x}'.format(
+        F='F' if tref & TREF_FRAME else ' ',
+        C='C' if tref & TREF_CONT else ' ',
+        tp=IRTYPES[tref_type(tref)],
+        ref=tref_ref(tref)
+    )
+
+
+def dump_jslots(coroutine):
+    lstate = L(None)
+    g = G(lstate or coroutine)
+    j = J(g)
+
+    dump = ''
+    maxslot = j['baseslot'] + j['maxslot']
+    first_base_slot = 1 + LJ_FR2
+    for n in reversed(range(first_base_slot, maxslot)):
+        tref = j['slot'][n]
+        ref = tref_ref(tref)
+        address = dbg.address(tref)
+        dump += '{addr} {nslot:04d} {base:1s} {tref}{const}\n'.format(
+            addr=address,
+            base='B' if address == j['base'] else ' ',
+            nslot=n,
+            tref=dump_tref(tref),
+            const=' ' + dump_irk(j['cur'], ref - REF_BIAS)
+                if ref != 0 and ref < REF_BIAS else ''
+        )
+    return dump
+
+
 # Extension commands. ############################################
 
 
@@ -1598,6 +2735,42 @@ error message occurs.
     def execute(self, arg):
         gcobj = dbg.cast('GCobj *', dbg.eval(arg))
         dbg.write('{}\n'.format(dump_gcobj(gcobj)))
+
+
+class LJDumpIR(dbg.LJBase):
+    '''
+lj-ir <IRIns *>
+
+The command receives a pointer to <ir> (IRIns address) and dumps
+the IR type and some info related to it. The format is similar to
+the `jit.dump` tool but also provides information about IR mode and
+operands modes.
+
+For the list of IR names and modes (operand types), see:
+https://github.com/tarantool/tarantool/wiki/LuaJIT-SSA-IR.
+    '''
+
+    def execute(self, arg):
+        dbg.write('{}'.format(dump_irins(dbg.cast('IRIns *', dbg.eval(arg)))))
+
+
+class LJDumpJSlots(dbg.LJBase):
+    '''
+lj-jslots [<lua_State *>]
+
+The command receives an optional lua_State address and dumps the
+slots of JIT stack map:
+
+<slot ptr> <slot number> [<FRAME|CONTINUATION>] <IR reference>
+
+The lua_State pointer is optional to help in finding the VM's JIT state
+when there is no coroutine to be inspected in the debugged frame.
+    '''
+
+    def execute(self, arg):
+        dbg.write('{}'.format(
+            dump_jslots(dbg.cast('lua_State *', dbg.eval(arg)))
+        ))
 
 
 class LJDumpProto(dbg.LJBase):
@@ -1784,19 +2957,44 @@ error message occurs.
         dbg.write('{}\n'.format(dump_tvalue(tv)))
 
 
+class LJDumpTrace(dbg.LJBase):
+    '''
+lj-trace [/FLAGS] <GCtrace *>
+
+The command receives a pointer to <trace> (IRIns address) and dumps
+its number, IRs, and information about start location. The format is
+similar to the `jit.dump` tool but also provides information about
+IR mode and operands modes.
+
+Trace may be preceded with /FLAGS:
+* r: Dump registers associated with IR, if any.
+* s: Dump snapshots for the trace.
+    '''
+
+    def execute(self, arg):
+        arg, flags = dbg.extract_flags(arg, 'rs')
+        dbg.write('{}'.format(dump_trace(
+            dbg.cast('GCtrace *', dbg.eval(arg)),
+            flags
+        )))
+
+
 def load(event=None):
     dbg.initialize_extension({
-        'lj-arch':  LJDumpArch,
-        'lj-bc':    LJDumpBC,
-        'lj-func':  LJDumpFunc,
-        'lj-gc':    LJGC,
-        'lj-gco':   LJDumpGCobj,
-        'lj-proto': LJDumpProto,
-        'lj-stack': LJDumpStack,
-        'lj-state': LJState,
-        'lj-str':   LJDumpString,
-        'lj-tab':   LJDumpTable,
-        'lj-tv':    LJDumpTValue,
+        'lj-arch':   LJDumpArch,
+        'lj-bc':     LJDumpBC,
+        'lj-func':   LJDumpFunc,
+        'lj-gc':     LJGC,
+        'lj-gco':    LJDumpGCobj,
+        'lj-ir':     LJDumpIR,
+        'lj-jslots': LJDumpJSlots,
+        'lj-proto':  LJDumpProto,
+        'lj-stack':  LJDumpStack,
+        'lj-state':  LJState,
+        'lj-str':    LJDumpString,
+        'lj-tab':    LJDumpTable,
+        'lj-trace':  LJDumpTrace,
+        'lj-tv':     LJDumpTValue,
     })
 
 
