@@ -43,6 +43,8 @@ else:
     # Don't run any initialization scripts.
     RUN_CMD_FILE = ['--batch', '--nx', '--quiet', '--command']
 
+TEST_VERBOSE = os.getenv('DEBUGGER_TEST_VERBOSE', default=False)
+
 RX_ADDR = r'0x[a-f0-9]+'
 RX_HASH = RX_ADDR  # The same pattern for hexademic values.
 RX_BCN = r'00\d\d'
@@ -52,7 +54,7 @@ RX_IRREF = r'0x\d\d\d\d'
 
 
 def persist(data):
-    tmp = tempfile.NamedTemporaryFile(mode='w')
+    tmp = tempfile.NamedTemporaryFile(mode='w', delete=not TEST_VERBOSE)
     tmp.write(data)
     tmp.flush()
     return tmp
@@ -149,7 +151,12 @@ class TestCaseBase(unittest.TestCase):
             LUAJIT_BINARY,
             script_file.name,
         ]
+        if TEST_VERBOSE:
+            print('# Test name: {}'.format(cls.__name__))
+            print('# Test command: {}'.format(' '.join(process_cmd)))
         cls.output = execute_process(process_cmd)
+        if TEST_VERBOSE:
+            print('# Command output:\n{}'.format(cls.output))
         cmd_file.close()
         script_file.close()
 
