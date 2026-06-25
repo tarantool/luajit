@@ -229,6 +229,7 @@ LJLIB_CF(os_date)
 LJLIB_CF(os_time)
 {
   time_t t;
+  errno = 0;
   if (lua_isnoneornil(L, 1)) {  /* called without args? */
     t = time(NULL);  /* get current time */
   } else {
@@ -242,7 +243,6 @@ LJLIB_CF(os_time)
     ts.tm_mon = getfield(L, "month", -1) - 1;
     ts.tm_year = getfield(L, "year", -1) - 1900;
     ts.tm_isdst = getboolfield(L, "isdst");
-    errno = 0;
     t = mktime(&ts);
   }
   if (t == (time_t)(-1) && errno != 0)
