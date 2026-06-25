@@ -386,6 +386,8 @@ class _LLDBDebugger(Debugger):
             pack_flag = '<q'
         else:
             pack_flag = '<Q'
+            # Cast to 64-bit unsigned value in Python.
+            raw_value &= 0xffffffffffffffff
         raw_data = struct.pack(pack_flag, raw_value)
         sbdata = lldb.SBData()
         sbdata.SetData(
@@ -482,6 +484,9 @@ class _LLDBDebugger(Debugger):
         def lldb__lt__(lldbval, other):
             return int(lldbval) < int(other)
 
+        def lldb__or__(lldbval, other):
+            return int(lldbval) | int(other)
+
         def lldb__str__(lldbval):
             # Instead of default GetSummary.
             if not lldbval.sbvalue.TypeIsPointerType():
@@ -512,8 +517,8 @@ class _LLDBDebugger(Debugger):
                 lldbval_tp = sbval.GetType()
                 other_tp = osbval.GetType()
                 # Subtract pointers of the same size only.
-                elsz = lldbval_tp.GetDereferencedType().size
-                if other_tp.GetDereferencedType().size != elsz:
+                elsz = lldbval_tp.GetPointeeType().size
+                if other_tp.GetPointeeType().size != elsz:
                     raise Exception(
                         'Attempt to substruct {otp} from {stp}'.format(
                             stp=lldbval_tp.name,
@@ -536,6 +541,8 @@ class _LLDBDebugger(Debugger):
         lldb.value.__index__ = lldb__index__
         lldb.value.__le__ = lldb__le__
         lldb.value.__lt__ = lldb__lt__
+        lldb.value.__or__ = lldb__or__
+        lldb.value.__ror__ = lldb__or__  # Same semantics.
         lldb.value.__str__ = lldb__str__
         lldb.value.__sub__ = lldb__sub__
 
@@ -1352,6 +1359,121 @@ def lightudV(tv):
         return gcval(tv['gcr'])
 
 
+# FFI.
+
+
+# Externally visible types.
+CT_NUM = 0  # Integer or floating-point numbers.
+CT_STRUCT = 1  # Struct or union.
+CT_PTR = 2  # Pointer or reference.
+CT_ARRAY = 3  # Array or complex type.
+CT_MAYCONVERT = CT_ARRAY
+CT_VOID = 4  # Void type.
+CT_ENUM = 5  # Enumeration.
+CT_HASSIZE = CT_ENUM  # Last type where ct->size holds the actual size.
+CT_FUNC = 6  # Function.
+CT_TYPEDEF = 7  # Typedef.
+CT_ATTRIB = 8  # Miscellaneous attributes.
+
+# Common types.
+CTID_CTYPEID = 21
+
+# C type info flags.
+CTF_BOOL = 0x08000000  # Boolean: NUM, BITFIELD.
+CTF_FP = 0x04000000  # Floating-point: NUM.
+CTF_CONST = 0x02000000  # Const qualifier.
+CTF_VOLATILE = 0x01000000  # Volatile qualifier.
+CTF_UNSIGNED = 0x00800000  # Unsigned: NUM, BITFIELD.
+CTF_LONG = 0x00400000  # Long: NUM.
+CTF_VLA = 0x00100000  # Variable-length: ARRAY, STRUCT.
+CTF_REF = 0x00800000  # Reference: PTR.
+CTF_VECTOR = 0x08000000  # Vector: ARRAY.
+CTF_COMPLEX = 0x04000000  # Complex: ARRAY.
+CTF_UNION = 0x00800000  # Union: STRUCT.
+CTF_VARARG = 0x00800000  # Vararg: FUNC.
+CTF_SSEREGPARM = 0x00400000  # SSE register parameters: FUNC.
+
+CTF_UCHAR = CTF_UNSIGNED if int(dbg.cast('char', -1)) > 0 else 0
+
+CTMASK_ATTRIB = 255  # Max. 256 attributes.
+CTSHIFT_ATTRIB = 16
+
+# Attribute numbers.
+CTA_QUAL = 1  # Unmerged qualifiers.
+
+CTSHIFT_NUM = 28
+CTMASK_CID = 0x0000ffff
+CTMASK_NUM = 0xf0000000  # Max. 16 type numbers.
+
+# Special sizes.
+CTSIZE_INVALID = 0xffffffff
+DWORDSZ = 4
+QWORDSZ = 8
+
+
+# Implementation of the `CTINFO()` macro.
+def ctinfo(ct, flags):
+    return (tou32(ct) << CTSHIFT_NUM) + flags
+
+
+def ctype_type(info):
+    return info >> CTSHIFT_NUM
+
+
+def ctype_cid(info):
+    return info & CTMASK_CID
+
+
+def ctype_attrib(info):
+    return (info >> CTSHIFT_ATTRIB) & CTMASK_ATTRIB
+
+
+def ctype_isptr(info):
+    return ctype_type(info) == CT_PTR
+
+
+def ctype_isinteger(info):
+    return (info & (CTMASK_NUM | CTF_BOOL | CTF_FP)) == ctinfo(CT_NUM, 0)
+
+
+def ctype_iscomplex(info):
+    return (info & (CTMASK_NUM | CTF_COMPLEX)) == ctinfo(CT_ARRAY, CTF_COMPLEX)
+
+
+def ctype_isrefarray(info):
+    return (info & (CTMASK_NUM | CTF_VECTOR | CTF_COMPLEX)) == \
+           ctinfo(CT_ARRAY, 0)
+
+
+def ctype_child(cts, ctype):
+    return ctype_get(cts, ctype_cid(ctype['info']))
+
+
+def ctype_ctsG(g):
+    return mref('CTState *', g['ctype_state'])
+
+
+def ctype_get(cts, id):
+    return dbg.address(cts['tab'][id])
+
+
+# Get C type ID for a C type.
+def ctype_typeid(cts, ct):
+    return ct - cts['tab']
+
+
+def cdata_getptr(p, size):
+    if (LJ_64 and size == 4) or not LJ_64:
+        return dbg.cast('void *', dbg.cast('uint32_t *', p)[0])
+    else:
+        assert size == 8, 'incorrect pointer size'
+        return dbg.cast('void *', dbg.cast('uint64_t *', p)[0])
+
+
+def cdataptr(cd):
+    return dbg.cast('void *', (cd + 1))
+
+
 # JIT engine.
 
 
@@ -1955,7 +2077,26 @@ def dump_lj_gco_trace(gcobj):
 
 
 def dump_lj_gco_cdata(gcobj):
-    return 'cdata @ {}'.format(strx64(gcobj))
+    cdata = dbg.cast('struct GCcdata *', gcobj)
+    cts = ctype_ctsG(G(L()))
+    cid = cdata['ctypeid']
+    ctype = ctype_get(cts, cid)
+    info = ctype['info']
+    size = ctype['size']
+    value = ''
+    if ctype_iscomplex(info):
+        value = dump_cdata_val_complex(cdata, ctype)
+    elif size == 8 and ctype_isinteger(info):
+        value = dump_cdata_val_int64(cdata, ctype)
+    else:
+        value = cdataptr(cdata)
+        if ctype_isptr(info):
+            value = cdata_getptr(value, size)
+    return 'cdata @ {addr} {ctype} {value}'.format(
+        addr=strx64(gcobj),
+        ctype=dump_ctype(ctype),
+        value=value,
+    )
 
 
 def dump_lj_gco_tab(gcobj):
@@ -2285,6 +2426,177 @@ def dump_func(func):
         return 'fast function #{}\n'.format(int(ffid))
 
 
+# FFI dumpers.
+
+
+def dump_cdata_val_int64(cdata, ctype):
+    info = ctype['info']
+    isunsigned = info & CTF_UNSIGNED
+    cdataval = cdataptr(cdata)
+    valueptr = None
+    usuffix = ''
+    if isunsigned:
+        usuffix = 'U'
+        valueptr = dbg.cast('uint64_t *', cdataval)
+    else:
+        valueptr = dbg.cast('int64_t *', cdataval)
+    return str(valueptr[0]) + usuffix + 'LL'
+
+
+def dump_cdata_val_complex(cdata, ctype):
+    size = ctype['size']
+    cdataval = cdataptr(cdata)
+    casttype = None
+    if size == QWORDSZ * 2:
+        casttype = 'double *'
+    else:
+        assert size == DWORDSZ * 2, 'bad (complex float) size'
+        casttype = 'float *'
+    re = dbg.cast(casttype, cdataval)[0]
+    im = dbg.cast(casttype, cdataval)[1]
+    sign = '+' if im > 0 else ''
+    return '{re}{sign}{im}i'.format(re=re, im=im, sign=sign)
+
+
+def ctype_preplit(ctypestr, lit):
+    # Prevent extra space in the end of the string.
+    space = ' ' if ctypestr != '' else ''
+    return lit + space + ctypestr
+
+
+def ctype_prepqual(ctypestr, info):
+    if (info & CTF_VOLATILE):
+        ctypestr = ctype_preplit(ctypestr, 'volatile')
+    if (info & CTF_CONST):
+        ctypestr = ctype_preplit(ctypestr, 'const')
+    return ctypestr
+
+
+def ctype_preptype(cts, ctypestr, ctype, qual, tp):
+    nameref = gcref(ctype['name'])
+    if nameref:
+        ctypestr = ctype_preplit(ctypestr, re.sub('"', '', strdata(nameref)))
+    else:
+        ctypestr = ctype_preplit(ctypestr, str(ctype_typeid(cts, ctype)))
+    ctypestr = ctype_preplit(ctypestr, tp)
+    ctypestr = ctype_prepqual(ctypestr, qual)
+    return ctypestr
+
+
+# Partially moved the code from `ctype_repr()` here to make it
+# more readable.
+def ctype_prepnum(ctypestr, info, size):
+    if info & CTF_BOOL:
+        ctypestr = ctype_preplit(ctypestr, 'bool')
+    elif info & CTF_FP:
+        if size == QWORDSZ:
+            ctypestr = ctype_preplit(ctypestr, 'double')
+        elif size == DWORDSZ:
+            ctypestr = ctype_preplit(ctypestr, 'float')
+        else:
+            assert size == QWORDSZ * 2, 'bad (long double) size'
+            ctypestr = ctype_preplit(ctypestr, 'long double')
+    elif size == 1:
+        if not ((info ^ CTF_UCHAR) & CTF_UNSIGNED):
+            ctypestr = ctype_preplit(ctypestr, 'char')
+        elif CTF_UCHAR:
+            ctypestr = ctype_preplit(ctypestr, 'signed char')
+        else:
+            ctypestr = ctype_preplit(ctypestr, 'unsigned char')
+    elif size < 8:
+        if size == 4:
+            ctypestr = ctype_preplit(ctypestr, 'int')
+        else:
+            assert size == DWORDSZ // 2, 'bad (short) size'
+            ctypestr = ctype_preplit(ctypestr, 'short')
+        if info & CTF_UNSIGNED:
+            ctypestr = ctype_preplit(ctypestr, 'unsigned')
+    else:
+        size_t = '{u}int{sz}_t'.format(
+            u='u' if info & CTF_UNSIGNED else '',
+            sz=size * 8,
+        )
+        ctypestr = ctype_preplit(ctypestr, size_t)
+    return ctypestr
+
+
+def ctype_repr(cts, id):
+    ctype = ctype_get(cts, id)
+    ctypestr = ''
+    qual = 0
+    ptrto = 0
+    while True:
+        info = ctype['info']
+        size = ctype['size']
+        ctp = ctype_type(info)
+        if ctp == CT_NUM:
+            ctypestr = ctype_prepnum(ctypestr, info, size)
+            return ctype_prepqual(ctypestr, qual | info)
+        elif ctp == CT_VOID:
+            ctypestr = ctype_preplit(ctypestr, 'void')
+            return ctype_prepqual(ctypestr, qual | info)
+        elif ctp == CT_STRUCT:
+            tp = 'union' if (info & CTF_UNION) else 'struct'
+            return ctype_preptype(cts, ctypestr, ctype, qual, tp)
+        elif ctp == CT_ENUM:
+            if id == CTID_CTYPEID:
+                return ctype_preplit(ctypestr, 'ctype')
+            return ctype_preptype(cts, ctypestr, ctype, qual, 'enum')
+        elif ctp == CT_ATTRIB:
+            if ctype_attrib(info) == CTA_QUAL:
+                qual |= size
+        elif ctp == CT_PTR:
+            if info & CTF_REF:
+                ctypestr = ctype_preplit(ctypestr, '&')
+            else:
+                ctypestr = ctype_prepqual(ctypestr, qual | info)
+                if LJ_64 and size == 4:
+                    ctypestr = ctype_preplit(ctypestr, '__ptr32')
+                ctypestr = ctype_preplit(ctypestr, '*')
+            qual = 0
+            ptrto = 1
+        elif ctp == CT_ARRAY:
+            if ctype_isrefarray(info):
+                if ptrto:
+                    ptrto = 0
+                    ctypestr = '(' + ctypestr + ')'
+                arrsize = ''
+                if size != CTSIZE_INVALID:
+                    child_size = ctype_child(cts, ctype)['size']
+                    arrsize = str(int(size / child_size) if child_size > 0
+                                  else 0)
+                elif info & CTF_VLA:
+                    arrsize = '?'
+                ctypestr = ctypestr + '[{}]'.format(arrsize)
+            elif ctype_iscomplex(info):
+                if size == DWORDSZ * 2:
+                    ctypestr = ctype_preplit(ctypestr, 'float')
+                else:
+                    assert size == QWORDSZ * 2, 'bad (complex double) size'
+                return ctype_preplit(ctypestr, 'complex')
+            else:
+                ctypestr = ctype_preplit(
+                    ctypestr,
+                    '__attribute__((vector_size({})))'.format(size)
+                )
+        elif ctp == CT_FUNC:
+            if ptrto:
+                ptrto = 0
+                ctypestr = '(' + ctypestr + ')'
+            ctypestr += '()'
+        ctype = ctype_child(cts, ctype)
+
+
+def dump_ctype(ct):
+    cts = ctype_ctsG(G(L()))
+    cid = ctype_typeid(cts, ct)
+    name = ctype_repr(cts, cid)
+    return '[{id}] <{name}>'.format(
+        id=cid,
+        name=name,
+    )
+
+
 # JIT dumpers.
 
 
@@ -2298,7 +2610,8 @@ def dump_call_func(trace, callop):
             assert IRS[cdt_idx_irk['o']] == 'KINT', \
                    'unexpected IR for ctype storage'
             ctype_idx = cdt_idx_irk['i']
-            ctype = 'ctype: {}'.format(ctype_idx)
+            cts = ctype_ctsG(G(L()))
+            ctype = 'ctype: {}'.format(dump_ctype(ctype_get(cts, ctype_idx)))
 
     func_str = ''
     if callop < 0:
@@ -2656,6 +2969,20 @@ https://github.com/tarantool/tarantool/wiki/LuaJIT-Bytecodes.
         ))
 
 
+class LJDumpCType(dbg.LJBase):
+    '''
+lj-ctype <CType *>
+
+The command receives a pointer <ctype> of the corresponding CType
+and dumps the ID and the name for this C data type.
+    '''
+
+    def execute(self, arg):
+        dbg.write('{}\n'.format(
+            dump_ctype(dbg.cast('CType *', dbg.eval(arg)))
+        ))
+
+
 class LJDumpFunc(dbg.LJBase):
     '''
 lj-func <GCfunc *>
@@ -2983,6 +3310,7 @@ def load(event=None):
     dbg.initialize_extension({
         'lj-arch':   LJDumpArch,
         'lj-bc':     LJDumpBC,
+        'lj-ctype':  LJDumpCType,
         'lj-func':   LJDumpFunc,
         'lj-gc':     LJGC,
         'lj-gco':    LJDumpGCobj,

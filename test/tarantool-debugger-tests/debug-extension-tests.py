@@ -227,6 +227,7 @@ class TestLoad(TestCaseBase):
     pattern = (
         r'lj-arch command initialized\n'
         r'lj-bc command initialized\n'
+        r'lj-ctype command initialized\n'
         r'lj-func command initialized\n'
         r'lj-gc command initialized\n'
         r'lj-gco command initialized\n'
@@ -331,7 +332,7 @@ GCO_RX = (
     r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
     r'C function @ ' + RX_ADDR + r'\n'
     r'fast function #[0-9]+\n'
-    r'cdata @ ' + RX_ADDR + r'\n'
+    r'cdata @ ' + RX_ADDR + r' \[\d+\] <int \*> 0x0\n'
     r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
     r'userdata @ ' + RX_ADDR + r'\n'
 )
@@ -817,7 +818,9 @@ class TestLJIRCallXSCType(TestCaseBase):
         'trace()\n'
         'print()\n'
     )
-    pattern = r'int CALLXS .* [' + RX_ADDR + r'\]\(.*\) ctype: \d+'
+    pattern = (
+        r'int CALLXS .* [' + RX_ADDR + r'\]\(.*\) ctype: \[\d+\] <int \(\)>'
+    )
 
 
 class TestLJJSlotsBase(TestCaseBase):
@@ -836,6 +839,209 @@ class TestLJJSlotsBase(TestCaseBase):
         RX_IRREF +
         r'.*)+'
     )
+
+
+def cdata_rx(tpstr, suffix=None):
+    return r'cdata @ ' + RX_ADDR + r' \[\d+\] <' + tpstr + '> ' + (
+        RX_ADDR if not suffix else suffix
+    )
+
+
+CHAR_SIGNED = machine in ['arm64', 'aarch64'] and sys.platform != 'darwin'
+HAS_LONG_DOUBLE = not (machine in ['arm64', 'aarch64'] and
+                       sys.platform == 'darwin')
+
+
+class TestLJCTypePrim(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-tv L->base\n'
+        'lj-tv L->base + 1\n'
+        'lj-tv L->base + 2\n'
+        'lj-tv L->base + 3\n'
+        'lj-tv L->base + 4\n'
+        'lj-tv L->base + 5\n'
+        'lj-tv L->base + 6\n'
+        'lj-tv L->base + 7\n'
+        'lj-tv L->base + 8\n'
+        'lj-tv L->base + 9\n'
+        'lj-tv L->base + 10\n'
+        'lj-tv L->base + 11\n'
+        'lj-tv L->base + 12\n'
+        'lj-tv L->base + 13\n'
+        'lj-tv L->base + 14\n'
+        'lj-tv L->base + 15\n'
+        'lj-tv L->base + 16\n'
+        'lj-tv L->base + 17\n'
+        'lj-tv L->base + 18\n'
+        'lj-tv L->base + 19\n'
+        'lj-tv L->base + 20\n'
+        'lj-tv L->base + 21\n'
+        'lj-tv L->base + 22\n'
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'print(\n'
+        '  ffi.new("bool"),\n'
+        '  ffi.new("char"),\n'
+        '  ffi.new("signed char"),\n'
+        '  ffi.new("unsigned char"),\n'
+        '  ffi.new("int"),\n'
+        '  ffi.new("short"),\n'
+        '  ffi.new("unsigned"),\n'
+        '  ffi.new("int8_t"),\n'
+        '  ffi.new("int16_t"),\n'
+        '  ffi.new("int32_t"),\n'
+        '  ffi.new("int64_t"),\n'
+        '  ffi.new("uint8_t"),\n'
+        '  ffi.new("uint64_t"),\n'
+        '  ffi.new("float"),\n'
+        '  ffi.new("double"),\n'
+        '  ffi.new("long double"),\n'
+        '  1i,\n'
+        '  ffi.new("complex float", 1, -2),\n'
+        '  ffi.new("const volatile int"),\n'
+        '  ffi.new("void *"),\n'
+        '  ffi.new("void * __ptr32"),\n'
+        '  ffi.new("int &"),\n'
+        '  ffi.typeof(1LL)\n'
+        ')\n'
+    )
+    pattern = (
+        cdata_rx('bool') + r'\n' +
+        cdata_rx('char') + r'\n' +
+        cdata_rx(('signed ' if CHAR_SIGNED else '') + 'char') + r'\n' +
+        cdata_rx(('unsigned ' if not CHAR_SIGNED else '') + 'char') + r'\n' +
+        cdata_rx('int') + r'\n' +
+        cdata_rx('short') + r'\n' +
+        cdata_rx('unsigned int') + r'\n' +
+        cdata_rx(('signed ' if CHAR_SIGNED else '') + 'char') + r'\n' +
+        cdata_rx('short') + r'\n' +
+        cdata_rx('int') + r'\n' +
+        cdata_rx('int64_t', '0LL') + r'\n' +
+        cdata_rx(('unsigned ' if not CHAR_SIGNED else '') + 'char') + r'\n' +
+        cdata_rx('uint64_t', '0ULL') + r'\n' +
+        cdata_rx('float') + r'\n' +
+        cdata_rx('double') + r'\n' +
+        cdata_rx(('long ' if HAS_LONG_DOUBLE else '') + 'double') + r'\n' +
+        cdata_rx('complex', r'0\+1i') + r'\n' +
+        cdata_rx('complex float', '1-2i') + r'\n' +
+        cdata_rx('const volatile int') + r'\n' +
+        cdata_rx(r'void \*') + r'\n' +
+        cdata_rx(r'void \* __ptr32') + r'\n' +
+        cdata_rx('int &') + r'\n' +
+        cdata_rx('ctype') + r'\n'
+    )
+
+
+class TestLJCTypeStructUnionEnum(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-tv L->base\n'
+        'lj-tv L->base + 1\n'
+        'lj-tv L->base + 2\n'
+        'lj-tv L->base + 3\n'
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'ffi.cdef[[\n'
+        '  struct test {int a;};\n'
+        ']]\n'
+        'print(\n'
+        '  ffi.new("struct test"),\n'
+        '  ffi.new("struct {int a;}"),\n'
+        '  ffi.new("union {int a;}"),\n'
+        '  ffi.new("enum {ENUM1}")\n'
+        ')\n'
+    )
+    pattern = (
+        cdata_rx('struct test') + r'\n' +
+        cdata_rx(r'struct \d+') + r'\n' +
+        cdata_rx(r'union \d+') + r'\n' +
+        cdata_rx(r'enum \d+') + r'\n'
+    )
+
+
+class TestLJCTypeArray(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-tv L->base\n'
+        'lj-tv L->base + 1\n'
+        'lj-tv L->base + 2\n'
+        'lj-tv L->base + 3\n'
+        'lj-tv L->base + 4\n'
+        'lj-tv L->base + 5\n'
+        'lj-tv L->base + 6\n'
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'print(\n'
+        '  ffi.new("char [0]"),\n'
+        '  ffi.new("int [1]"),\n'
+        '  ffi.new("complex [2]"),\n'
+        '  ffi.new("complex float [3]"),\n'
+        '  ffi.new("float __attribute__((vector_size(4)))"),\n'
+        '  ffi.new("int (&)[5]"),\n'
+        '  ffi.new("int[?]", 6)\n'
+        ')\n'
+    )
+    pattern = (
+        cdata_rx(r'char \[0\]') + r'\n' +
+        cdata_rx(r'int \[1\]') + r'\n' +
+        cdata_rx(r'complex \[2\]') + r'\n' +
+        cdata_rx(r'complex float \[3\]') + r'\n' +
+        cdata_rx(r'float __attribute__\(\(vector_size\(4\)\)\)') + r'\n' +
+        cdata_rx(r'int \(&\)\[5\]') + r'\n' +
+        cdata_rx(r'int \[\?\]') + r'\n'
+    )
+
+
+class TestLJCTypeFunc(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-tv L->base\n'
+        'lj-tv L->base + 1\n'
+        'lj-tv L->base + 2\n'
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'ffi.cdef[[void getpid(void);]]\n'
+        'print(\n'
+        '  ffi.C.getpid,\n'
+        '  ffi.new("int (*)()"),\n'
+        '  ffi.new("int (*(*)(void))[2]")\n'
+        ')\n'
+    )
+    pattern = (
+        cdata_rx(r'void \(\)') + r'\n' +
+        cdata_rx(r'int \(\*\)\(\)') + r'\n' +
+        cdata_rx(r'int \(\* \(\*\)\(\)\)\[2\]') + r'\n'
+    )
+
+
+class TestLJCTypeBase(TestCaseBase):
+    location = 'lj_cf_ffi_new'
+    extension_cmds = (
+        # Load `ct`. Skip inlined functions for LLDB. The skip is
+        # harmless for GDB since we are still in the body of the
+        # function.
+        'n\n'
+        'n\n'
+        'n\n'
+        'n\n'
+        'n\n'
+        'n\n'
+        'lj-ctype ct\n'
+    )
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'ffi.new("int")\n'
+    )
+    pattern = r'\[\d+\] <int>'
 
 
 for test_cls in TestCaseBase.__subclasses__():
