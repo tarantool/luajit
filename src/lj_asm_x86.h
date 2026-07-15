@@ -2736,8 +2736,9 @@ static void asm_stack_restore(ASMState *as, SnapShot *snap)
 	  emit_i32(as, -1);
 	  emit_rmro(as, XO_MOVmi, REX_64, RID_BASE, ofs);
 	} else {
-	  emit_movmroi(as, RID_BASE, ofs+4, k.u32.hi);
-	  emit_movmroi(as, RID_BASE, ofs, k.u32.lo);
+	  Reg tmp = ra_scratch(as, rset_exclude(RSET_GPR, RID_BASE));
+	  emit_rmro(as, XO_MOVto, tmp|REX_64, RID_BASE, ofs);
+	  emit_loadu64(as, tmp, k.u64);
 	}
 #else
       } else if (!irt_ispri(ir->t)) {
