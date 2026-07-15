@@ -1067,10 +1067,11 @@ static void asm_tvptr(ASMState *as, Reg dest, IRRef ref)
     /* Otherwise use g->tmptv to hold the TValue. */
 #if LJ_GC64
     if (irref_isk(ref)) {
+      Reg tmp = ra_scratch(as, rset_exclude(RSET_GPR, dest));
       TValue k;
       lj_ir_kvalue(as->J->L, &k, ir);
-      emit_movmroi(as, dest, 4, k.u32.hi);
-      emit_movmroi(as, dest, 0, k.u32.lo);
+      emit_rmro(as, XO_MOVto, tmp|REX_64, dest, 0);
+      emit_loadu64(as, tmp, k.u64);
     } else {
       /* TODO: 64 bit store + 32 bit load-modify-store is suboptimal. */
       Reg src = ra_alloc1(as, ref, rset_exclude(RSET_GPR, dest));
@@ -2736,8 +2737,9 @@ static void asm_stack_restore(ASMState *as, SnapShot *snap)
 	  emit_i32(as, -1);
 	  emit_rmro(as, XO_MOVmi, REX_64, RID_BASE, ofs);
 	} else {
-	  emit_movmroi(as, RID_BASE, ofs+4, k.u32.hi);
-	  emit_movmroi(as, RID_BASE, ofs, k.u32.lo);
+	  Reg tmp = ra_scratch(as, rset_exclude(RSET_GPR, RID_BASE));
+	  emit_rmro(as, XO_MOVto, tmp|REX_64, RID_BASE, ofs);
+	  emit_loadu64(as, tmp, k.u64);
 	}
 #else
       } else if (!irt_ispri(ir->t)) {
