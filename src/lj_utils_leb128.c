@@ -105,7 +105,7 @@ size_t LJ_FASTCALL lj_utils_write_leb128(uint8_t *buffer, int64_t value)
   size_t i = 0;
 
   /* LEB_SIGN_BIT propagation to check the remaining value. */
-  while ((uint64_t)(value + LEB_SIGN_BIT) >= MIN_TWOBYTE_VALUE) {
+  while ((uint64_t)value + LEB_SIGN_BIT >= MIN_TWOBYTE_VALUE) {
     buffer[i++] = (uint8_t)((value & PAYLOAD_MASK) | LINK_BIT);
     value >>= SHIFT_STEP;
   }
