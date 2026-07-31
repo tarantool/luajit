@@ -17,7 +17,8 @@ else()
   list(APPEND LUAJIT_TESTS_ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}")
 endif()
 
-if(LUAJIT_USE_ASAN)
+if(LUAJIT_USE_ASAN AND NOT
+   CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   # When running LuaJIT-tests under ASAN, the internal ASAN check
   # failed:
   # AddressSanitizer: CHECK failed: asan_interceptors.cpp:356
