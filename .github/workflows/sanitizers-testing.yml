@@ -31,17 +31,41 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # XXX: Let's start with only Linux/x86_64
+        ARCH: [ARM64, x86_64]
         BUILDTYPE: [Debug, Release]
-        CC: [gcc-10, clang-11]
+        OS: [Linux, macOS]
+        # There are different top-level versions available for Linux and macOS runners.
+        CC: [gcc-10, clang-11, gcc-15, clang-21]
         include:
           - BUILDTYPE: Debug
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=Debug -DLUA_USE_ASSERT=ON -DLUA_USE_APICHECK=ON
           - BUILDTYPE: Release
             CMAKEFLAGS: -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    runs-on: [self-hosted, regular, Linux, x86_64]
+        exclude:
+          # On current runners with Linux/ARM64 environment and
+          # with LUAJIT_USE_SYSMALLOC=ON the system allocator returns addresses
+          # with 48-bit set. Thus checkptrGC() fails with new Lua state pointer
+          # and luajit fails to start with 'cannot create state: not enough memory'
+          # error. So, we exclude these cases.
+          - ARCH: ARM64
+            OS: Linux
+          # Exclude nonsuitable OS/compiler pairs.
+          - OS: macOS
+            CC: gcc-10
+          - OS: macOS
+            CC: clang-11
+          - OS: Linux
+            CC: gcc-15
+          - OS: Linux
+            CC: clang-21
+          # Exclude macOS/ARM64/gcc case due to some tests are failed.
+          # Details: https://github.com/tarantool/tarantool/issues/13018
+          - ARCH: ARM64
+            OS: macOS
+            CC: gcc-15
+    runs-on: [self-hosted, regular, '${{ matrix.OS }}', '${{ matrix.ARCH }}']
     name: >
-      LuaJIT with ASan and UBSan (Linux/x86_64)
+      LuaJIT with ASan and UBSan (${{ matrix.OS }}/${{ matrix.ARCH }})
       ${{ matrix.BUILDTYPE }}
       CC:${{ matrix.CC }}
       GC64:ON SYSMALLOC:ON
@@ -51,7 +75,13 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: setup Linux for sanitizers
-        uses: ./.github/actions/setup-sanitizers
+        if: ${{ matrix.OS == 'Linux' }}
+        uses: ./.github/actions/setup-sanitizers-linux
+        with:
+          cc_name: ${{ matrix.CC }}
+      - name: setup macOS for sanitizers
+        if: ${{ matrix.OS == 'macOS' }}
+        uses: ./.github/actions/setup-sanitizers-macos
         with:
           cc_name: ${{ matrix.CC }}
       - name: configure
@@ -70,18 +100,27 @@ jobs:
           cmake -S . -B ${{ env.BUILDDIR }}
           -G Ninja
           ${{ matrix.CMAKEFLAGS }}
+          -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+          -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
           -DLUAJIT_ENABLE_GC64=ON
           -DLUAJIT_USE_ASAN=ON
           -DLUAJIT_USE_SYSMALLOC=ON
           -DLUAJIT_USE_UBSAN=ON
+      - name: Check for possible compiler misconfig
+        working-directory: ${{ env.BUILDDIR }}
+        env:
+          CC_NAME: ${{ matrix.CC }}
+        run: grep CMakeCache.txt -e CMAKE_C_COMPILER:STRING | grep ${CC_NAME}
       - name: build
         run: cmake --build . --parallel
         working-directory: ${{ env.BUILDDIR }}
-      - name: test
+
+      # Enable as much checks as possible. See more info here:
+      # https://github.com/google/sanitizers/wiki/AddressSanitizerFlags,
+      # https://github.com/google/sanitizers/wiki/SanitizerCommonFlags.
+      - name: setup sanitizer options for Linux
+        if: ${{ matrix.OS == 'Linux' }}
         env:
-          # Enable as much checks as possible. See more info here:
-          # https://github.com/google/sanitizers/wiki/AddressSanitizerFlags,
-          # https://github.com/google/sanitizers/wiki/SanitizerCommonFlags.
           ASAN_OPTIONS: "                    \
             detect_invalid_pointer_pairs=1:  \
             detect_leaks=1:                  \
@@ -95,5 +134,49 @@ jobs:
           UBSAN_OPTIONS: "
             print_stacktrace=1 \
           "
+        run: |
+          echo ASAN_OPTIONS=${ASAN_OPTIONS} | tee -a $GITHUB_ENV
+          echo UBSAN_OPTIONS=${UBSAN_OPTIONS} | tee -a $GITHUB_ENV
+      - name: setup sanitizer options for macOS (common)
+        if: ${{ matrix.OS == 'macOS' && matrix.ARCH != 'ARM64' && matrix.CC != 'clang-21' }}
+        env:
+          ASAN_OPTIONS: "                    \
+            detect_invalid_pointer_pairs=1:  \
+            detect_leaks=1:                  \
+            detect_stack_use_after_return=1: \
+            dump_instruction_bytes=1:        \
+            heap_profile=0:                  \
+            print_suppressions=0:            \
+            symbolize=1:                     \
+            unmap_shadow_on_exit=1:          \
+          "
+          UBSAN_OPTIONS: "
+            print_stacktrace=1 \
+          "
+        run: |
+          echo ASAN_OPTIONS=${ASAN_OPTIONS} | tee -a $GITHUB_ENV
+          echo UBSAN_OPTIONS=${UBSAN_OPTIONS} | tee -a $GITHUB_ENV
+      - name: setup sanitizer options for macOS (ARM64/clang-21)
+        if: ${{ matrix.OS == 'macOS' && matrix.ARCH == 'ARM64' && matrix.CC == 'clang-21' }}
+        # detect_leaks is disabled due to some tests build is failed.
+        # Details: https://github.com/tarantool/tarantool/issues/13019
+        env:
+          ASAN_OPTIONS: "                    \
+            detect_invalid_pointer_pairs=1:  \
+            detect_leaks=0:                  \
+            detect_stack_use_after_return=1: \
+            dump_instruction_bytes=1:        \
+            heap_profile=0:                  \
+            print_suppressions=0:            \
+            symbolize=1:                     \
+            unmap_shadow_on_exit=1:          \
+          "
+          UBSAN_OPTIONS: "
+            print_stacktrace=1 \
+          "
+        run: |
+          echo ASAN_OPTIONS=${ASAN_OPTIONS} | tee -a $GITHUB_ENV
+          echo UBSAN_OPTIONS=${UBSAN_OPTIONS} | tee -a $GITHUB_ENV
+      - name: test
         run: cmake --build . --parallel --target LuaJIT-test
         working-directory: ${{ env.BUILDDIR }}

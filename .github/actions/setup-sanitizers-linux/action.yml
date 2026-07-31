@@ -17,16 +17,20 @@ runs:
         NPROC=$(nproc)
         echo CMAKE_BUILD_PARALLEL_LEVEL=$(($NPROC + 1)) | tee -a $GITHUB_ENV
       shell: bash
-    - name: Install build and test dependencies
+    - name: Install build and test dependencies. List available compilers.
       run: |
         apt -y update
+        echo Available compilers:
+        export CC_FAMILY=`echo ${CC_NAME} | sed 's/-.*$//'`
+        apt list | grep -Pe "^${CC_FAMILY}-[0-9]+/"
+        # Try to install
         apt -y install ${CC_NAME} libstdc++-10-dev cmake ninja-build make perl
       shell: bash
       env:
         CC_NAME: ${{ inputs.cc_name }}
-    - name: Set specific C compiler as a default toolchain
+    - name: Set specific C compiler as a default toolchain for CMake.
       run: |
-        echo CC=${CC_NAME} | tee -a $GITHUB_ENV
+        echo CMAKE_C_COMPILER=${CC_NAME} | tee -a $GITHUB_ENV
       shell: bash
       env:
         CC_NAME: ${{ inputs.cc_name }}

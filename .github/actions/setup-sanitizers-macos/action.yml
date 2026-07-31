@@ -1,0 +1,50 @@
+name: Setup CI environment for testing with sanitizers on macOS
+description: Common part to tweak macOS CI runner environment for sanitizers
+inputs:
+  cc_name:
+    description: C compiler name (for example, gcc-12)
+    required: false
+    default: clang-21
+runs:
+  using: composite
+  steps:
+    - name: Setup CI environment on macOS
+      uses: ./.github/actions/setup-macos
+    - name: Get compiler version from cc_name
+      shell: bash
+      env:
+        CC_NAME: ${{ inputs.cc_name }}
+      run: |
+        echo CC_VERSION=`echo ${CC_NAME} | sed 's/.*-//'` | tee -a $GITHUB_ENV
+    - name: Get brew formula from cc_name. List available compilers.
+      shell: bash
+      env:
+        CC_FORMULA_NAME: |-
+          ${{ case(
+            startsWith(inputs.cc_name, 'gcc'), 'gcc',
+            startsWith(inputs.cc_name, 'clang'), 'llvm',
+            'MISCONFIG'
+          ) }}
+      run: |
+        echo CC_FORMULA=${CC_FORMULA_NAME}@${CC_VERSION} | tee -a $GITHUB_ENV
+        echo Available formulas: `brew search ${CC_FORMULA_NAME}`
+    - name: Install specified compiler
+      shell: bash
+      run: |
+        # Try to install the packages either upgrade it to avoid
+        # of fails if the package already exists with the previous
+        # version.
+        brew install --force ${CC_FORMULA} || brew upgrade ${CC_FORMULA}
+    - name: Set specific C compiler as a default toolchain for CMake.
+      shell: bash
+      env:
+        CC_NAME: ${{ inputs.cc_name }}
+      run: |
+        echo CMAKE_C_COMPILER=${CC_NAME} | tee -a $GITHUB_ENV
+        echo CMAKE_PREFIX_PATH="`brew --prefix ${CC_FORMULA}`" | tee -a $GITHUB_ENV
+    - name: Log installed compilers
+      shell: bash
+      run: |
+        echo default clang: `clang --version`
+        echo default gcc: `gcc --version`
+        echo cmake compiler: `${CMAKE_PREFIX_PATH}/bin/${CMAKE_C_COMPILER} --version`
