@@ -3,6 +3,7 @@ name: Performance
 on:
   push:
     branches-ignore:
+      - '**-notest'
       - '**-noperf'
       - 'tarantool/release/**'
       - 'upstream-**'
