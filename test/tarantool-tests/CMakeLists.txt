@@ -183,7 +183,8 @@ endforeach()
 # required that the ASan library go first in the `LD_PRELOAD`
 # list. Set it manually. The test will append it to the executed
 # process.
-if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+if(LUAJIT_USE_ASAN AND CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT
+   CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   LibRealPath(LIB_ASAN libasan.so)
   AppendTestEnvVar(
     "test/${TEST_SUITE_NAME}/lj-522-fix-dlerror-return-null.test.lua"
