@@ -32,6 +32,9 @@ runs:
         # Try to install the packages either upgrade it to avoid
         # of fails if the package already exists with the previous
         # version.
-        brew install --force cmake gcc make ninja perl ||
-          brew upgrade cmake gcc make ninja perl
+        # Skip GCC installation because the 'builtin' Clang compiler
+        # is already present in the system. It is used by CMake
+        # by default even if GCC is installed.
+        brew install --force cmake make ninja perl ||
+          brew upgrade cmake make ninja perl
       shell: bash
