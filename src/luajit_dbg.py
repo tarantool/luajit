@@ -110,9 +110,21 @@ class Debugger(object):
                 self.write('{} command initialized\n'.format(name))
             self.write('LuaJIT debug extension is successfully loaded\n')
 
+    def cast(self, tp, val):
+        '''Cast the value to the given type (it is either C type string
+        or the debugger-specific type object).'''
+        if isinstance(tp, str):
+            tp = self._dbgtype(tp)
+        return self._cast(tp, val)
+
     @abc.abstractmethod
-    def cast(self, typestr, val):
-        '''Cast the value to the required C type.'''
+    def _cast(self, tp, val):
+        '''Cast the value to the debugger-specific type.'''
+        pass
+
+    @abc.abstractmethod
+    def _dbgtype(self, typestr):
+        '''Convert C type string into debugger-specific type object.'''
         pass
 
     @abc.abstractmethod
@@ -146,8 +158,9 @@ class Debugger(object):
         pass
 
     @abc.abstractmethod
-    def eval(self, command):
-        '''Parse and evaluate the given debugger command.'''
+    def eval(self, expr):
+        '''Parse and evaluate the given debugger expression.
+        Return debugger-specific value.'''
         pass
 
     @abc.abstractmethod
@@ -187,6 +200,13 @@ class Debugger(object):
         '''Register the command with the corresponding name.'''
         pass
 
+    @abc.abstractmethod
+    def create_enum_value(self, enum_name, enum_member_name):
+        '''Return debugger-specific value object that represents
+        the given enum member.
+        '''
+        pass
+
     @abc.abstractproperty
     def LJBase(self):
         '''Base command class.
@@ -211,8 +231,9 @@ class _GDBDebugger(Debugger):
         super(_GDBDebugger, self).__init__()
         self.CONNECTED = False
 
-    def cast(self, typestr, val):
-        return gdb.Value(val).cast(self._dbgtype(typestr))
+    def _cast(self, tp, val):
+        assert isinstance(tp, gdb.Type)
+        return gdb.Value(val).cast(tp)
 
     def sizeof(self, typestr):
         return self._dbgtype(typestr).sizeof
@@ -268,14 +289,11 @@ class _GDBDebugger(Debugger):
         else:
             return None
 
-    def eval(self, command):
-        if not command:
+    def eval(self, expr):
+        if not expr:
             return None
 
-        ret = gdb.parse_and_eval(command)
-        if not ret:
-            raise gdb.GdbError('table argument empty')
-        return ret
+        return gdb.parse_and_eval(expr)
 
     def detect_arch(self):
         if hasattr(self, 'arch'):
@@ -340,6 +358,9 @@ class _GDBDebugger(Debugger):
     def register_command(self, command, name):
         command(name)
 
+    def create_enum_value(self, enum_name, enum_member_name):
+        return self.eval(enum_member_name)
+
     class LJBase(gdb and gdb.Command or object):
         def __init__(ljbase, name):
             # XXX Fragile: Though the command initialization looks
@@ -377,6 +398,10 @@ class _LLDBDebugger(Debugger):
             lldb.eBasicTypeLongLong,
             lldb.eBasicTypeInt128
         ]
+
+    def _lldb_tp_isenum(self, tp):
+        return tp.GetCanonicalType().GetTypeClass() == \
+            lldb.eTypeClassEnumeration
 
     def _lldb_value_from_raw(self, raw_value, size, tp):
         isfp = self._lldb_tp_isfp(tp)
@@ -491,8 +516,7 @@ class _LLDBDebugger(Debugger):
             # Instead of default GetSummary.
             if not lldbval.sbvalue.TypeIsPointerType():
                 tp = lldbval.sbvalue.GetType()
-                is_float = self._lldb_tp_isfp(tp)
-                if is_float:
+                if self._lldb_tp_isfp(tp) or self._lldb_tp_isenum(tp):
                     return lldbval.sbvalue.GetValue()
                 else:
                     return str(int(lldbval))
@@ -530,6 +554,9 @@ class _LLDBDebugger(Debugger):
             else:
                 return int(lldbval) - int(other)
 
+        def lldb_gettype(lldbval):
+            return lldbval.sbvalue.type
+
         super(_LLDBDebugger, self).__init__()
         self.target = lldb.debugger.GetSelectedTarget()
         # Monkey-patch the lldb.value class.
@@ -545,6 +572,7 @@ class _LLDBDebugger(Debugger):
         lldb.value.__ror__ = lldb__or__  # Same semantics.
         lldb.value.__str__ = lldb__str__
         lldb.value.__sub__ = lldb__sub__
+        lldb.value.type = property(lldb_gettype)
 
         def lldb_major_version():
             version_string = lldb.SBDebugger.GetVersionString()
@@ -568,11 +596,11 @@ class _LLDBDebugger(Debugger):
         self.dbgtype_cache[typestr] = dbgtype
         return dbgtype
 
-    def cast(self, typestr, val):
+    def _cast(self, tp, val):
+        assert isinstance(tp, lldb.SBType)
         if isinstance(val, lldb.value):
             val = val.sbvalue
         elif type(val) is int:
-            tp = self._dbgtype(typestr)
             return self._lldb_value_from_raw(val, tp.GetByteSize(), tp)
         elif not isinstance(val, lldb.SBValue):
             raise Exception(
@@ -582,7 +610,6 @@ class _LLDBDebugger(Debugger):
         # XXX: Simply SBValue.Cast() works incorrectly since it
         # may take the 8 bytes of memory instead of 4, before the
         # cast. Construct the value on the fly.
-        tp = self._dbgtype(typestr)
         if self._lldb_tp_isfp(tp):
             rawval = float(val.GetValue())
         elif self._lldb_tp_issigned(tp):
@@ -670,15 +697,15 @@ class _LLDBDebugger(Debugger):
         else:
             return None
 
-    def eval(self, command):
-        if not command:
+    def eval(self, expr):
+        if not expr:
             return None
 
         process = self.target.GetProcess()
         thread = process.GetSelectedThread()
         frame = thread.GetSelectedFrame()
-        ret = frame.EvaluateExpression(command)
-        return ret
+        ret = frame.EvaluateExpression(expr)
+        return lldb.value(ret)
 
     def detect_arch(self):
         if hasattr(self, 'arch'):
@@ -723,6 +750,37 @@ class _LLDBDebugger(Debugger):
                 cmd=name,
             )
         )
+
+    def create_enum_value(self, enum_name, enum_member_name):
+        val = self.eval(enum_name + "::" + enum_member_name)
+        if val.sbvalue.IsValid() and val.sbvalue.error.Success():
+            return val
+
+        # LLDB uses enum name in expression above but debugging information
+        # about enum name migth be optimized out if no variable of the given
+        # enum type is declared and its members are only used as the predefined
+        # constants (like IRFieldID).
+
+        # In this case the above method doesn't work so trying to discover
+        # enum type by the given enum member.
+
+        def find_enum_type_member(enum_type, enum_member_name):
+            # SBTypeEnumMemberList supports members iteration and [] access
+            # (both by index and by member name) only starting from lldb-12
+            # so this implementation is used to handle earlier versions.
+            members = enum_type.GetEnumMembers()
+            for i in range(members.GetSize()):
+                item = members.GetTypeEnumMemberAtIndex(i)
+                if item.name == enum_member_name:
+                    return item
+            return None
+
+        for m in self.target.modules:
+            for et in m.GetTypes(lldb.eTypeClassEnumeration):
+                et_member = find_enum_type_member(et, enum_member_name)
+                if et_member is not None:
+                    return self.cast(et, et_member.unsigned)
+        return None
 
     class LJBase(object):
         # Ignore given parameters by LLDB.
@@ -798,6 +856,45 @@ def i2notu32(val):
 
 def strx64(val):
     return re.sub('L?$', '', hex(int(tou64(val))))
+
+
+class EnumBasedList(object):
+    def __init__(self, enum_name, max_enum_member, map_func=None,
+                 *map_func_extra_args):
+        self.__enum_name = enum_name
+        self.__max_enum_member = max_enum_member
+        self.__map_func = map_func
+        self.__map_func_extra_args = map_func_extra_args
+        # Lazy initialization (see __get_items method) as the required
+        # information might be unavailable at this moment.
+        self.__items = None
+
+    def __iter__(self):
+        return iter(self.__get_items())
+
+    def __getitem__(self, key):
+        return self.__get_items()[key]
+
+    def __len__(self):
+        return len(self.__get_items())
+
+    def __get_items(self):
+        if self.__items is None:
+            max_enum_value = dbg.create_enum_value(
+                self.__enum_name, self.__max_enum_member
+            )
+            items = []
+            for i in range(dbg.cast('int', max_enum_value)):
+                item = str(dbg.cast(max_enum_value.type, dbg.eval(str(i))))
+                if self.__map_func:
+                    item = self.__map_func(item, *self.__map_func_extra_args)
+                items.append(item)
+            self.__items = items
+        return self.__items
+
+
+def cut_prefix(s, prefix):
+    return s[len(prefix):] if s.startswith(prefix) else s
 
 
 # Types and TValues.
@@ -877,10 +974,7 @@ def bc_d(ins):
     return int(ins) >> 16
 
 
-BCMODE = [
-    'none', 'dst', 'base', 'var', 'rbase', 'uv',
-    'lit', 'lits', 'pri', 'num', 'str', 'tab', 'func', 'jump', 'cdata',
-]
+BCMODE = EnumBasedList('BCMode', 'BCM_max', cut_prefix, 'BCM')
 
 
 lj_bc_mode_ = None
@@ -906,136 +1000,7 @@ def bcmode_cd(op):
     return int((lj_bc_mode()[op] >> 7) & 15)
 
 
-# Unfortunately, there is no place in the VM except the generated
-# Lua table, where the bytecode names are stored. So duplicate
-# them here.
-BYTECODES = [
-    # Comparison ops. ORDER OPR.
-    'ISLT',
-    'ISGE',
-    'ISLE',
-    'ISGT',
-
-    'ISEQV',
-    'ISNEV',
-    'ISEQS',
-    'ISNES',
-    'ISEQN',
-    'ISNEN',
-    'ISEQP',
-    'ISNEP',
-
-    # Unary test and copy ops.
-    'ISTC',
-    'ISFC',
-    'IST',
-    'ISF',
-    'ISTYPE',
-    'ISNUM',
-    'MOV',
-    'NOT',
-    'UNM',
-    'LEN',
-    'ADDVN',
-    'SUBVN',
-    'MULVN',
-    'DIVVN',
-    'MODVN',
-
-    # Binary ops. ORDER OPR.
-    'ADDNV',
-    'SUBNV',
-    'MULNV',
-    'DIVNV',
-    'MODNV',
-
-    'ADDVV',
-    'SUBVV',
-    'MULVV',
-    'DIVVV',
-    'MODVV',
-
-    'POW',
-    'CAT',
-
-    # Constant ops.
-    'KSTR',
-    'KCDATA',
-    'KSHORT',
-    'KNUM',
-    'KPRI',
-    'KNIL',
-
-    # Upvalue and function ops.
-    'UGET',
-    'USETV',
-    'USETS',
-    'USETN',
-    'USETP',
-    'UCLO',
-    'FNEW',
-
-    # Table ops.
-    'TNEW',
-    'TDUP',
-    'GGET',
-    'GSET',
-    'TGETV',
-    'TGETS',
-    'TGETB',
-    'TGETR',
-    'TSETV',
-    'TSETS',
-    'TSETB',
-    'TSETM',
-    'TSETR',
-
-    # Calls and vararg handling. T = tail call.
-    'CALLM',
-    'CALL',
-    'CALLMT',
-    'CALLT',
-    'ITERC',
-    'ITERN',
-    'VARG',
-    'ISNEXT',
-
-    # Returns.
-    'RETM',
-    'RET',
-    'RET0',
-    'RET1',
-
-    # Loops and branches. I/J = interp/JIT.
-    # I/C/L = init/call/loop.
-    'FORI',
-    'JFORI',
-
-    'FORL',
-    'IFORL',
-    'JFORL',
-
-    'ITERL',
-    'IITERL',
-    'JITERL',
-
-    'LOOP',
-    'ILOOP',
-    'JLOOP',
-
-    'JMP',
-
-    # Function headers. I/J = interp/JIT.
-    # F/V/C = fixarg/vararg/C func.
-    'FUNCF',
-    'IFUNCF',
-    'JFUNCF',
-    'FUNCV',
-    'IFUNCV',
-    'JFUNCV',
-    'FUNCC',
-    'FUNCCW',
-]
+BYTECODES = EnumBasedList('BCOp', 'BC__MAX', cut_prefix, 'BC_')
 
 
 def proto_bc(proto):
@@ -1190,42 +1155,16 @@ def J(g):
 
 
 # Matched `MMDEF(_)`.
-MM_NAMES = [
-    'index',
-    'newindex',
-    'gc',
-    'mode',
-    'eq',
-    'len',
-    'lt',
-    'le',
-    'concat',
-    'call',
-    'add',
-    'sub',
-    'mul',
-    'div',
-    'mod',
-    'pow',
-    'unm',
-    'metatable',
-    'tostring',
-    # TODO: depends on LJ_HASFFI, see `MMDEF_FFI(_)`.
-    'new',
-    # TODO: depends on LJ_52 || LJ_HASFFI, see `MMDEF_PAIRS(_)`.
-    'pairs',
-    'ipairs',
-]
-
-
-GCROOT_MMNAME = 0
-GCROOT_BASEMT = GCROOT_MMNAME + len(MM_NAMES)
-GCROOT_IO_INPUT = GCROOT_BASEMT + i2notu32(LJ_T['NUMX']) + 1
-GCROOT_IO_OUTPUT = GCROOT_IO_INPUT + 1
+MM_NAMES = EnumBasedList('MMS', 'MM__MAX', cut_prefix, 'MM_')
 
 
 # Get the name of the index in the predefined arrays.
 def idx_name(field_name):
+    GCROOT_MMNAME = 0
+    GCROOT_BASEMT = GCROOT_MMNAME + len(MM_NAMES)
+    GCROOT_IO_INPUT = GCROOT_BASEMT + i2notu32(LJ_T['NUMX']) + 1
+    GCROOT_IO_OUTPUT = GCROOT_IO_INPUT + 1
+
     # Don't use **{ to be compatible with Python 2.
     gcroot = {}
     gcroot.update({
@@ -1477,140 +1416,7 @@ def cdataptr(cd):
 # JIT engine.
 
 
-IRS = [
-    # Guarded assertions.
-    'LT',
-    'GE',
-    'LE',
-    'GT',
-
-    'ULT',
-    'UGE',
-    'ULE',
-    'UGT',
-
-    'EQ',
-    'NE',
-
-    'ABC',
-    'RETF',
-
-    # Miscellaneous ops.
-    'NOP',
-    'BASE',
-    'PVAL',
-    'GCSTEP',
-    'HIOP',
-    'LOOP',
-    'USE',
-    'PHI',
-    'RENAME',
-    'PROF',
-
-    # Constants.
-    'KPRI',
-    'KINT',
-    'KGC',
-    'KPTR',
-    'KKPTR',
-    'KNULL',
-    'KNUM',
-    'KINT64',
-    'KSLOT',
-
-    # Bit ops.
-    'BNOT',
-    'BSWAP',
-    'BAND',
-    'BOR',
-    'BXOR',
-    'BSHL',
-    'BSHR',
-    'BSAR',
-    'BROL',
-    'BROR',
-
-    # Arithmetic ops. ORDER ARITH
-    'ADD',
-    'SUB',
-    'MUL',
-    'DIV',
-    'MOD',
-    'POW',
-    'NEG',
-
-    'ABS',
-    'LDEXP',
-    'MIN',
-    'MAX',
-    'FPMATH',
-
-    # Overflow-checking arithmetic ops.
-    'ADDOV',
-    'SUBOV',
-    'MULOV',
-
-    # Memory ops. A = array, H = hash, U = upvalue, F = field,
-    # S = stack.
-
-    # Memory references.
-    'AREF',
-    'HREFK',
-    'HREF',
-    'NEWREF',
-    'UREFO',
-    'UREFC',
-    'FREF',
-    'STRREF',
-    'LREF',
-
-    # Loads and Stores. These must be in the same order.
-    'ALOAD',
-    'HLOAD',
-    'ULOAD',
-    'FLOAD',
-    'XLOAD',
-    'SLOAD',
-    'VLOAD',
-
-    'ASTORE',
-    'HSTORE',
-    'USTORE',
-    'FSTORE',
-    'XSTORE',
-
-    # Allocations.
-    'SNEW',
-    'XSNEW',
-    'TNEW',
-    'TDUP',
-    'CNEW',
-    'CNEWI',
-
-    # Buffer operations.
-    'BUFHDR',
-    'BUFPUT',
-    'BUFSTR',
-
-    # Barriers.
-    'TBAR',
-    'OBAR',
-    'XBAR',
-
-    # Type conversions.
-    'CONV',
-    'TOBIT',
-    'TOSTR',
-    'STRTO',
-
-    # Calls.
-    'CALLN',
-    'CALLA',
-    'CALLL',
-    'CALLS',
-    'CALLXS',
-    'CARG',
-]
+IRS = EnumBasedList('IROp', 'IR__MAX', cut_prefix, 'IR_')
 
 
 # Mode bits: Commutative, {Normal/Ref, Alloc, Load, Store},
@@ -1662,70 +1468,21 @@ def ir_mode(op):
     return mode
 
 
-IRTYPES = [
-  'nil',
-  'fal',
-  'tru',
-  'lud',
-  'str',
-  'p32',
-  'thr',
-  'pro',
-  'fun',
-  'p64',
-  'cdt',
-  'tab',
-  'udt',
-  'flt',
-  'num',
-  'i8 ',
-  'u8 ',
-  'i16',
-  'u16',
-  'int',
-  'u32',
-  'i64',
-  'u64',
-  'sfp',
-]
+IRTYPES = EnumBasedList('IRType', 'IRT__MAX', lambda x: {
+                            'IRT_LIGHTUD': 'lud',
+                            'IRT_CDATA': 'cdt',
+                            'IRT_UDATA': 'udt',
+                            'IRT_FLOAT': 'flt',
+                            'IRT_SOFTFP': 'sfp',
+                        }.get(x, cut_prefix(x, 'IRT_')[:3].ljust(3).lower()))
 
 
-IRT_NUM = 14
-assert IRTYPES[IRT_NUM] == 'num', 'incorrect IRT_NUM definition'
+IRFIELDS = EnumBasedList('IRFieldID', 'IRFL__MAX', lambda x:
+                         cut_prefix(x, 'IRFL_').lower().replace('_', '.', 1))
 
 
-IRFIELDS = [
-    'str.len',
-    'func.env',
-    'func.pc',
-    'func.ffid',
-    'thread.env',
-    'tab.meta',
-    'tab.array',
-    'tab.node',
-    'tab.asize',
-    'tab.hmask',
-    'tab.nomm',
-    'udata.meta',
-    'udata.udtype',
-    'udata.file',
-    'cdata.ctypeid',
-    'cdata.ptr',
-    'cdata.int',
-    'cdata.int64',
-    'cdata.int64_4',
-]
-
-
-IRFPMS = [
-    'floor',
-    'ceil',
-    'trunc',
-    'sqrt',
-    'log',
-    'log2',
-    'other'
-]
+IRFPMS = EnumBasedList('IRFPMathOp', 'IRFPM__MAX',
+                       lambda x: cut_prefix(x, 'IRFPM_').lower())
 
 
 # Don't use *[ to be compatible with Python 2.
@@ -1754,112 +1511,7 @@ REGISTERS = {
 }
 
 
-IR_CALLS = [
-    'lj_str_cmp',
-    'lj_str_find',
-    'lj_str_new',
-    'lj_strscan_num',
-    'lj_strfmt_int',
-    'lj_strfmt_num',
-    'lj_strfmt_char',
-    'lj_strfmt_putint',
-    'lj_strfmt_putnum',
-    'lj_strfmt_putquoted',
-    'lj_strfmt_putfxint',
-    'lj_strfmt_putfnum_int',
-    'lj_strfmt_putfnum_uint',
-    'lj_strfmt_putfnum',
-    'lj_strfmt_putfstr',
-    'lj_strfmt_putfchar',
-    'lj_buf_putmem',
-    'lj_buf_putstr',
-    'lj_buf_putchar',
-    'lj_buf_putstr_reverse',
-    'lj_buf_putstr_lower',
-    'lj_buf_putstr_upper',
-    'lj_buf_putstr_rep',
-    'lj_buf_puttab',
-    'lj_buf_tostr',
-    'lj_tab_new_ah',
-    'lj_tab_new1',
-    'lj_tab_dup',
-    'lj_tab_clear',
-    'lj_tab_newkey',
-    'lj_tab_len',
-    'lj_gc_step_jit',
-    'lj_gc_barrieruv',
-    'lj_mem_newgco',
-    'lj_math_random_step',
-    'lj_vm_modi',
-    'log10',
-    'exp',
-    'sin',
-    'cos',
-    'tan',
-    'asin',
-    'acos',
-    'atan',
-    'sinh',
-    'cosh',
-    'tanh',
-    'fputc',
-    'fwrite',
-    'fflush',
-    'lj_vm_floor',
-    'lj_vm_ceil',
-    'lj_vm_trunc',
-    'sqrt',
-    'log',
-    'lj_vm_log2',
-    'pow',
-    'atan2',
-    'ldexp',
-    'lj_vm_tobit',
-    'softfp_add',
-    'softfp_sub',
-    'softfp_mul',
-    'softfp_div',
-    'softfp_cmp',
-    'softfp_i2d',
-    'softfp_d2i',
-    'lj_vm_sfmin',
-    'lj_vm_sfmax',
-    'lj_vm_tointg',
-    'softfp_ui2d',
-    'softfp_f2d',
-    'softfp_d2ui',
-    'softfp_d2f',
-    'softfp_i2f',
-    'softfp_ui2f',
-    'softfp_f2i',
-    'softfp_f2ui',
-    'fp64_l2d',
-    'fp64_ul2d',
-    'fp64_l2f',
-    'fp64_ul2f',
-    'fp64_d2l',
-    'fp64_d2ul',
-    'fp64_f2l',
-    'fp64_f2ul',
-    'lj_carith_divi64',
-    'lj_carith_divu64',
-    'lj_carith_modi64',
-    'lj_carith_modu64',
-    'lj_carith_powi64',
-    'lj_carith_powu64',
-    'lj_cdata_newv',
-    'lj_cdata_setfin',
-    'strlen',
-    'memcpy',
-    'memset',
-    'lj_vm_errno',
-    'lj_carith_mul64',
-    'lj_carith_shl64',
-    'lj_carith_shr64',
-    'lj_carith_sar64',
-    'lj_carith_rol64',
-    'lj_carith_ror64',
-]
+IR_CALLS = EnumBasedList('IRCallID', 'IRCALL__MAX', cut_prefix, 'IRCALL_')
 
 
 def regname(reg_number):
@@ -1995,6 +1647,8 @@ def irt_isguard(t):
 
 
 def irt_toitype(irt):
+    IRT_NUM = 14
+    assert IRTYPES[IRT_NUM] == 'num', 'incorrect IRT_NUM definition'
     t = irt_type(irt)
     if LJ_DUALNUM and t > IRT_NUM:
         return LJ_T['NUMX']
