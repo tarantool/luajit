@@ -110,9 +110,21 @@ class Debugger(object):
                 self.write('{} command initialized\n'.format(name))
             self.write('LuaJIT debug extension is successfully loaded\n')
 
+    def cast(self, tp, val):
+        '''Cast val to the specified type where tp is either C type string
+        or debugger-specific type.'''
+        if isinstance(tp, str):
+            tp = self._dbgtype(tp)
+        return self._cast(tp, val)
+
     @abc.abstractmethod
-    def cast(self, typestr, val):
-        '''Cast the value to the required C type.'''
+    def _cast(self, tp, val):
+        '''Cast val to the debugger-specific type.'''
+        pass
+
+    @abc.abstractmethod
+    def _dbgtype(self, typestr):
+        '''Convert C type string into debugger-specific type object.'''
         pass
 
     @abc.abstractmethod
@@ -146,8 +158,9 @@ class Debugger(object):
         pass
 
     @abc.abstractmethod
-    def eval(self, command):
-        '''Parse and evaluate the given debugger command.'''
+    def eval(self, expr):
+        '''Parse and evaluate the given debugger expression.
+        Return debugger-specific value.'''
         pass
 
     @abc.abstractmethod
@@ -187,6 +200,12 @@ class Debugger(object):
         '''Register the command with the corresponding name.'''
         pass
 
+    @abc.abstractmethod
+    def compose_enum_value_expr(self, enum_name, enum_value_name):
+        '''Compose expression that is evaluated into enum value with
+        the given debugger.'''
+        pass
+
     @abc.abstractproperty
     def LJBase(self):
         '''Base command class.
@@ -211,8 +230,9 @@ class _GDBDebugger(Debugger):
         super(_GDBDebugger, self).__init__()
         self.CONNECTED = False
 
-    def cast(self, typestr, val):
-        return gdb.Value(val).cast(self._dbgtype(typestr))
+    def _cast(self, tp, val):
+        assert isinstance(tp, gdb.Type)
+        return gdb.Value(val).cast(tp)
 
     def sizeof(self, typestr):
         return self._dbgtype(typestr).sizeof
@@ -268,14 +288,11 @@ class _GDBDebugger(Debugger):
         else:
             return None
 
-    def eval(self, command):
-        if not command:
+    def eval(self, expr):
+        if not expr:
             return None
 
-        ret = gdb.parse_and_eval(command)
-        if not ret:
-            raise gdb.GdbError('table argument empty')
-        return ret
+        return gdb.parse_and_eval(expr)
 
     def detect_arch(self):
         if hasattr(self, 'arch'):
@@ -340,6 +357,9 @@ class _GDBDebugger(Debugger):
     def register_command(self, command, name):
         command(name)
 
+    def compose_enum_value_expr(self, enum_name, enum_value_name):
+        return enum_value_name
+
     class LJBase(gdb and gdb.Command or object):
         def __init__(ljbase, name):
             # XXX Fragile: Though the command initialization looks
@@ -377,6 +397,10 @@ class _LLDBDebugger(Debugger):
             lldb.eBasicTypeLongLong,
             lldb.eBasicTypeInt128
         ]
+
+    def _lldb_tp_isenum(self, tp):
+        return tp.GetCanonicalType().GetTypeClass() == \
+            lldb.eTypeClassEnumeration
 
     def _lldb_value_from_raw(self, raw_value, size, tp):
         isfp = self._lldb_tp_isfp(tp)
@@ -491,8 +515,7 @@ class _LLDBDebugger(Debugger):
             # Instead of default GetSummary.
             if not lldbval.sbvalue.TypeIsPointerType():
                 tp = lldbval.sbvalue.GetType()
-                is_float = self._lldb_tp_isfp(tp)
-                if is_float:
+                if self._lldb_tp_isfp(tp) or self._lldb_tp_isenum(tp):
                     return lldbval.sbvalue.GetValue()
                 else:
                     return str(int(lldbval))
@@ -568,11 +591,11 @@ class _LLDBDebugger(Debugger):
         self.dbgtype_cache[typestr] = dbgtype
         return dbgtype
 
-    def cast(self, typestr, val):
+    def _cast(self, tp, val):
+        assert isinstance(tp, lldb.SBType)
         if isinstance(val, lldb.value):
             val = val.sbvalue
         elif type(val) is int:
-            tp = self._dbgtype(typestr)
             return self._lldb_value_from_raw(val, tp.GetByteSize(), tp)
         elif not isinstance(val, lldb.SBValue):
             raise Exception(
@@ -582,7 +605,6 @@ class _LLDBDebugger(Debugger):
         # XXX: Simply SBValue.Cast() works incorrectly since it
         # may take the 8 bytes of memory instead of 4, before the
         # cast. Construct the value on the fly.
-        tp = self._dbgtype(typestr)
         if self._lldb_tp_isfp(tp):
             rawval = float(val.GetValue())
         elif self._lldb_tp_issigned(tp):
@@ -670,14 +692,14 @@ class _LLDBDebugger(Debugger):
         else:
             return None
 
-    def eval(self, command):
-        if not command:
+    def eval(self, expr):
+        if not expr:
             return None
 
         process = self.target.GetProcess()
         thread = process.GetSelectedThread()
         frame = thread.GetSelectedFrame()
-        ret = frame.EvaluateExpression(command)
+        ret = frame.EvaluateExpression(expr)
         return ret
 
     def detect_arch(self):
@@ -723,6 +745,9 @@ class _LLDBDebugger(Debugger):
                 cmd=name,
             )
         )
+
+    def compose_enum_value_expr(self, enum_name, enum_value_name):
+        return enum_name + "::" + enum_value_name
 
     class LJBase(object):
         # Ignore given parameters by LLDB.
@@ -798,6 +823,50 @@ def i2notu32(val):
 
 def strx64(val):
     return re.sub('L?$', '', hex(int(tou64(val))))
+
+
+class EnumBasedList(object):
+    def __init__(self, enum_name, max_enum_member, map_func=None,
+                 *map_func_extra_args):
+        self.__enum_name = enum_name
+        self.__max_enum_member = max_enum_member
+        self.__map_func = map_func
+        self.__map_func_extra_args = map_func_extra_args
+        # Lazy initialization (see __get_items method) as the required
+        # information might be unavailable at this moment.
+        self.__items = None
+
+    def __iter__(self):
+        return iter(self.__get_items())
+
+    def __getitem__(self, key):
+        return self.__get_items()[key]
+
+    def __len__(self):
+        return len(self.__get_items())
+
+    def __get_items(self):
+        if self.__items is None:
+            enum_name = self.__enum_name
+            max_enum_member = self.__max_enum_member
+            map_func = self.__map_func
+            map_func_extra_args = self.__map_func_extra_args
+
+            max_enum_value = dbg.eval(
+                dbg.compose_enum_value_expr(enum_name, max_enum_member)
+            )
+            items = []
+            for i in range(dbg.cast('int', max_enum_value)):
+                item = str(dbg.cast(max_enum_value.type, dbg.eval(str(i))))
+                if map_func:
+                    item = map_func(item, *map_func_extra_args)
+                items.append(item)
+            self.__items = items
+        return self.__items
+
+
+def cut_prefix(s, prefix):
+    return s[len(prefix):] if s.startswith(prefix) else s
 
 
 # Types and TValues.
