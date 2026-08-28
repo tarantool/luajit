@@ -1130,42 +1130,16 @@ def J(g):
 
 
 # Matched `MMDEF(_)`.
-MM_NAMES = [
-    'index',
-    'newindex',
-    'gc',
-    'mode',
-    'eq',
-    'len',
-    'lt',
-    'le',
-    'concat',
-    'call',
-    'add',
-    'sub',
-    'mul',
-    'div',
-    'mod',
-    'pow',
-    'unm',
-    'metatable',
-    'tostring',
-    # TODO: depends on LJ_HASFFI, see `MMDEF_FFI(_)`.
-    'new',
-    # TODO: depends on LJ_52 || LJ_HASFFI, see `MMDEF_PAIRS(_)`.
-    'pairs',
-    'ipairs',
-]
-
-
-GCROOT_MMNAME = 0
-GCROOT_BASEMT = GCROOT_MMNAME + len(MM_NAMES)
-GCROOT_IO_INPUT = GCROOT_BASEMT + i2notu32(LJ_T['NUMX']) + 1
-GCROOT_IO_OUTPUT = GCROOT_IO_INPUT + 1
+MM_NAMES = EnumBasedList('MMS', 'MM__MAX', cut_prefix, 'MM_')
 
 
 # Get the name of the index in the predefined arrays.
 def idx_name(field_name):
+    GCROOT_MMNAME = 0
+    GCROOT_BASEMT = GCROOT_MMNAME + len(MM_NAMES)
+    GCROOT_IO_INPUT = GCROOT_BASEMT + i2notu32(LJ_T['NUMX']) + 1
+    GCROOT_IO_OUTPUT = GCROOT_IO_INPUT + 1
+
     # Don't use **{ to be compatible with Python 2.
     gcroot = {}
     gcroot.update({
