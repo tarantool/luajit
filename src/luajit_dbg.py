@@ -1440,36 +1440,13 @@ def ir_mode(op):
     return mode
 
 
-IRTYPES = [
-  'nil',
-  'fal',
-  'tru',
-  'lud',
-  'str',
-  'p32',
-  'thr',
-  'pro',
-  'fun',
-  'p64',
-  'cdt',
-  'tab',
-  'udt',
-  'flt',
-  'num',
-  'i8 ',
-  'u8 ',
-  'i16',
-  'u16',
-  'int',
-  'u32',
-  'i64',
-  'u64',
-  'sfp',
-]
-
-
-IRT_NUM = 14
-assert IRTYPES[IRT_NUM] == 'num', 'incorrect IRT_NUM definition'
+IRTYPES = EnumBasedList('IRType', 'IRT__MAX', lambda x: {
+                            'IRT_LIGHTUD': 'lud',
+                            'IRT_CDATA': 'cdt',
+                            'IRT_UDATA': 'udt',
+                            'IRT_FLOAT': 'flt',
+                            'IRT_SOFTFP': 'sfp',
+                        }.get(x, cut_prefix(x, 'IRT_')[:3].ljust(3).lower()))
 
 
 IRFIELDS = [
@@ -1669,6 +1646,8 @@ def irt_isguard(t):
 
 
 def irt_toitype(irt):
+    IRT_NUM = 14
+    assert IRTYPES[IRT_NUM] == 'num', 'incorrect IRT_NUM definition'
     t = irt_type(irt)
     if LJ_DUALNUM and t > IRT_NUM:
         return LJ_T['NUMX']
