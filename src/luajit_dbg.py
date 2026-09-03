@@ -1449,27 +1449,8 @@ IRTYPES = EnumBasedList('IRType', 'IRT__MAX', lambda x: {
                         }.get(x, cut_prefix(x, 'IRT_')[:3].ljust(3).lower()))
 
 
-IRFIELDS = [
-    'str.len',
-    'func.env',
-    'func.pc',
-    'func.ffid',
-    'thread.env',
-    'tab.meta',
-    'tab.array',
-    'tab.node',
-    'tab.asize',
-    'tab.hmask',
-    'tab.nomm',
-    'udata.meta',
-    'udata.udtype',
-    'udata.file',
-    'cdata.ctypeid',
-    'cdata.ptr',
-    'cdata.int',
-    'cdata.int64',
-    'cdata.int64_4',
-]
+IRFIELDS = EnumBasedList('IRFieldID', 'IRFL__MAX',
+                         lambda x: cut_prefix(x, 'IRFL_').lower().replace('_', '.', 1))
 
 
 IRFPMS = [
