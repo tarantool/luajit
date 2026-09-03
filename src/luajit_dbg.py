@@ -946,10 +946,7 @@ def bc_d(ins):
     return int(ins) >> 16
 
 
-BCMODE = [
-    'none', 'dst', 'base', 'var', 'rbase', 'uv',
-    'lit', 'lits', 'pri', 'num', 'str', 'tab', 'func', 'jump', 'cdata',
-]
+BCMODE = EnumBasedList('BCMode', 'BCM_max', cut_prefix, 'BCM')
 
 
 lj_bc_mode_ = None
