@@ -172,7 +172,7 @@ class TestCaseBase(unittest.TestCase):
 def check_macro_debug_info():
     cmd_file = persist('\n'.join([
         'b lj_cf_print',
-        *PROCESS_RUN,
+        PROCESS_RUN,
         'n',
         'p gcval(L->base)',
         'q',
