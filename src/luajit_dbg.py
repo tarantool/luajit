@@ -201,7 +201,7 @@ class Debugger(object):
         pass
 
     @abc.abstractmethod
-    def compose_enum_value_expr(self, enum_name, enum_value_name):
+    def create_enum_value(self, enum_name, enum_value_name):
         '''Compose expression that is evaluated into enum value with
         the given debugger.'''
         pass
@@ -357,8 +357,8 @@ class _GDBDebugger(Debugger):
     def register_command(self, command, name):
         command(name)
 
-    def compose_enum_value_expr(self, enum_name, enum_value_name):
-        return enum_value_name
+    def create_enum_value(self, enum_name, enum_value_name):
+        return self.eval(enum_value_name)
 
     class LJBase(gdb and gdb.Command or object):
         def __init__(ljbase, name):
@@ -746,8 +746,18 @@ class _LLDBDebugger(Debugger):
             )
         )
 
-    def compose_enum_value_expr(self, enum_name, enum_value_name):
-        return enum_name + "::" + enum_value_name
+    def create_enum_value(self, enum_name, enum_member, hint_module=None):
+        val = self.eval(enum_name + "::" + enum_member)
+        dbg.write("create_enum_value: val={}\n".format(val))
+        if val.IsValid():
+            return val
+        for m in self.target.modules:
+            if hint_module is not None and m.file.basename != hint_module:
+                continue
+            tp = next((t for t in m.GetTypes(lldb.eTypeClassEnumeration) if t.IsValid() and t.GetEnumMembers()[enum_member] is not None))
+            if tp is not None:
+                return self.cast(tp, tp.GetEnumMembers()[enum_member].unsigned).sbvalue
+        return None
 
     class LJBase(object):
         # Ignore given parameters by LLDB.
@@ -847,19 +857,19 @@ class EnumBasedList(object):
 
     def __get_items(self):
         if self.__items is None:
-            enum_name = self.__enum_name
-            max_enum_member = self.__max_enum_member
-            map_func = self.__map_func
-            map_func_extra_args = self.__map_func_extra_args
+            # enum_name = self.__enum_name
+            # max_enum_member = self.__max_enum_member
+            # map_func = self.__map_func
+            # map_func_extra_args = self.__map_func_extra_args
 
-            max_enum_value = dbg.eval(
-                dbg.compose_enum_value_expr(enum_name, max_enum_member)
+            max_enum_value = dbg.create_enum_value(
+                self.__enum_name, self.__max_enum_member
             )
             items = []
             for i in range(dbg.cast('int', max_enum_value)):
                 item = str(dbg.cast(max_enum_value.type, dbg.eval(str(i))))
-                if map_func:
-                    item = map_func(item, *map_func_extra_args)
+                if self.__map_func:
+                    item = self.__map_func(item, *self.__map_func_extra_args)
                 items.append(item)
             self.__items = items
         return self.__items
