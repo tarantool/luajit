@@ -593,9 +593,15 @@ class _LLDBDebugger(Debugger):
 
     def _cast(self, tp, val):
         assert isinstance(tp, lldb.SBType)
+        # self.write("_cast: val={}\n".format(val))
+        # self.write("_cast: type(val)={}\n".format(type(val)))
         if isinstance(val, lldb.value):
             val = val.sbvalue
         elif type(val) is int:
+            # self.write("_cast: int 1\n")
+            # vvv = self._lldb_value_from_raw(val, tp.GetByteSize(), tp)
+            # self.write("_cast: int 2\n")
+            # return vvv
             return self._lldb_value_from_raw(val, tp.GetByteSize(), tp)
         elif not isinstance(val, lldb.SBValue):
             raise Exception(
@@ -748,13 +754,19 @@ class _LLDBDebugger(Debugger):
 
     def create_enum_value(self, enum_name, enum_member, hint_module=None):
         val = self.eval(enum_name + "::" + enum_member)
-        dbg.write("create_enum_value: val={}\n".format(val))
-        if val.IsValid():
+        self.write("create_enum_value: val={}\n".format(val))
+        self.write("create_enum_value: val.IsValid={}\n".format(val.IsValid()))
+        self.write("create_enum_value: val.error={}\n".format(val.error))
+        if val.IsValid() and val.error is None:
+            self.write("create_enum_value: acceptable value\n")
             return val
         for m in self.target.modules:
             if hint_module is not None and m.file.basename != hint_module:
                 continue
+            self.write("create_enum_value: m.file.basename={}\n".format(m.file.basename))
             tp = next((t for t in m.GetTypes(lldb.eTypeClassEnumeration) if t.IsValid() and t.GetEnumMembers()[enum_member] is not None))
+            self.write("create_enum_value: tp={}\n".format(tp))
+
             if tp is not None:
                 return self.cast(tp, tp.GetEnumMembers()[enum_member].unsigned).sbvalue
         return None
@@ -865,11 +877,16 @@ class EnumBasedList(object):
             max_enum_value = dbg.create_enum_value(
                 self.__enum_name, self.__max_enum_member
             )
+            dbg.write("EnumBasedList.__get_items: max_enum_value={}\n".format(max_enum_value))
             items = []
             for i in range(dbg.cast('int', max_enum_value)):
                 item = str(dbg.cast(max_enum_value.type, dbg.eval(str(i))))
+                if self.__enum_name == 'IRFieldID':
+                    dbg.write("enum_names: item={}\n".format(item))
                 if self.__map_func:
                     item = self.__map_func(item, *self.__map_func_extra_args)
+                if self.__enum_name == 'IRFieldID':
+                    dbg.write("enum_names: item={}\n".format(item))
                 items.append(item)
             self.__items = items
         return self.__items
@@ -2942,6 +2959,9 @@ Trace may be preceded with /FLAGS:
     '''
 
     def execute(self, arg):
+        dbg.write("execute: len(IRFIELDS)={}\n".format(len(IRFIELDS)))
+        for irf in IRFIELDS:
+            dbg.write("irf={}\n".format(irf))
         arg, flags = dbg.extract_flags(arg, 'rs')
         dbg.write('{}'.format(dump_trace(
             dbg.cast('GCtrace *', dbg.eval(arg)),
