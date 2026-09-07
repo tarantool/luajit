@@ -830,6 +830,52 @@ class TestLJIRCallXSCType(TestCaseBase):
     )
 
 
+# Base class to check FPMATHOP mapping in FPMATH IR.
+class TestLJIRFPMathOpBase(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = 'lj-trace &((GG_State *)L)->J->cur'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.lua_script = (
+            'jit.opt.start("hotloop=1")\n'
+            'local function trace(a)\n'
+            '  local x = {}\n'
+            '  return x\n'
+            'end\n'
+            'trace(1.1)\n'
+            'trace(1.1)\n'
+            'print()\n'
+        ).format(cls.lua_expr)
+        cls.pattern = r'num FPMATH .* ref: ' + RX_IRN + r' lit: ' + cls.op
+        super(TestLJIRFPMathOpBase, cls).setUpClass()
+
+
+class TestLJIRFPMathFloor(TestLJIRFPMathOpBase):
+    lua_expr = 'math.floor(a)'
+    op = 'floor'
+
+
+class TestLJIRFPMathCeil(TestLJIRFPMathOpBase):
+    lua_expr = 'math.ceil(a)'
+    op = 'ceil'
+
+
+class TestLJIRFPMathSqrt(TestLJIRFPMathOpBase):
+    lua_expr = 'math.sqrt(a)'
+    op = 'sqrt'
+
+
+class TestLJIRFPMathLog(TestLJIRFPMathOpBase):
+    lua_expr = 'math.log(a)'
+    op = 'log'
+
+
+class TestLJIRFPMathLog2(TestLJIRFPMathOpBase):
+    lua_expr = 'math.log(a, 3)'
+    op = 'log2'
+
+
 class TestLJJSlotsBase(TestCaseBase):
     location = 'trace_stop'
     extension_cmds = (
@@ -1051,7 +1097,17 @@ class TestLJCTypeBase(TestCaseBase):
     pattern = r'\[\d+\] <int>'
 
 
-for test_cls in TestCaseBase.__subclasses__():
+def get_leaf_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    if not subclasses:
+        yield cls
+    else:
+        for sub in subclasses:
+            for leaf in get_leaf_subclasses(sub):
+                yield leaf
+
+
+for test_cls in get_leaf_subclasses(TestCaseBase):
     test_cls.test = lambda self: self.check()
 
 if __name__ == '__main__':
