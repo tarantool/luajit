@@ -688,6 +688,58 @@ class TestLJIRFloadAbs(TestCaseBase):
     )
 
 
+class TestLJIRFPMathOpBase(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = (
+        'n\n'  # Load L.
+        'lj-trace ' + '&((GG_State *)L)->J->cur'
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cls.lua_script = (
+            'jit.opt.start("hotloop=1")\n'
+            'local function trace(a)\n'
+            '  local x = {}\n'
+            '  return x\n'
+            'end\n'
+            'trace(1)\n'
+            'trace(1)\n'
+            'print()\n'
+        ).format(cls.lua_expr)
+        cls.pattern = r'num FPMATH .* ref: ' + RX_IRN + r' lit: ' + cls.op
+        super(TestLJIRFPMathOpBase, cls).setUpClass()
+
+
+@unittest.skipIf(machine in ('arm64', 'aarch64'),
+                 "not used as there is no corresponding hardware instruction")
+class TestLJIRFPMathFloor(TestLJIRFPMathOpBase):
+    lua_expr = 'math.floor(a)'
+    op = 'floor'
+
+
+@unittest.skipIf(machine in ('arm64', 'aarch64'),
+                 "not used as there is no corresponding hardware instruction")
+class TestLJIRFPMathCeil(TestLJIRFPMathOpBase):
+    lua_expr = 'math.ceil(a)'
+    op = 'ceil'
+
+
+class TestLJIRFPMathSqrt(TestLJIRFPMathOpBase):
+    lua_expr = 'math.sqrt(a)'
+    op = 'sqrt'
+
+
+class TestLJIRFPMathLog(TestLJIRFPMathOpBase):
+    lua_expr = 'math.log(a)'
+    op = 'log'
+
+
+class TestLJIRFPMathLog2(TestLJIRFPMathOpBase):
+    lua_expr = 'math.log(a, 3)'
+    op = 'log2'
+
+
 # XXX: Implemented only for GC64 in LuaJIT until backporting the
 # corresponding commit.
 if IS_GC64:
@@ -1051,7 +1103,17 @@ class TestLJCTypeBase(TestCaseBase):
     pattern = r'\[\d+\] <int>'
 
 
-for test_cls in TestCaseBase.__subclasses__():
+def get_leaf_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    if not subclasses:
+        yield cls
+    else:
+        for sub in subclasses:
+            for leaf in get_leaf_subclasses(sub):
+                yield leaf
+
+
+for test_cls in get_leaf_subclasses(TestCaseBase):
     test_cls.test = lambda self: self.check()
 
 if __name__ == '__main__':

@@ -1722,7 +1722,6 @@ IRFPMS = [
     'ceil',
     'trunc',
     'sqrt',
-    'exp2',
     'log',
     'log2',
     'other'
