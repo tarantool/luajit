@@ -262,12 +262,26 @@ class TestLJArch(TestCaseBase):
     )
 
 
+RX_VM_STATE = r'({})'.format('|'.join([
+    r'INTERP',
+    r'LFUNC',
+    r'FFUNC',
+    r'CFUNC',
+    r'GC',
+    r'EXIT',
+    r'RECORD',
+    r'OPT',
+    r'ASM',
+    r'TRACE\(#\d+\)',
+]))
+
+
 class TestLJState(TestCaseBase):
     extension_cmds = 'lj-state'
     location = 'lj_cf_print'
     lua_script = 'print(1)'
     pattern = (
-        r'VM state: [A-Z]+\n'
+        r'VM state: ' + RX_VM_STATE + '\n'
         r'GC state: [A-Z]+\n'
         r'JIT state: [A-Z]+\n'
     )
@@ -828,6 +842,52 @@ class TestLJIRCallXSCType(TestCaseBase):
     pattern = (
         r'int CALLXS .* [' + RX_ADDR + r'\]\(.*\) ctype: \[\d+\] <int \(\)>'
     )
+
+
+# Base class to check FPMATHOP mapping in FPMATH IR.
+class TestLJIRFPMathOpBase(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = 'lj-trace &((GG_State *)L)->J->cur'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.lua_script = (
+            'jit.opt.start("hotloop=1")\n'
+            'local function trace(a)\n'
+            '  local x = {}\n'
+            '  return x\n'
+            'end\n'
+            'trace(1.1)\n'
+            'trace(1.1)\n'
+            'print()\n'
+        ).format(cls.lua_expr)
+        cls.pattern = r'num FPMATH .* ref: ' + RX_IRN + r' lit: ' + cls.op
+        super(TestLJIRFPMathOpBase, cls).setUpClass()
+
+
+class TestLJIRFPMathFloor(TestLJIRFPMathOpBase):
+    lua_expr = 'math.floor(a)'
+    op = 'floor'
+
+
+class TestLJIRFPMathCeil(TestLJIRFPMathOpBase):
+    lua_expr = 'math.ceil(a)'
+    op = 'ceil'
+
+
+class TestLJIRFPMathSqrt(TestLJIRFPMathOpBase):
+    lua_expr = 'math.sqrt(a)'
+    op = 'sqrt'
+
+
+class TestLJIRFPMathLog(TestLJIRFPMathOpBase):
+    lua_expr = 'math.log(a)'
+    op = 'log'
+
+
+class TestLJIRFPMathLog2(TestLJIRFPMathOpBase):
+    lua_expr = 'math.log(a, 3)'
+    op = 'log2'
 
 
 class TestLJJSlotsBase(TestCaseBase):
