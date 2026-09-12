@@ -24,11 +24,11 @@ list(APPEND TESTLIBS ${LIB2COPY})
 # subdirectory "libs/P1", to be used by tests.
 # Instead of tracking empty directory with some anchor-file for
 # git, create this directory via CMake.
-add_custom_target(PUC-Rio-Lua-5.1-tests-prepare DEPENDS ${TESTLIBS})
-add_custom_command(TARGET PUC-Rio-Lua-5.1-tests-prepare
+add_custom_target(PUC-Rio-Lua-5.1-tests-prepare
   COMMENT "Create directory for PUC-Rio Lua 5.1 tests"
   COMMAND ${CMAKE_COMMAND} -E make_directory P1
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS ${TESTLIBS}
 )
 
 # vim: expandtab tabstop=2 shiftwidth=2

@@ -16,8 +16,7 @@ if(NOT GCOVR OR NOT GCOV)
 endif()
 
 file(MAKE_DIRECTORY ${COVERAGE_DIR})
-add_custom_target(${PROJECT_NAME}-coverage)
-add_custom_command(TARGET ${PROJECT_NAME}-coverage
+add_custom_target(${PROJECT_NAME}-coverage
   COMMENT "Building coverage report"
   COMMAND
     ${GCOVR}
