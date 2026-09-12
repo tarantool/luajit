@@ -35,9 +35,8 @@ set(CODESPELL_WHITELIST
 
 set(IGNORE_WORDS ${PROJECT_SOURCE_DIR}/.codespell-ignore-words.txt)
 
-add_custom_target(${PROJECT_NAME}-codespell)
 if(CODESPELL)
-  add_custom_command(TARGET ${PROJECT_NAME}-codespell
+  add_custom_target(${PROJECT_NAME}-codespell
     COMMENT "Running codespell"
     COMMAND
       ${CODESPELL}
@@ -51,7 +50,7 @@ else()
   set(STR1 "codespell is not found,")
   set(STR2 "so ${PROJECT_NAME}-codespell target is dummy")
   string(CONCAT WARN_MSG "${STR1} ${STR2}")
-  add_custom_command(TARGET ${PROJECT_NAME}-codespell
+  add_custom_target(${PROJECT_NAME}-codespell
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --red ${WARN_MSG}
     COMMENT ${WARN_MSG}
   )
