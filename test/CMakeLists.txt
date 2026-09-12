@@ -15,9 +15,6 @@ if(LUACHECK)
   set(LUACHECK_RC ${LUACHECK_SOURCE_DIR}/.luacheckrc)
   file(GLOB_RECURSE LUACHECK_DEPS ${LUACHECK_SOURCE_DIR}/*.lua)
   add_custom_target(${PROJECT_NAME}-luacheck
-    DEPENDS ${LUACHECK_RC} ${LUACHECK_DEPS}
-  )
-  add_custom_command(TARGET ${PROJECT_NAME}-luacheck
     COMMENT "Running luacheck static analysis"
     COMMAND
       ${LUACHECK} ${LUACHECK_SOURCE_DIR}
@@ -31,10 +28,10 @@ if(LUACHECK)
     # the working directory, hence luacheck should be run in the
     # project root directory.
     WORKING_DIRECTORY ${LUACHECK_SOURCE_DIR}
+    DEPENDS ${LUACHECK_RC} ${LUACHECK_DEPS}
   )
 else()
-  add_custom_target(${PROJECT_NAME}-luacheck)
-  add_custom_command(TARGET ${PROJECT_NAME}-luacheck
+  add_custom_target(${PROJECT_NAME}-luacheck
     COMMENT "`luacheck' is not found, so ${PROJECT_NAME}-luacheck target is dummy"
   )
 endif()
@@ -45,19 +42,16 @@ if(FLAKE8)
   set(FLAKE8_RC ${FLAKE8_SOURCE_DIR}/.flake8rc)
   file(GLOB_RECURSE FLAKE8_DEPS ${FLAKE8_SOURCE_DIR}/*.py)
   add_custom_target(${PROJECT_NAME}-flake8
-    DEPENDS ${FLAKE8_DEPS}
-  )
-  add_custom_command(TARGET ${PROJECT_NAME}-flake8
     COMMENT "Running flake8 static analysis"
     COMMAND
       ${FLAKE8} ${FLAKE8_DEPS}
         --config ${FLAKE8_RC}
         --jobs ${CMAKE_BUILD_PARALLEL_LEVEL}
     WORKING_DIRECTORY ${FLAKE8_SOURCE_DIR}
+    DEPENDS ${FLAKE8_DEPS}
   )
 else()
-  add_custom_target(${PROJECT_NAME}-flake8)
-  add_custom_command(TARGET ${PROJECT_NAME}-flake8
+  add_custom_target(${PROJECT_NAME}-flake8
     COMMENT "`flake8' is not found, so ${PROJECT_NAME}-flake8 target is dummy"
   )
 endif()
