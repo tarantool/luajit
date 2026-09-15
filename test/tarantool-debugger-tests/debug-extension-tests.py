@@ -711,6 +711,25 @@ class TestLJIRFPMathOpBase(TestCaseBase):
         super(TestLJIRFPMathOpBase, cls).setUpClass()
 
 
+@unittest.skipIf(machine in ('arm64', 'aarch64'),
+                 "not used as there is no corresponding hardware instruction")
+class TestLJIRFPMathFloor(TestLJIRFPMathOpBase):
+    lua_expr = 'math.floor(a)'
+    op = 'floor'
+
+
+@unittest.skipIf(machine in ('arm64', 'aarch64'),
+                 "not used as there is no corresponding hardware instruction")
+class TestLJIRFPMathCeil(TestLJIRFPMathOpBase):
+    lua_expr = 'math.ceil(a)'
+    op = 'ceil'
+
+
+class TestLJIRFPMathSqrt(TestLJIRFPMathOpBase):
+    lua_expr = 'math.sqrt(a)'
+    op = 'sqrt'
+
+
 class TestLJIRFPMathLog(TestLJIRFPMathOpBase):
     lua_expr = 'math.log(a)'
     op = 'log'
