@@ -29,6 +29,7 @@
 #include "lj_target.h"
 #endif
 #include "lj_trace.h"
+#include "lj_pidbg.h"
 #include "lj_dispatch.h"
 #include "lj_vm.h"
 #include "lj_vmevent.h"
@@ -744,6 +745,9 @@ LUALIB_API int luaopen_jit(lua_State *L)
 #endif
 #ifndef LUAJIT_DISABLE_JITUTIL
   lj_lib_prereg(L, LUA_JITLIBNAME ".util", luaopen_jit_util, tabref(L->env));
+#endif
+#if defined(LUAJIT_USE_PIDEBUG) && LJ_HASJIT
+  lj_lib_prereg(L, LUA_JITLIBNAME ".pidbg", luaopen_jit_pidbg, tabref(L->env));
 #endif
 #if LJ_HASJIT
   LJ_LIB_REG(L, "jit.opt", jit_opt);

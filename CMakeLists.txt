@@ -276,6 +276,23 @@ if(LUAJIT_USE_GDBJIT)
   AppendFlags(TARGET_C_FLAGS -DLUAJIT_USE_GDBJIT)
 endif()
 
+# This is the client for the GDB JIT API that provides precise
+# per-instruction debug information for the JIT traces. It is a superset
+# of the LUAJIT_USE_GDBJIT support and cannot be enabled together with
+# it. Enabling this causes an overhead during trace recording only.
+option(LUAJIT_USE_PIDEBUG "Precise trace debug info support" OFF)
+if(LUAJIT_USE_PIDEBUG)
+  if(LUAJIT_USE_GDBJIT)
+    message(FATAL_ERROR
+      "LUAJIT_USE_PIDEBUG and LUAJIT_USE_GDBJIT are mutually exclusive"
+    )
+  endif()
+  if(LUAJIT_DISABLE_JIT)
+    message(FATAL_ERROR "LUAJIT_USE_PIDEBUG requires the JIT")
+  endif()
+  AppendFlags(TARGET_C_FLAGS -DLUAJIT_USE_PIDEBUG)
+endif()
+
 # Turn on assertions for the Lua/C API to debug problems with
 # lua_* calls. This is rather slow -- use only while developing C
 # libraries/embeddings.

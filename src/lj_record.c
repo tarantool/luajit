@@ -30,6 +30,7 @@
 #include "lj_trace.h"
 #include "lj_record.h"
 #include "lj_ffrecord.h"
+#include "lj_pidbg.h"
 #include "lj_snap.h"
 #include "lj_dispatch.h"
 #include "lj_vm.h"
@@ -661,10 +662,17 @@ static void rec_loop_jit(jit_State *J, TraceNo lnk, LoopEvent ev)
 static int rec_profile_need(jit_State *J, GCproto *pt, const BCIns *pc)
 {
   GCproto *ppt;
-  lj_assertJ(J->prof_mode == 'f' || J->prof_mode == 'l',
-	     "bad profiler mode %c", J->prof_mode);
+  lj_assertJ(J->prof_mode == 'f' || J->prof_mode == 'l'
+#ifdef LUAJIT_USE_PIDEBUG
+	     || J->prof_mode == 'b'
+#endif
+	     , "bad profiler mode %c", J->prof_mode);
   if (!pt)
     return 0;
+#ifdef LUAJIT_USE_PIDEBUG
+  if (J->prof_mode == 'b')  /* Bytecode mode: snapshot at every bytecode. */
+    return 1;
+#endif
   ppt = J->prev_pt;
   J->prev_pt = pt;
   if (pt != ppt && ppt) {
@@ -686,6 +694,7 @@ static void rec_profile_ins(jit_State *J, const BCIns *pc)
   if (J->prof_mode && rec_profile_need(J, J->pt, pc)) {
     emitir(IRTG(IR_PROF, IRT_NIL), 0, 0);
     lj_snap_add(J);
+    lj_pidbg_record(J, J->pt, pc);
   }
 }
 

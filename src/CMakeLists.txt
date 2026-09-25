@@ -151,6 +151,9 @@ if(NOT LUAJIT_DISABLE_JIT)
   if(LUAJIT_USE_GDBJIT)
     list(APPEND SOURCES_CORE ${CMAKE_CURRENT_SOURCE_DIR}/lj_gdbjit.c)
   endif()
+  if(LUAJIT_USE_PIDEBUG)
+    list(APPEND SOURCES_CORE ${CMAKE_CURRENT_SOURCE_DIR}/lj_pidbg.c)
+  endif()
   # The support provided within src/lj_opt_split.c is required
   # only for soft-float targets or for 32 bit CPUs which lack
   # native 64 bit integer operations (the FFI is currently the

@@ -24,6 +24,7 @@
 #include "lj_trace.h"
 #include "lj_snap.h"
 #include "lj_gdbjit.h"
+#include "lj_pidbg.h"
 #include "lj_record.h"
 #include "lj_asm.h"
 #include "lj_dispatch.h"
@@ -167,6 +168,7 @@ static void trace_save(jit_State *J, GCtrace *T)
   setgcrefp(J->trace[T->traceno], T);
   lj_gc_barriertrace(J2G(J), T->traceno);
   lj_gdbjit_addtrace(J, T);
+  lj_pidbg_addtrace(J, T);
 #ifdef LUAJIT_USE_PERFTOOLS
   perftools_addtrace(T);
 #endif
@@ -186,6 +188,7 @@ void LJ_FASTCALL lj_trace_free(global_State *g, GCtrace *T)
   jit_State *J = G2J(g);
   if (T->traceno) {
     lj_gdbjit_deltrace(J, T);
+    lj_pidbg_deltrace(J, T);
     if (T->traceno < J->freetrace)
       J->freetrace = T->traceno;
     setgcrefnull(J->trace[T->traceno]);
@@ -298,6 +301,7 @@ int lj_trace_flushall(lua_State *L)
       if (T->root == 0)
 	trace_flushroot(J, T);
       lj_gdbjit_deltrace(J, T);
+      lj_pidbg_deltrace(J, T);
       T->traceno = T->link = 0;  /* Blacklist the link for cont_stitch. */
       setgcrefnull(J->trace[i]);
     }
