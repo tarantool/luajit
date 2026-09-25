@@ -4,6 +4,8 @@ local test = tap.test('fix-mips64-spare-side-exit-patching'):skipcond({
   ['Disabled on *BSD due to #4819'] = jit.os == 'BSD',
   -- We need to fix the MIPS behaviour first.
   ['Disabled for MIPS architectures'] = jit.arch:match('mips'),
+  ['Disabled on *OSX/ARM64 due to #13261'] = jit.os == 'OSX' and
+                                             jit.arch:match('arm64'),
 })
 
 local generators = require('utils').jit.generators
