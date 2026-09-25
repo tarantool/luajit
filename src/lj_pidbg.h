@@ -27,11 +27,15 @@ LJ_FUNC void lj_pidbg_addtrace(jit_State *J, GCtrace *T);
 /* Forget the debug info of the trace. */
 LJ_FUNC void lj_pidbg_deltrace(jit_State *J, GCtrace *T);
 
+/* Release all the state of the current thread on VM state teardown. */
+LJ_FUNC void lj_pidbg_freestate(jit_State *J);
+
 #else
 
 #define lj_pidbg_record(J, pt, pc)	UNUSED(pt)
 #define lj_pidbg_addtrace(J, T)		UNUSED(T)
 #define lj_pidbg_deltrace(J, T)		UNUSED(T)
+#define lj_pidbg_freestate(J)		UNUSED(J)
 
 #endif
 

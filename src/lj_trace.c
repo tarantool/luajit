@@ -366,6 +366,7 @@ void lj_trace_initstate(global_State *g)
 void lj_trace_freestate(global_State *g)
 {
   jit_State *J = G2J(g);
+  lj_pidbg_freestate(J);
 #ifdef LUA_USE_ASSERT
   {  /* This assumes all traces have already been freed. */
     ptrdiff_t i;

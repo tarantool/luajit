@@ -1082,6 +1082,50 @@ static void pidbg_unregister(global_State *g, PIDbgTrace *pt)
   lj_mem_free(g, eo, eo->sz);
 }
 
+/* Release every resource of the current thread and the shared state. */
+static void pidbg_free_all(jit_State *J)
+{
+  PIDbgTrace **traces;
+  MSize cap, i;
+  pidbg_lock_acquire();
+  traces = pidbg_traces;
+  cap = pidbg_tracescap;
+  pidbg_traces = NULL;
+  pidbg_tracescap = 0;
+  pidbg_enabled = 0;
+  pidbg_lock_release();
+  if (traces != NULL) {
+    for (i = 0; i < cap; i++) {
+      PIDbgTrace *pt = traces[i];
+      if (pt != NULL) {
+	MSize k;
+	pidbg_unregister(J2G(J), pt);
+	for (k = 0; k < pt->nfile; k++)
+	  lj_mem_free(J2G(J), pt->file[k], strlen(pt->file[k]) + 1);
+	lj_mem_freevec(J2G(J), pt->file, PIDBG_MAXFILE, char *);
+	lj_mem_freevec(J2G(J), pt->span, pt->nspan, PIDbgSpan);
+	lj_mem_freet(J2G(J), pt);
+      }
+    }
+    lj_mem_freevec(J2G(J), traces, cap, PIDbgTrace *);
+  }
+  if (pidbg_sidecar != NULL) { fclose(pidbg_sidecar); pidbg_sidecar = NULL; }
+  if (pidbg_jitdump != NULL) { fclose(pidbg_jitdump); pidbg_jitdump = NULL; }
+  if (pidbg_ckpt != NULL) {
+    lj_mem_free(J2G(J), pidbg_ckpt, pidbg_ckptcap*sizeof(PIDbgCkpt));
+    pidbg_ckpt = NULL;
+    pidbg_ckptcap = 0;
+  }
+  pidbg_ckptn = 0;
+  pidbg_ckpt_traceno = 0;
+}
+
+/* Called when the VM state is torn down. */
+void lj_pidbg_freestate(jit_State *J)
+{
+  pidbg_free_all(J);
+}
+
 /*
 ** Resolve the checkpoints into a sorted table of (offset, line, file)
 ** entries and remember it for the trace.
@@ -1169,38 +1213,9 @@ static int pidbg_start(lua_State *L)
 static int pidbg_stop(lua_State *L)
 {
   jit_State *J = L2J(L);
-  PIDbgTrace **traces;
-  MSize cap;
-  MSize i;
   J->prof_mode = 0;
   lj_trace_flushall(L);
-  pidbg_lock_acquire();
-  traces = pidbg_traces;
-  cap = pidbg_tracescap;
-  pidbg_traces = NULL;
-  pidbg_tracescap = 0;
-  pidbg_enabled = 0;
-  pidbg_lock_release();
-  /* Free debug info of any traces that were not flushed above. */
-  if (traces != NULL) {
-    for (i = 0; i < cap; i++) {
-      PIDbgTrace *pt = traces[i];
-      if (pt != NULL) {
-        MSize k;
-        pidbg_unregister(J2G(J), pt);
-        for (k = 0; k < pt->nfile; k++)
-          lj_mem_free(J2G(J), pt->file[k], strlen(pt->file[k]) + 1);
-        lj_mem_freevec(J2G(J), pt->file, PIDBG_MAXFILE, char *);
-        lj_mem_freevec(J2G(J), pt->span, pt->nspan, PIDbgSpan);
-        lj_mem_freet(J2G(J), pt);
-      }
-    }
-    lj_mem_freevec(J2G(J), traces, cap, PIDbgTrace *);
-  }
-  if (pidbg_sidecar != NULL) { fclose(pidbg_sidecar); pidbg_sidecar = NULL; }
-  if (pidbg_jitdump != NULL) { fclose(pidbg_jitdump); pidbg_jitdump = NULL; }
-  pidbg_ckpt_reset();
-  pidbg_ckpt_traceno = 0;
+  pidbg_free_all(J);
   lua_pushboolean(L, 1);
   return 1;
 }
