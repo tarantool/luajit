@@ -11,6 +11,8 @@
 #if LJ_HASJIT && defined(LUAJIT_USE_PIDEBUG)
 
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 #include "lauxlib.h"
 #include "lj_gc.h"
 #include "lj_debug.h"
@@ -47,6 +49,7 @@ typedef struct PIDbgCkpt {
 /* A resolved debug entry of a trace. */
 typedef struct PIDbgSpan {
   uint32_t mcoff;	/* Offset into the machine code. */
+  uint32_t bcpos;	/* Bytecode position within the prototype. */
   uint32_t line;	/* Source line. */
   uint32_t fileidx;	/* Index into the file name table. */
 } PIDbgSpan;
@@ -77,6 +80,9 @@ static int pidbg_lock;
 static int pidbg_enabled;
 static PIDbgTrace **pidbg_traces;
 static MSize pidbg_tracescap;
+static FILE *pidbg_sidecar;	/* Optional sidecar output. */
+static FILE *pidbg_jitdump;	/* Optional jitdump output. */
+static uint64_t pidbg_code_index;
 
 static void pidbg_lock_acquire(void)
 {
@@ -629,7 +635,7 @@ static void pidbg_emit_lineprog(PIDbgBuf *b, PIDbgTrace *pt,
 
 /* Build the in-memory ELF object for a single trace. */
 static void pidbg_build_obj(jit_State *J, PIDbgTrace *pt, GCtrace *T,
-			    PIDbgBuf *b)
+			    PIDbgBuf *b, size_t *eh_ofs, size_t *eh_sz)
 {
   PIDbgELFsectheader sec[PIDBG_SECT__MAX];
   uint32_t nameofs[PIDBG_SECT__MAX];
@@ -877,6 +883,141 @@ static void pidbg_build_obj(jit_State *J, PIDbgTrace *pt, GCtrace *T,
     PIDbgELFheader hdr = pidbg_elfhdr_template;
     memcpy(b->p, &hdr, sizeof(hdr));
   }
+
+  *eh_ofs = sec[PIDBG_SECT_eh_frame].ofs;
+  *eh_sz = sec[PIDBG_SECT_eh_frame].size;
+}
+
+/* -- File outputs -------------------------------------------------------- */
+
+/* Write the per-trace debug entries to the optional sidecar file. */
+static void pidbg_write_sidecar(PIDbgTrace *pt, GCtrace *T)
+{
+  MSize i;
+  if (pidbg_sidecar == NULL)
+    return;
+  pidbg_lock_acquire();
+  fprintf(pidbg_sidecar, "trace\t%d\t%llu\t%u\n", (int)T->traceno,
+	  (unsigned long long)(uintptr_t)T->mcode, (unsigned)T->szmcode);
+  for (i = 0; i < pt->nspan; i++) {
+    PIDbgSpan *s = &pt->span[i];
+    fprintf(pidbg_sidecar, "span\t%d\t%u\t%u\t%u\t%s\n", (int)T->traceno,
+	    (unsigned)s->mcoff, (unsigned)s->bcpos, (unsigned)s->line,
+	    pt->file[s->fileidx]);
+  }
+  fprintf(pidbg_sidecar, "end\t%d\n", (int)T->traceno);
+  fflush(pidbg_sidecar);
+  pidbg_lock_release();
+}
+
+/* ELF machine type, matching the in-memory ELF object. */
+static uint32_t pidbg_elf_mach(void)
+{
+#if LJ_TARGET_X86
+  return 3;
+#elif LJ_TARGET_X64
+  return 62;
+#elif LJ_TARGET_ARM
+  return 40;
+#elif LJ_TARGET_ARM64
+  return 183;
+#elif LJ_TARGET_PPC
+  return 20;
+#elif LJ_TARGET_MIPS
+  return 8;
+#else
+  return 0;
+#endif
+}
+
+static void jd_u32(FILE *f, uint32_t v)
+{
+  fwrite(&v, sizeof(v), 1, f);
+}
+
+static void jd_u64(FILE *f, uint64_t v)
+{
+  fwrite(&v, sizeof(v), 1, f);
+}
+
+static void jd_rec(FILE *f, uint32_t id, uint64_t size)
+{
+  jd_u32(f, id);
+  jd_u32(f, (uint32_t)size);
+  jd_u64(f, 0);  /* Timestamp: unused. */
+}
+
+/* Write the jitdump file header. */
+static void pidbg_jitdump_header(FILE *f)
+{
+  jd_u32(f, 0x4a695444);	/* "JiTD". */
+  jd_u32(f, 1);			/* Version. */
+  jd_u32(f, 40);		/* Header size. */
+  jd_u32(f, pidbg_elf_mach());
+  jd_u32(f, 0);			/* Reserved. */
+  jd_u32(f, (uint32_t)getpid());
+  jd_u64(f, 0);			/* Timestamp. */
+  jd_u64(f, 0);			/* Flags. */
+}
+
+/* Write the jitdump records of a single trace. */
+static void pidbg_write_jitdump(PIDbgTrace *pt, GCtrace *T, PIDbgBuf *b,
+				size_t eh_ofs, size_t eh_sz)
+{
+  static const uint8_t eh_hdr[4] = { 1, 0xff, 0xff, 0xff };
+  uint64_t code_addr = (uintptr_t)T->mcode;
+  uint64_t code_size = T->szmcode;
+  uint64_t code_index;
+  uint32_t pid = (uint32_t)getpid();
+  char name[32];
+  int nlen;
+  size_t size;
+  MSize i;
+  if (pidbg_jitdump == NULL)
+    return;
+  nlen = snprintf(name, sizeof(name), "TRACE_%d", (int)T->traceno);
+
+  pidbg_lock_acquire();
+  code_index = ++pidbg_code_index;
+
+  /* JIT_CODE_DEBUG_INFO: must precede the matching JIT_CODE_LOAD. */
+  size = 16 + 8 + 8;
+  for (i = 0; i < pt->nspan; i++)
+    size += 8 + 4 + 4 + strlen(pt->file[pt->span[i].fileidx]) + 1;
+  jd_rec(pidbg_jitdump, 2, size);
+  jd_u64(pidbg_jitdump, code_addr);
+  jd_u64(pidbg_jitdump, pt->nspan);
+  for (i = 0; i < pt->nspan; i++) {
+    const char *file = pt->file[pt->span[i].fileidx];
+    jd_u64(pidbg_jitdump, code_addr + pt->span[i].mcoff);
+    jd_u32(pidbg_jitdump, pt->span[i].line);
+    jd_u32(pidbg_jitdump, 0);
+    fwrite(file, 1, strlen(file) + 1, pidbg_jitdump);
+  }
+
+  /* JIT_CODE_LOAD. */
+  size = 16 + 4 + 4 + 8 + 8 + 8 + 8 + (size_t)nlen + 1 + code_size;
+  jd_rec(pidbg_jitdump, 0, size);
+  jd_u32(pidbg_jitdump, pid);
+  jd_u32(pidbg_jitdump, pid);	/* Thread id: approximate. */
+  jd_u64(pidbg_jitdump, code_addr);	/* vma. */
+  jd_u64(pidbg_jitdump, code_addr);	/* code_addr. */
+  jd_u64(pidbg_jitdump, code_size);
+  jd_u64(pidbg_jitdump, code_index);
+  fwrite(name, 1, (size_t)nlen + 1, pidbg_jitdump);
+  fwrite((const void *)T->mcode, 1, (size_t)code_size, pidbg_jitdump);
+
+  /* JIT_CODE_UNWINDING_INFO. */
+  size = 16 + 8 + 8 + 8 + sizeof(eh_hdr) + eh_sz;
+  jd_rec(pidbg_jitdump, 4, size);
+  jd_u64(pidbg_jitdump, sizeof(eh_hdr) + eh_sz);	/* Unwind data size. */
+  jd_u64(pidbg_jitdump, sizeof(eh_hdr));		/* EH frame hdr size. */
+  jd_u64(pidbg_jitdump, 0);				/* Mapped size. */
+  fwrite(eh_hdr, 1, sizeof(eh_hdr), pidbg_jitdump);
+  fwrite(b->p + eh_ofs, 1, eh_sz, pidbg_jitdump);
+
+  fflush(pidbg_jitdump);
+  pidbg_lock_release();
 }
 
 /* Combined allocation for a GDB JIT entry and its ELF object. */
@@ -892,13 +1033,15 @@ static void pidbg_register(lua_State *L, PIDbgTrace *pt, GCtrace *T)
   PIDbgEntryObj *eo;
   void *obj;
   size_t objsize;
+  size_t eh_ofs, eh_sz;
 
-  pidbg_build_obj(L2J(L), pt, T, &b);
+  pidbg_build_obj(L2J(L), pt, T, &b, &eh_ofs, &eh_sz);
   objsize = b.len;
   eo = (PIDbgEntryObj *)lj_mem_newt(L,
 	  sizeof(PIDbgEntryObj) + objsize, PIDbgEntryObj);
   obj = (char *)eo + sizeof(PIDbgEntryObj);
   memcpy(obj, b.p, objsize);
+  pidbg_write_jitdump(pt, T, &b, eh_ofs, eh_sz);
   lj_mem_free(G(L), b.p, b.cap);
   eo->sz = sizeof(PIDbgEntryObj) + objsize;
   eo->entry.symfile_addr = (const char *)obj;
@@ -964,15 +1107,18 @@ void lj_pidbg_addtrace(jit_State *J, GCtrace *T)
   for (i = 0; i < T->nsnap; i++) {
     int known = (i < pidbg_ckptn && pidbg_ckpt[i].pt != NULL);
     uint32_t mcoff = (uint32_t)T->snap[i].mcofs;
+    uint32_t bcpos = 0;
     if (known) {
       GCproto *cpt = pidbg_ckpt[i].pt;
       curline = lj_debug_line(cpt, pidbg_ckpt[i].pos);
       curfile = pidbg_chunkname(cpt);
+      bcpos = (uint32_t)pidbg_ckpt[i].pos;
     }
     /* Snapshots sharing a machine code offset describe the same point. */
     if (n > 0 && pt->span[n-1].mcoff == mcoff)
       continue;
     pt->span[n].mcoff = mcoff;
+    pt->span[n].bcpos = bcpos;
     pt->span[n].line = (uint32_t)curline;
     pt->span[n].fileidx = pidbg_fileidx(J, pt, curfile);
     n++;
@@ -980,6 +1126,7 @@ void lj_pidbg_addtrace(jit_State *J, GCtrace *T)
   pt->nspan = n;
   pidbg_ckpt_reset();
 
+  pidbg_write_sidecar(pt, T);
   pidbg_register(J->L, pt, T);
 
   pidbg_traces_ensure(J, (MSize)T->traceno + 1);
@@ -990,13 +1137,25 @@ void lj_pidbg_addtrace(jit_State *J, GCtrace *T)
 
 /* -- Lua interface ------------------------------------------------------- */
 
-/* jit.pidbg.start([mode]) */
+/* jit.pidbg.start([mode [, sidecar [, jitdump]]]) */
 static int pidbg_start(lua_State *L)
 {
   jit_State *J = L2J(L);
   const char *mode = luaL_optstring(L, 1, "l");
+  const char *sidecar = luaL_optstring(L, 2, NULL);
+  const char *jitdump = luaL_optstring(L, 3, NULL);
   pidbg_ckpt_reset();
   pidbg_ckpt_traceno = 0;
+  if (pidbg_sidecar != NULL) { fclose(pidbg_sidecar); pidbg_sidecar = NULL; }
+  if (pidbg_jitdump != NULL) { fclose(pidbg_jitdump); pidbg_jitdump = NULL; }
+  if (sidecar != NULL)
+    pidbg_sidecar = fopen(sidecar, "wb");
+  if (jitdump != NULL) {
+    pidbg_jitdump = fopen(jitdump, "wb");
+    if (pidbg_jitdump != NULL)
+      pidbg_jitdump_header(pidbg_jitdump);
+  }
+  pidbg_code_index = 0;
   pidbg_lock_acquire();
   pidbg_enabled = 1;
   pidbg_lock_release();
@@ -1038,6 +1197,8 @@ static int pidbg_stop(lua_State *L)
     }
     lj_mem_freevec(J2G(J), traces, cap, PIDbgTrace *);
   }
+  if (pidbg_sidecar != NULL) { fclose(pidbg_sidecar); pidbg_sidecar = NULL; }
+  if (pidbg_jitdump != NULL) { fclose(pidbg_jitdump); pidbg_jitdump = NULL; }
   pidbg_ckpt_reset();
   pidbg_ckpt_traceno = 0;
   lua_pushboolean(L, 1);
