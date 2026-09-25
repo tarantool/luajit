@@ -14,6 +14,8 @@
 #include "lauxlib.h"
 #include "lj_gc.h"
 #include "lj_debug.h"
+#include "lj_frame.h"
+#include "lj_ir.h"
 #include "lj_trace.h"
 #include "lj_pidbg.h"
 
@@ -55,10 +57,14 @@ typedef struct PIDbgTrace {
   MSize nfile;		/* Number of distinct chunk names. */
   PIDbgSpan *span;	/* Array of debug entries, sorted by offset. */
   char **file;		/* Array of distinct chunk names. */
+  void *entry;		/* Registered GDB JIT entry, if any. */
 } PIDbgTrace;
 
 /* Maximum number of distinct chunk names tracked for a single trace. */
 #define PIDBG_MAXFILE		16
+
+static void pidbg_register(lua_State *L, PIDbgTrace *pt, GCtrace *T);
+static void pidbg_unregister(global_State *g, PIDbgTrace *pt);
 
 /* Per-thread checkpoint buffer. */
 static __thread PIDbgCkpt *pidbg_ckpt;
@@ -168,6 +174,7 @@ void lj_pidbg_deltrace(jit_State *J, GCtrace *T)
   pidbg_lock_release();
   if (pt != NULL) {
     MSize i;
+    pidbg_unregister(J2G(J), pt);
     for (i = 0; i < pt->nfile; i++)
       lj_mem_free(J2G(J), pt->file[i], strlen(pt->file[i]) + 1);
     lj_mem_freevec(J2G(J), pt->file, PIDBG_MAXFILE, char *);
@@ -193,6 +200,743 @@ static uint32_t pidbg_fileidx(jit_State *J, PIDbgTrace *pt, const char *name)
   memcpy(copy, name, len);
   pt->file[pt->nfile] = copy;
   return (uint32_t)pt->nfile++;
+}
+
+/* -- In-memory ELF object for the GDB JIT API ---------------------------- */
+
+#if defined(LUAJIT_USE_GDBJIT)
+#error "LUAJIT_USE_PIDEBUG and LUAJIT_USE_GDBJIT are mutually exclusive"
+#endif
+
+/* GDB JIT actions. */
+enum {
+  GDBJIT_NOACTION = 0,
+  GDBJIT_REGISTER,
+  GDBJIT_UNREGISTER
+};
+
+/* GDB JIT entry. */
+typedef struct PIDbgJitEntry {
+  struct PIDbgJitEntry *next_entry;
+  struct PIDbgJitEntry *prev_entry;
+  const char *symfile_addr;
+  uint64_t symfile_size;
+} PIDbgJitEntry;
+
+/* GDB JIT descriptor. */
+typedef struct PIDbgJitDesc {
+  uint32_t version;
+  uint32_t action_flag;
+  PIDbgJitEntry *relevant_entry;
+  PIDbgJitEntry *first_entry;
+} PIDbgJitDesc;
+
+PIDbgJitDesc __jit_debug_descriptor = {
+  1, GDBJIT_NOACTION, NULL, NULL
+};
+
+/* GDB sets a breakpoint at this function. */
+void LJ_NOINLINE __jit_debug_register_code(void)
+{
+  __asm__ __volatile__("");
+}
+
+/* ELF definitions. */
+typedef struct PIDbgELFheader {
+  uint8_t emagic[4];
+  uint8_t eclass;
+  uint8_t eendian;
+  uint8_t eversion;
+  uint8_t eosabi;
+  uint8_t eabiversion;
+  uint8_t epad[7];
+  uint16_t type;
+  uint16_t machine;
+  uint32_t version;
+  uintptr_t entry;
+  uintptr_t phofs;
+  uintptr_t shofs;
+  uint32_t flags;
+  uint16_t ehsize;
+  uint16_t phentsize;
+  uint16_t phnum;
+  uint16_t shentsize;
+  uint16_t shnum;
+  uint16_t shstridx;
+} PIDbgELFheader;
+
+typedef struct PIDbgELFsectheader {
+  uint32_t name;
+  uint32_t type;
+  uintptr_t flags;
+  uintptr_t addr;
+  uintptr_t ofs;
+  uintptr_t size;
+  uint32_t link;
+  uint32_t info;
+  uintptr_t align;
+  uintptr_t entsize;
+} PIDbgELFsectheader;
+
+#define PIDBG_ELFSECT_IDX_ABS		0xfff1
+
+enum {
+  PIDBG_ELFSECT_TYPE_PROGBITS = 1,
+  PIDBG_ELFSECT_TYPE_SYMTAB = 2,
+  PIDBG_ELFSECT_TYPE_STRTAB = 3,
+  PIDBG_ELFSECT_TYPE_NOBITS = 8
+};
+
+#define PIDBG_ELFSECT_FLAGS_WRITE	1
+#define PIDBG_ELFSECT_FLAGS_ALLOC	2
+#define PIDBG_ELFSECT_FLAGS_EXEC	4
+
+typedef struct PIDbgELFsymbol {
+#if LJ_64
+  uint32_t name;
+  uint8_t info;
+  uint8_t other;
+  uint16_t sectidx;
+  uintptr_t value;
+  uint64_t size;
+#else
+  uint32_t name;
+  uintptr_t value;
+  uint32_t size;
+  uint8_t info;
+  uint8_t other;
+  uint16_t sectidx;
+#endif
+} PIDbgELFsymbol;
+
+enum {
+  PIDBG_ELFSYM_TYPE_FUNC = 2,
+  PIDBG_ELFSYM_TYPE_FILE = 4,
+  PIDBG_ELFSYM_BIND_LOCAL = 0 << 4,
+  PIDBG_ELFSYM_BIND_GLOBAL = 1 << 4
+};
+
+/* DWARF definitions. */
+#define PIDBG_DW_CIE_VERSION	1
+
+enum {
+  DW_CFA_nop = 0x0,
+  DW_CFA_offset_extended = 0x5,
+  DW_CFA_def_cfa = 0xc,
+  DW_CFA_def_cfa_offset = 0xe,
+  DW_CFA_offset_extended_sf = 0x11,
+  DW_CFA_advance_loc = 0x40,
+  DW_CFA_offset = 0x80
+};
+
+enum {
+  DW_EH_PE_udata4 = 3,
+  DW_EH_PE_textrel = 0x20
+};
+
+enum {
+  DW_TAG_compile_unit = 0x11
+};
+
+enum {
+  DW_children_no = 0,
+  DW_children_yes = 1
+};
+
+enum {
+  DW_AT_name = 0x03,
+  DW_AT_stmt_list = 0x10,
+  DW_AT_low_pc = 0x11,
+  DW_AT_high_pc = 0x12
+};
+
+enum {
+  DW_FORM_addr = 0x01,
+  DW_FORM_data4 = 0x06,
+  DW_FORM_string = 0x08
+};
+
+enum {
+  DW_LNS_extended_op = 0,
+  DW_LNS_copy = 1,
+  DW_LNS_advance_pc = 2,
+  DW_LNS_advance_line = 3,
+  DW_LNS_set_file = 4
+};
+
+enum {
+  DW_LNE_end_sequence = 1,
+  DW_LNE_set_address = 2
+};
+
+enum {
+#if LJ_TARGET_X86
+  DW_REG_AX, DW_REG_CX, DW_REG_DX, DW_REG_BX,
+  DW_REG_SP, DW_REG_BP, DW_REG_SI, DW_REG_DI,
+  DW_REG_RA,
+#elif LJ_TARGET_X64
+  /* Yes, the order is strange, but correct. */
+  DW_REG_AX, DW_REG_DX, DW_REG_CX, DW_REG_BX,
+  DW_REG_SI, DW_REG_DI, DW_REG_BP, DW_REG_SP,
+  DW_REG_8, DW_REG_9, DW_REG_10, DW_REG_11,
+  DW_REG_12, DW_REG_13, DW_REG_14, DW_REG_15,
+  DW_REG_RA,
+#elif LJ_TARGET_ARM
+  DW_REG_SP = 13,
+  DW_REG_RA = 14,
+#elif LJ_TARGET_ARM64
+  DW_REG_SP = 31,
+  DW_REG_RA = 30,
+#elif LJ_TARGET_PPC
+  DW_REG_SP = 1,
+  DW_REG_RA = 65,
+  DW_REG_CR = 70,
+#elif LJ_TARGET_MIPS
+  DW_REG_SP = 29,
+  DW_REG_RA = 31,
+#else
+#error "Unsupported target architecture"
+#endif
+};
+
+/* Minimal list of sections for the in-memory ELF object. */
+enum {
+  PIDBG_SECT_NULL,
+  PIDBG_SECT_text,
+  PIDBG_SECT_eh_frame,
+  PIDBG_SECT_shstrtab,
+  PIDBG_SECT_strtab,
+  PIDBG_SECT_symtab,
+  PIDBG_SECT_debug_info,
+  PIDBG_SECT_debug_abbrev,
+  PIDBG_SECT_debug_line,
+  PIDBG_SECT__MAX
+};
+
+enum {
+  PIDBG_SYM_UNDEF,
+  PIDBG_SYM_FILE,
+  PIDBG_SYM_FUNC,
+  PIDBG_SYM__MAX
+};
+
+/* Template for in-memory ELF header. */
+static const PIDbgELFheader pidbg_elfhdr_template = {
+  .emagic = { 0x7f, 'E', 'L', 'F' },
+  .eclass = LJ_64 ? 2 : 1,
+  .eendian = LJ_ENDIAN_SELECT(1, 2),
+  .eversion = 1,
+#if LJ_TARGET_LINUX
+  .eosabi = 0,
+#elif defined(__FreeBSD__)
+  .eosabi = 9,
+#elif defined(__NetBSD__)
+  .eosabi = 2,
+#elif defined(__OpenBSD__)
+  .eosabi = 12,
+#elif defined(__DragonFly__)
+  .eosabi = 0,
+#elif (defined(__sun__) && defined(__svr4__))
+  .eosabi = 6,
+#else
+  .eosabi = 0,
+#endif
+  .eabiversion = 0,
+  .epad = { 0, 0, 0, 0, 0, 0, 0 },
+  .type = 1,
+#if LJ_TARGET_X86
+  .machine = 3,
+#elif LJ_TARGET_X64
+  .machine = 62,
+#elif LJ_TARGET_ARM
+  .machine = 40,
+#elif LJ_TARGET_ARM64
+  .machine = 183,
+#elif LJ_TARGET_PPC
+  .machine = 20,
+#elif LJ_TARGET_MIPS
+  .machine = 8,
+#else
+#error "Unsupported target architecture"
+#endif
+  .version = 1,
+  .entry = 0,
+  .phofs = 0,
+  .shofs = sizeof(PIDbgELFheader),
+  .flags = 0,
+  .ehsize = sizeof(PIDbgELFheader),
+  .phentsize = 0,
+  .phnum = 0,
+  .shentsize = sizeof(PIDbgELFsectheader),
+  .shnum = PIDBG_SECT__MAX,
+  .shstridx = PIDBG_SECT_shstrtab
+};
+
+/* Growable byte buffer for building the ELF object. */
+typedef struct PIDbgBuf {
+  lua_State *L;
+  uint8_t *p;
+  size_t len;
+  size_t cap;
+} PIDbgBuf;
+
+static void pb_need(PIDbgBuf *b, size_t n)
+{
+  if (b->len + n > b->cap) {
+    size_t cap = b->cap ? b->cap : 256;
+    while (cap < b->len + n) cap *= 2;
+    b->p = (uint8_t *)lj_mem_realloc(b->L, b->p, b->cap, cap);
+    b->cap = cap;
+  }
+}
+
+static void pb_mem(PIDbgBuf *b, const void *p, size_t n)
+{
+  pb_need(b, n);
+  memcpy(b->p + b->len, p, n);
+  b->len += n;
+}
+
+static void pb_u8(PIDbgBuf *b, uint8_t v)
+{
+  pb_need(b, 1);
+  b->p[b->len++] = v;
+}
+
+static void pb_u16(PIDbgBuf *b, uint16_t v)
+{
+  pb_mem(b, &v, sizeof(v));
+}
+
+static void pb_u32(PIDbgBuf *b, uint32_t v)
+{
+  pb_mem(b, &v, sizeof(v));
+}
+
+static void pb_addr(PIDbgBuf *b, uintptr_t v)
+{
+  pb_mem(b, &v, sizeof(v));
+}
+
+static void pb_uleb(PIDbgBuf *b, uint64_t v)
+{
+  do {
+    uint8_t x = (uint8_t)(v & 0x7f);
+    v >>= 7;
+    if (v) x |= 0x80;
+    pb_u8(b, x);
+  } while (v);
+}
+
+static void pb_sleb(PIDbgBuf *b, int64_t v)
+{
+  for (;;) {
+    uint8_t x = (uint8_t)(v & 0x7f);
+    int64_t s = v >> 7;
+    v = s;
+    if ((s == 0 && !(x & 0x40)) || (s == -1 && (x & 0x40))) {
+      pb_u8(b, x);
+      break;
+    }
+    pb_u8(b, x | 0x80);
+  }
+}
+
+static void pb_strz(PIDbgBuf *b, const char *s)
+{
+  pb_mem(b, s, strlen(s) + 1);
+}
+
+static void pb_pad(PIDbgBuf *b, size_t a)
+{
+  while (b->len & (a - 1))
+    pb_u8(b, 0);
+}
+
+/* Emit a length-prefixed DWARF sub-section and return its length position. */
+static size_t pb_begin(PIDbgBuf *b)
+{
+  size_t pos = b->len;
+  pb_u32(b, 0);
+  return pos;
+}
+
+static void pb_end(PIDbgBuf *b, size_t pos)
+{
+  uint32_t len = (uint32_t)(b->len - pos - 4);
+  memcpy(b->p + pos, &len, sizeof(len));
+}
+
+/* Emit the DWARF line number program for the trace. */
+static void pidbg_emit_lineprog(PIDbgBuf *b, PIDbgTrace *pt,
+				uintptr_t mcaddr, MSize szmcode)
+{
+  uintptr_t cur_addr = 0;
+  BCLine cur_line = 1;
+  uint32_t cur_file = 1;
+  int seq_open = 0;
+  MSize i;
+
+  for (i = 0; i < pt->nspan; i++) {
+    uintptr_t addr = mcaddr + pt->span[i].mcoff;
+    uint32_t fidx = pt->span[i].fileidx + 1;
+    BCLine line = (BCLine)pt->span[i].line;
+    if (!seq_open || addr < cur_addr) {
+      if (seq_open) {
+	pb_u8(b, DW_LNS_extended_op);
+	pb_uleb(b, 1);
+	pb_u8(b, DW_LNE_end_sequence);
+      }
+      pb_u8(b, DW_LNS_extended_op);
+      pb_uleb(b, 1 + sizeof(uintptr_t));
+      pb_u8(b, DW_LNE_set_address);
+      pb_addr(b, addr);
+      cur_addr = addr;
+      cur_line = 1;
+      cur_file = 1;
+      seq_open = 1;
+    }
+    if (fidx != cur_file) {
+      pb_u8(b, DW_LNS_set_file);
+      pb_uleb(b, fidx);
+      cur_file = fidx;
+    }
+    if (line != cur_line) {
+      pb_u8(b, DW_LNS_advance_line);
+      pb_sleb(b, (int64_t)line - (int64_t)cur_line);
+      cur_line = line;
+    }
+    if (addr != cur_addr) {
+      pb_u8(b, DW_LNS_advance_pc);
+      pb_uleb(b, addr - cur_addr);
+      cur_addr = addr;
+    }
+    pb_u8(b, DW_LNS_copy);
+  }
+
+  if (seq_open) {
+    uintptr_t end = mcaddr + szmcode;
+    if (end > cur_addr) {
+      pb_u8(b, DW_LNS_advance_pc);
+      pb_uleb(b, end - cur_addr);
+      cur_addr = end;
+    }
+    pb_u8(b, DW_LNS_extended_op);
+    pb_uleb(b, 1);
+    pb_u8(b, DW_LNE_end_sequence);
+  }
+}
+
+/* Build the in-memory ELF object for a single trace. */
+static void pidbg_build_obj(jit_State *J, PIDbgTrace *pt, GCtrace *T,
+			    PIDbgBuf *b)
+{
+  PIDbgELFsectheader sec[PIDBG_SECT__MAX];
+  uint32_t nameofs[PIDBG_SECT__MAX];
+  uint32_t symname[PIDBG_SYM__MAX];
+  PIDbgELFsymbol sym[PIDBG_SYM__MAX];
+  size_t sectab = sizeof(PIDbgELFheader);
+  const char *cufile;
+  GCproto *startpt = &gcref(T->startpt)->pt;
+  TraceNo parent = T->ir[REF_BASE].op1;
+  MSize spadjp = CFRAME_SIZE_JIT +
+		 (MSize)(parent ? traceref(J, parent)->spadjust : 0);
+  MSize spadj = CFRAME_SIZE_JIT + T->spadjust;
+  MSize i;
+
+  b->L = J->L;
+  b->p = NULL;
+  b->len = 0;
+  b->cap = 0;
+  cufile = pidbg_chunkname(startpt);
+  memset(sec, 0, sizeof(sec));
+  memset(sym, 0, sizeof(sym));
+
+  /* Reserve the ELF header and the section header table. */
+  pb_need(b, sectab + PIDBG_SECT__MAX*sizeof(PIDbgELFsectheader));
+  memset(b->p, 0, sectab + PIDBG_SECT__MAX*sizeof(PIDbgELFsectheader));
+  b->len = sectab + PIDBG_SECT__MAX*sizeof(PIDbgELFsectheader);
+
+  /* Section name string table. */
+  sec[PIDBG_SECT_shstrtab].ofs = b->len;
+  pb_u8(b, '\0');
+  {
+    static const char *const names[PIDBG_SECT__MAX] = {
+      NULL, ".text", ".eh_frame", ".shstrtab", ".strtab", ".symtab",
+      ".debug_info", ".debug_abbrev", ".debug_line"
+    };
+    for (i = 1; i < PIDBG_SECT__MAX; i++) {
+      nameofs[i] = (uint32_t)(b->len - sec[PIDBG_SECT_shstrtab].ofs);
+      pb_strz(b, names[i]);
+    }
+  }
+  sec[PIDBG_SECT_shstrtab].size = b->len - sec[PIDBG_SECT_shstrtab].ofs;
+
+  /* Symbol name string table. */
+  sec[PIDBG_SECT_strtab].ofs = b->len;
+  pb_u8(b, '\0');
+  symname[PIDBG_SYM_FILE] = (uint32_t)(b->len - sec[PIDBG_SECT_strtab].ofs);
+  pb_strz(b, "JIT mcode");
+  symname[PIDBG_SYM_FUNC] = (uint32_t)(b->len - sec[PIDBG_SECT_strtab].ofs);
+  pb_strz(b, "TRACE_");
+  b->len--;  /* Overwrite the terminator with the trace number. */
+  {
+    char num[16];
+    int n = 0;
+    TraceNo tr = T->traceno;
+    do { num[n++] = (char)('0' + tr % 10); tr /= 10; } while (tr);
+    while (n > 0) pb_u8(b, (uint8_t)num[--n]);
+    pb_u8(b, '\0');
+  }
+  sec[PIDBG_SECT_strtab].size = b->len - sec[PIDBG_SECT_strtab].ofs;
+
+  /* Symbol table. */
+  sec[PIDBG_SECT_symtab].ofs = b->len;
+  sym[PIDBG_SYM_FILE].name = symname[PIDBG_SYM_FILE];
+  sym[PIDBG_SYM_FILE].sectidx = PIDBG_ELFSECT_IDX_ABS;
+  sym[PIDBG_SYM_FILE].info = PIDBG_ELFSYM_TYPE_FILE|PIDBG_ELFSYM_BIND_LOCAL;
+  sym[PIDBG_SYM_FUNC].name = symname[PIDBG_SYM_FUNC];
+  sym[PIDBG_SYM_FUNC].sectidx = PIDBG_SECT_text;
+  sym[PIDBG_SYM_FUNC].value = 0;
+  sym[PIDBG_SYM_FUNC].size = T->szmcode;
+  sym[PIDBG_SYM_FUNC].info = PIDBG_ELFSYM_TYPE_FUNC|PIDBG_ELFSYM_BIND_GLOBAL;
+  pb_mem(b, sym, sizeof(sym));
+  sec[PIDBG_SECT_symtab].size = sizeof(sym);
+  sec[PIDBG_SECT_symtab].link = PIDBG_SECT_strtab;
+  sec[PIDBG_SECT_symtab].info = PIDBG_SYM_FUNC;
+  sec[PIDBG_SECT_symtab].entsize = sizeof(PIDbgELFsymbol);
+
+  /* .debug_info. */
+  sec[PIDBG_SECT_debug_info].ofs = b->len;
+  {
+    size_t unit = pb_begin(b);
+    pb_u16(b, 2);			/* DWARF version. */
+    pb_u32(b, 0);			/* Abbrev offset. */
+    pb_u8(b, (uint8_t)sizeof(uintptr_t));  /* Pointer size. */
+    pb_uleb(b, 1);		/* Abbrev #1: DW_TAG_compile_unit. */
+    pb_strz(b, cufile);		/* DW_AT_name. */
+    pb_addr(b, (uintptr_t)T->mcode);			/* DW_AT_low_pc. */
+    pb_addr(b, (uintptr_t)T->mcode + T->szmcode);	/* DW_AT_high_pc. */
+    pb_u32(b, 0);		/* DW_AT_stmt_list. */
+    pb_end(b, unit);
+  }
+  sec[PIDBG_SECT_debug_info].size = b->len - sec[PIDBG_SECT_debug_info].ofs;
+
+  /* .debug_abbrev. */
+  sec[PIDBG_SECT_debug_abbrev].ofs = b->len;
+  pb_uleb(b, 1); pb_uleb(b, DW_TAG_compile_unit);
+  pb_u8(b, DW_children_no);
+  pb_uleb(b, DW_AT_name);	pb_uleb(b, DW_FORM_string);
+  pb_uleb(b, DW_AT_low_pc);	pb_uleb(b, DW_FORM_addr);
+  pb_uleb(b, DW_AT_high_pc);	pb_uleb(b, DW_FORM_addr);
+  pb_uleb(b, DW_AT_stmt_list);	pb_uleb(b, DW_FORM_data4);
+  pb_u8(b, 0); pb_u8(b, 0);
+  sec[PIDBG_SECT_debug_abbrev].size =
+    b->len - sec[PIDBG_SECT_debug_abbrev].ofs;
+
+  /* .debug_line. */
+  sec[PIDBG_SECT_debug_line].ofs = b->len;
+  {
+    size_t unit, hdr;
+    unit = pb_begin(b);
+    pb_u16(b, 2);		/* DWARF version. */
+    hdr = pb_begin(b);
+    pb_u8(b, 1);		/* Minimum instruction length. */
+    pb_u8(b, 1);		/* is_stmt. */
+    pb_u8(b, 0);		/* Line base. */
+    pb_u8(b, 2);		/* Line range. */
+    pb_u8(b, 5);		/* Opcode base. */
+    pb_u8(b, 0); pb_u8(b, 1); pb_u8(b, 1); pb_u8(b, 1);  /* Std op lengths. */
+    pb_u8(b, 0);		/* Empty directory table. */
+    for (i = 0; i < pt->nfile; i++) {  /* File name table. */
+      pb_strz(b, pt->file[i]);
+      pb_uleb(b, 0); pb_uleb(b, 0); pb_uleb(b, 0);
+    }
+    pb_u8(b, 0);		/* End of file name table. */
+    pb_end(b, hdr);
+    pidbg_emit_lineprog(b, pt, (uintptr_t)T->mcode, T->szmcode);
+    pb_end(b, unit);
+  }
+  sec[PIDBG_SECT_debug_line].size = b->len - sec[PIDBG_SECT_debug_line].ofs;
+
+  /* .eh_frame. */
+  pb_pad(b, sizeof(uintptr_t));
+  sec[PIDBG_SECT_eh_frame].ofs = b->len;
+  {
+    size_t cie, fde, framep = b->len;
+    cie = pb_begin(b);
+    pb_u32(b, 0);		/* Offset to CIE itself. */
+    pb_u8(b, PIDBG_DW_CIE_VERSION);
+    pb_strz(b, "zR");		/* Augmentation. */
+    pb_uleb(b, 1);		/* Code alignment factor. */
+    pb_sleb(b, -(int64_t)sizeof(uintptr_t));  /* Data alignment factor. */
+    pb_u8(b, DW_REG_RA);	/* Return address register. */
+    pb_u8(b, 1); pb_u8(b, DW_EH_PE_textrel|DW_EH_PE_udata4);
+    pb_u8(b, DW_CFA_def_cfa); pb_uleb(b, DW_REG_SP);
+    pb_uleb(b, sizeof(uintptr_t));
+#if LJ_TARGET_PPC
+    pb_u8(b, DW_CFA_offset_extended_sf); pb_u8(b, DW_REG_RA); pb_sleb(b, -1);
+#else
+    pb_u8(b, DW_CFA_offset|DW_REG_RA); pb_uleb(b, 1);
+#endif
+    pb_pad(b, sizeof(uintptr_t));
+    pb_end(b, cie);
+
+    fde = pb_begin(b);
+    pb_u32(b, (uint32_t)(fde + 4 - framep));  /* Offset to CIE. */
+    pb_u32(b, 0);			/* Machine code offset relative to text. */
+    pb_u32(b, T->szmcode);		/* Machine code length. */
+    pb_u8(b, 0);			/* Augmentation data. */
+#if LJ_TARGET_X86
+    pb_u8(b, DW_CFA_offset|DW_REG_BP); pb_uleb(b, 2);
+    pb_u8(b, DW_CFA_offset|DW_REG_DI); pb_uleb(b, 3);
+    pb_u8(b, DW_CFA_offset|DW_REG_SI); pb_uleb(b, 4);
+    pb_u8(b, DW_CFA_offset|DW_REG_BX); pb_uleb(b, 5);
+#elif LJ_TARGET_X64
+    pb_u8(b, DW_CFA_offset|DW_REG_BP); pb_uleb(b, 2);
+    pb_u8(b, DW_CFA_offset|DW_REG_BX); pb_uleb(b, 3);
+    pb_u8(b, DW_CFA_offset|DW_REG_15); pb_uleb(b, 4);
+    pb_u8(b, DW_CFA_offset|DW_REG_14); pb_uleb(b, 5);
+    pb_u8(b, DW_CFA_offset|DW_REG_13); pb_uleb(b, LJ_GC64 ? 10 : 9);
+    pb_u8(b, DW_CFA_offset|DW_REG_12); pb_uleb(b, LJ_GC64 ? 11 : 10);
+#elif LJ_TARGET_ARM
+    { int r; for (r = 11; r >= 4; r--) { pb_u8(b, DW_CFA_offset|r); pb_uleb(b, 2+(11-r)); } }
+#elif LJ_TARGET_ARM64
+    {
+      int r;
+      pb_u8(b, DW_CFA_offset|31); pb_uleb(b, 2);
+      for (r = 28; r >= 19; r--) { pb_u8(b, DW_CFA_offset|r); pb_uleb(b, 3+(28-r)); }
+      for (r = 15; r >= 8; r--) { pb_u8(b, DW_CFA_offset|32|r); pb_uleb(b, 28-r); }
+    }
+#elif LJ_TARGET_PPC
+    {
+      int r;
+      pb_u8(b, DW_CFA_offset_extended); pb_u8(b, DW_REG_CR); pb_uleb(b, 55);
+      for (r = 14; r <= 31; r++) {
+	pb_u8(b, DW_CFA_offset|r); pb_uleb(b, 37+(31-r));
+	pb_u8(b, DW_CFA_offset|32|r); pb_uleb(b, 2+2*(31-r));
+      }
+    }
+#elif LJ_TARGET_MIPS
+    {
+      int r;
+      pb_u8(b, DW_CFA_offset|30); pb_uleb(b, 2);
+      for (r = 23; r >= 16; r--) { pb_u8(b, DW_CFA_offset|r); pb_uleb(b, 26-r); }
+      for (r = 30; r >= 20; r -= 2) { pb_u8(b, DW_CFA_offset|32|r); pb_uleb(b, 42-r); }
+    }
+#else
+#error "Unsupported target architecture"
+#endif
+    if (spadjp != spadj) {
+      pb_u8(b, DW_CFA_def_cfa_offset); pb_uleb(b, spadjp);
+      pb_u8(b, DW_CFA_advance_loc|1);  /* Only an approximation. */
+    }
+    pb_u8(b, DW_CFA_def_cfa_offset); pb_uleb(b, spadj);
+    pb_pad(b, sizeof(uintptr_t));
+    pb_end(b, fde);
+
+    sec[PIDBG_SECT_eh_frame].size = b->len - sec[PIDBG_SECT_eh_frame].ofs;
+  }
+
+  /* .text is a NOBITS shadow of the machine code. */
+  sec[PIDBG_SECT_text].type = PIDBG_ELFSECT_TYPE_NOBITS;
+  sec[PIDBG_SECT_text].flags = PIDBG_ELFSECT_FLAGS_ALLOC|PIDBG_ELFSECT_FLAGS_EXEC;
+  sec[PIDBG_SECT_text].addr = (uintptr_t)T->mcode;
+  sec[PIDBG_SECT_text].ofs = 0;
+  sec[PIDBG_SECT_text].size = T->szmcode;
+
+  {
+    static const struct {
+      uint32_t type;
+      uintptr_t flags;
+      uintptr_t align;
+    } info[PIDBG_SECT__MAX] = {
+      { 0, 0, 0 },
+      { PIDBG_ELFSECT_TYPE_NOBITS, PIDBG_ELFSECT_FLAGS_ALLOC|PIDBG_ELFSECT_FLAGS_EXEC, 16 },
+      { PIDBG_ELFSECT_TYPE_PROGBITS, PIDBG_ELFSECT_FLAGS_ALLOC, sizeof(uintptr_t) },
+      { PIDBG_ELFSECT_TYPE_STRTAB, 0, 1 },
+      { PIDBG_ELFSECT_TYPE_STRTAB, 0, 1 },
+      { PIDBG_ELFSECT_TYPE_SYMTAB, 0, sizeof(uintptr_t) },
+      { PIDBG_ELFSECT_TYPE_PROGBITS, 0, 1 },
+      { PIDBG_ELFSECT_TYPE_PROGBITS, 0, 1 },
+      { PIDBG_ELFSECT_TYPE_PROGBITS, 0, 1 }
+    };
+    for (i = 1; i < PIDBG_SECT__MAX; i++) {
+      sec[i].name = nameofs[i];
+      sec[i].type = info[i].type;
+      sec[i].flags = info[i].flags;
+      sec[i].align = info[i].align;
+    }
+  }
+
+  /* Write the section header table. */
+  memcpy(b->p + sectab, sec, sizeof(sec));
+
+  /* Write the ELF header. */
+  {
+    PIDbgELFheader hdr = pidbg_elfhdr_template;
+    memcpy(b->p, &hdr, sizeof(hdr));
+  }
+}
+
+/* Combined allocation for a GDB JIT entry and its ELF object. */
+typedef struct PIDbgEntryObj {
+  PIDbgJitEntry entry;
+  size_t sz;
+} PIDbgEntryObj;
+
+/* Register the trace with the GDB JIT API. */
+static void pidbg_register(lua_State *L, PIDbgTrace *pt, GCtrace *T)
+{
+  PIDbgBuf b;
+  PIDbgEntryObj *eo;
+  void *obj;
+  size_t objsize;
+
+  pidbg_build_obj(L2J(L), pt, T, &b);
+  objsize = b.len;
+  eo = (PIDbgEntryObj *)lj_mem_newt(L,
+	  sizeof(PIDbgEntryObj) + objsize, PIDbgEntryObj);
+  obj = (char *)eo + sizeof(PIDbgEntryObj);
+  memcpy(obj, b.p, objsize);
+  lj_mem_free(G(L), b.p, b.cap);
+  eo->sz = sizeof(PIDbgEntryObj) + objsize;
+  eo->entry.symfile_addr = (const char *)obj;
+  eo->entry.symfile_size = objsize;
+  eo->entry.next_entry = NULL;
+  eo->entry.prev_entry = NULL;
+  pt->entry = eo;
+
+  pidbg_lock_acquire();
+  eo->entry.next_entry = __jit_debug_descriptor.first_entry;
+  if (eo->entry.next_entry)
+    eo->entry.next_entry->prev_entry = &eo->entry;
+  __jit_debug_descriptor.first_entry = &eo->entry;
+  __jit_debug_descriptor.relevant_entry = &eo->entry;
+  __jit_debug_descriptor.action_flag = GDBJIT_REGISTER;
+  __jit_debug_register_code();
+  pidbg_lock_release();
+}
+
+/* Unregister the trace from the GDB JIT API. */
+static void pidbg_unregister(global_State *g, PIDbgTrace *pt)
+{
+  PIDbgEntryObj *eo = (PIDbgEntryObj *)pt->entry;
+  if (eo == NULL)
+    return;
+  pt->entry = NULL;
+  pidbg_lock_acquire();
+  if (eo->entry.prev_entry)
+    eo->entry.prev_entry->next_entry = eo->entry.next_entry;
+  else
+    __jit_debug_descriptor.first_entry = eo->entry.next_entry;
+  if (eo->entry.next_entry)
+    eo->entry.next_entry->prev_entry = eo->entry.prev_entry;
+  __jit_debug_descriptor.relevant_entry = &eo->entry;
+  __jit_debug_descriptor.action_flag = GDBJIT_UNREGISTER;
+  __jit_debug_register_code();
+  pidbg_lock_release();
+  lj_mem_free(g, eo, eo->sz);
 }
 
 /*
@@ -235,6 +979,8 @@ void lj_pidbg_addtrace(jit_State *J, GCtrace *T)
   }
   pt->nspan = n;
   pidbg_ckpt_reset();
+
+  pidbg_register(J->L, pt, T);
 
   pidbg_traces_ensure(J, (MSize)T->traceno + 1);
   pidbg_lock_acquire();
@@ -282,6 +1028,7 @@ static int pidbg_stop(lua_State *L)
       PIDbgTrace *pt = traces[i];
       if (pt != NULL) {
         MSize k;
+        pidbg_unregister(J2G(J), pt);
         for (k = 0; k < pt->nfile; k++)
           lj_mem_free(J2G(J), pt->file[k], strlen(pt->file[k]) + 1);
         lj_mem_freevec(J2G(J), pt->file, PIDBG_MAXFILE, char *);
