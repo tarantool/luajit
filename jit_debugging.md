@@ -1,12 +1,19 @@
-# Debug Information for JIT Traces in Tarantool's LuaJIT — Analysis & Plan
+# JIT Trace Debugging in Tarantool's LuaJIT
 
-Repository analyzed: `tarantool/third_party/luajit` (Tarantool's LuaJIT 2.1 fork, git HEAD `712e6d85`).
+Repository analyzed: `tarantool/third_party/luajit` (Tarantool's LuaJIT 2.1 fork,
+baseline git HEAD `712e6d85`).
 
-This document is the result of a system-level/compiler-engineer analysis of **how debug
-information is generated for traces collected by the JIT infrastructure**, and a concrete
-plan for closing the gaps that were found. It is meant to be the starting point for any
-future engineering work that wants to *add* or *improve* debug information for LuaJIT
-traces.
+This is the consolidated document for debug-information generation for the traces
+collected by the JIT infrastructure. It contains:
+
+* the analysis of every existing mechanism (§1–§4);
+* the improvement plan (§5) and file map (§6);
+* the implemented precise-debug-info extension, `LUAJIT_USE_PIDEBUG` /
+  `jit.pidbg`, including its API, output formats, limitations and tests (§7);
+* how to build Tarantool with the extension (§8).
+
+It is meant to be the starting point for any future engineering work that wants to
+*add* or *improve* debug information for LuaJIT traces.
 
 ---
 
@@ -443,4 +450,60 @@ test/tarantool-tests/lj-pidbg-jitdump.test.lua     # sidecar + jitdump
 test/tarantool-tests/lj-pidbg-stability.test.lua   # churn/flush stability
 test/tarantool-tests/lj-pidbg-pstack.test.lua      # gdb/pstack integration
 ```
+
+The state owned by the feature (including the thread-local checkpoint
+buffer) is released both by `jit.pidbg.stop()` and, as a safety net, on VM
+state teardown from `lj_trace_freestate()`. This keeps `LUA_USE_ASSERT`
+builds (for example Tarantool Debug) from aborting in `close_state` with a
+memory leak when the feature is used or when `stop()` was forgotten.
+
+---
+
+## 8. Building Tarantool with the extension
+
+The Tarantool superproject exposes the option and forwards it to the
+bundled LuaJIT:
+
+* `CMakeLists.txt`:
+  `option(LUAJIT_USE_PIDEBUG "Build LuaJIT with precise JIT trace debug info." OFF)`
+* `cmake/luajit.cmake`: forwards the value as a forced cache variable to
+  `third_party/luajit` (the same pattern as `LUAJIT_ENABLE_GC64`) and fails
+  the configuration early if the bundled LuaJIT does not provide
+  `src/lj_pidbg.c`.
+
+Build:
+
+```sh
+cmake -DLUAJIT_USE_PIDEBUG=ON ... -B build
+cmake --build build --target tarantool
+```
+
+The option defaults to `OFF`, so a normal build is unaffected. It requires
+the JIT and is mutually exclusive with `LUAJIT_USE_GDBJIT`.
+
+Smoke test of the built binary:
+
+```lua
+-- check.lua
+local pidbg = require('jit.pidbg')
+assert(pidbg.active() == false)
+pidbg.start('l')
+local function work(n)
+  local s = 0
+  for i = 1, n do s = s + i end
+  return s
+end
+local r = 0
+for i = 1, 200 do r = r + work(1000) end
+pidbg.stop()
+```
+
+```sh
+build/src/tarantool check.lua   # no leak assertion, prints nothing
+```
+
+For debugger validation, attach while the process executes a compiled
+trace (see §7): `pstack <pid>` or `gdb -batch -p <pid> -ex bt` shows
+`TRACE_<n> () at <file>:<line>`.
+
 
