@@ -7,6 +7,8 @@ runs:
       uses: ./.github/actions/setup-linux
     - name: Install dependencies for the tests
       run: |
-        apt -y update
-        apt install -y python3 gdb lldb
+        # GitHub-hosted runners run the steps as a regular user.
+        SUDO=$([ "$(id -u)" = 0 ] || echo sudo)
+        ${SUDO} apt -y update
+        ${SUDO} apt install -y python3 gdb lldb
       shell: bash

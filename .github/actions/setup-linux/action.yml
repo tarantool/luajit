@@ -14,6 +14,8 @@ runs:
       shell: bash
     - name: Install build and test dependencies
       run: |
-        apt -y update
-        apt -y install cmake gcc make ninja-build perl
+        # GitHub-hosted runners run the steps as a regular user.
+        SUDO=$([ "$(id -u)" = 0 ] || echo sudo)
+        ${SUDO} apt -y update
+        ${SUDO} apt -y install cmake gcc make ninja-build perl
       shell: bash
