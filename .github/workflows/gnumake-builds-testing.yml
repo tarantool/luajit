@@ -52,7 +52,10 @@ jobs:
             GC64: OFF
           - OS: macOS
             GC64: OFF
-    runs-on: [self-hosted, regular, '${{ matrix.OS }}', '${{ matrix.ARCH }}']
+    runs-on: ${{ matrix.OS == 'Linux' && matrix.ARCH == 'ARM64' &&
+                 'ubuntu-26.04-arm' ||
+                 fromJSON(format('["self-hosted", "regular", "{0}", "{1}"]',
+                                 matrix.OS, matrix.ARCH)) }}
     name: >
       LuaJIT
       (${{ matrix.OS }}/${{ matrix.ARCH }})

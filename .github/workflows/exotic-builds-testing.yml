@@ -76,7 +76,8 @@ jobs:
           # (`DASM_S_RANGE_I`).
           - FLAVOR: tablebump
             ARCH: ARM64
-    runs-on: [self-hosted, regular, Linux, '${{ matrix.ARCH }}']
+    runs-on: ${{ matrix.ARCH == 'ARM64' && 'ubuntu-26.04-arm' ||
+                 fromJSON('["self-hosted", "regular", "Linux", "x86_64"]') }}
     name: >
       LuaJIT ${{ matrix.FLAVOR }}
       (Linux/${{ matrix.ARCH }})
