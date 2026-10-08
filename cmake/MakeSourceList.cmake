@@ -27,8 +27,6 @@ function(make_source_list list)
   set(singleValues)
   set(multiValues SOURCES)
 
-  # FIXME: if we update to CMake >= 3.5, can remove this line.
-  include(CMakeParseArguments)
   cmake_parse_arguments(${prefix}
                         "${noValues}"
                         "${singleValues}"
