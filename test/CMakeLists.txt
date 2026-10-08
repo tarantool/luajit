@@ -136,8 +136,6 @@ function(add_test_suite_target target)
   set(singleValues LABELS)
   set(multiValues DEPENDS)
 
-  # FIXME: if we update to CMake >= 3.5, can remove this line.
-  include(CMakeParseArguments)
   cmake_parse_arguments(${prefix}
                         "${noValues}"
                         "${singleValues}"
