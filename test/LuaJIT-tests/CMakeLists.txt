@@ -24,21 +24,24 @@ if(LUAJIT_USE_ASAN)
   # "((__interception::real___cxa_throw)) != (0)" (0x0, 0x0)
   # This is a workaround suggested at
   # https://github.com/google/sanitizers/issues/934.
-  LibRealPath(LIB_STDCPP libstdc++.so)
-  # XXX: GCC requires both. Clang requires only libstdc++.
-  # Be aware, ASAN runtime in Clang on Linux was offered only in
-  # the form of a library with differ name from libasan.so (e.g.
-  # libclang_rt.asan-x86_64.a).
-  # See also:
-  # https://github.com/google/sanitizers/wiki/AddressSanitizerAsDso.
-  if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    LibRealPath(LIB_ASAN libasan.so)
-    # XXX: The items of the list in LD_PRELOAD can be separated
-    # by spaces or colons, and there is no support for escaping
-    # either separator, see ld.so(8).
-    list(APPEND LUAJIT_TESTS_ENV LD_PRELOAD=${LIB_ASAN}:${LIB_STDCPP})
-  else()
-    list(APPEND LUAJIT_TESTS_ENV LD_PRELOAD=${LIB_STDCPP})
+  # FreeBSD uses libc++ and doesn't need this workaround.
+  if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    LibRealPath(LIB_STDCPP libstdc++.so)
+    # XXX: GCC requires both. Clang requires only libstdc++.
+    # Be aware, ASAN runtime in Clang on Linux was offered only in
+    # the form of a library with differ name from libasan.so (e.g.
+    # libclang_rt.asan-x86_64.a).
+    # See also:
+    # https://github.com/google/sanitizers/wiki/AddressSanitizerAsDso.
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+      LibRealPath(LIB_ASAN libasan.so)
+      # XXX: The items of the list in LD_PRELOAD can be separated
+      # by spaces or colons, and there is no support for escaping
+      # either separator, see ld.so(8).
+      list(APPEND LUAJIT_TESTS_ENV LD_PRELOAD=${LIB_ASAN}:${LIB_STDCPP})
+    else()
+      list(APPEND LUAJIT_TESTS_ENV LD_PRELOAD=${LIB_STDCPP})
+    endif()
   endif()
 endif()
 
