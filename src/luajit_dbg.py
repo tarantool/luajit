@@ -1302,7 +1302,6 @@ def gc_state(g):
         3: 'SWEEPSTRING',
         4: 'SWEEP',
         5: 'FINALIZE',
-        6: 'LAST',
     }.get(int(g['gc']['state']), 'INVALID')
 
 
@@ -2908,7 +2907,7 @@ class LJState(dbg.LJBase):
 lj-state
 The command requires no args and dumps current VM and GC states:
 * VM state: <{}>
-* GC state: <PAUSE|PROPAGATE|ATOMIC|SWEEPSTRING|SWEEP|FINALIZE|LAST>
+* GC state: <PAUSE|PROPAGATE|ATOMIC|SWEEPSTRING|SWEEP|FINALIZE>
 * JIT state: <IDLE|ACTIVE|RECORD|START|END|ASM|ERR>
     '''.format('|'.join(list(VM_STATES) + [vm_state_trace('TRACENO')]))
 
