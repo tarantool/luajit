@@ -133,6 +133,23 @@ elif machine == 'arm64' or machine == 'aarch64':
 else:
     raise Exception('Unknown architecture in testing')
 
+GCS_PAUSE = 'PAUSE'
+GCS_PROPAGATE = 'PROPAGATE'
+GCS_ATOMIC = 'ATOMIC'
+GCS_SWEEPSTRING = 'SWEEPSTRING'
+GCS_SWEEP = 'SWEEP'
+GCS_FINALIZE = 'FINALIZE'
+
+RX_VALID_GC_STATES = r'({})'.format('|'.join([
+    GCS_PAUSE,
+    GCS_PROPAGATE,
+    GCS_ATOMIC,
+    GCS_SWEEPSTRING,
+    GCS_SWEEP,
+    GCS_FINALIZE,
+]))
+RX_INVALID_GC_STATE = r'INVALID'
+
 
 class TestCaseBase(unittest.TestCase):
     @classmethod
@@ -283,23 +300,24 @@ RX_VM_STATE = r'({})'.format('|'.join([
 ]))
 
 
-class TestLJState(TestCaseBase):
-    extension_cmds = 'lj-state'
-    location = 'lj_cf_print'
-    lua_script = 'print(1)'
-    pattern = (
+def compose_lj_state_rx(rx_gc_state):
+    return (
         r'VM state: ' + RX_VM_STATE + '\n'
-        r'GC state: [A-Z]+\n'
+        r'GC state: ' + rx_gc_state + '\n'
         r'JIT state: [A-Z]+\n'
     )
 
 
-class TestLJGC(TestCaseBase):
-    extension_cmds = 'lj-gc'
+class TestLJState(TestCaseBase):
+    extension_cmds = 'lj-state'
     location = 'lj_cf_print'
     lua_script = 'print(1)'
-    pattern = (
-        r'GC stats: [A-Z]+\n'
+    pattern = compose_lj_state_rx(RX_VALID_GC_STATES)
+
+
+def compose_gc_stats_rx(rx_gc_state):
+    return (
+        r'GC stats: ' + rx_gc_state + '\n'
         r'\ttotal: \d+\n'
         r'\tthreshold: \d+\n'
         r'\tdebt: \d+\n'
@@ -313,6 +331,81 @@ class TestLJGC(TestCaseBase):
         r'\tweak: \d+ objects\n'
         r'\tmmudata: \d+ objects\n'
     )
+
+
+class TestLJGC(TestCaseBase):
+    extension_cmds = 'lj-gc'
+    location = 'lj_cf_print'
+    lua_script = 'print(1)'
+    pattern = compose_gc_stats_rx(RX_VALID_GC_STATES)
+
+
+class TestGCStateBase(TestCaseBase):
+    extension_cmds = (
+        'lj-state\n'
+        'lj-gc\n'
+    )
+
+    # The same lua code is used to check all the GC states because
+    # it allows to reach any of them:
+    # 1) `gc_mark_start()` (PAUSE) is always present in the full
+    #    GC cycle.
+    # 2) `propagatemark()` (PROPAGATE) is reachable because our
+    #    build has FFI and the finalizer table is marked as a weak
+    #    table, i.e. it is gray. Hence, the g->gc.gray list is not
+    #    empty.
+    # 3) `atomic()` (ATOMIC) is always present in the full GC
+    #    cycle.
+    # 4) `gc_sweep_str_chain()` (SWEEPSTRING) is always present in
+    #    the full GC cycle.
+    # 5) `gc_sweep()` (SWEEP) is always present in the full GC
+    #    cycle.
+    # 6) `gc_finalize()` (FINALIZE) is met due to the finalizer to
+    #    userdata in the script.
+    lua_script = (
+        'local obj = newproxy(true)\n'
+        'getmetatable(obj).__gc = function() end\n'
+        'obj = nil\n'
+        'collectgarbage()\n'
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pattern = (
+            compose_lj_state_rx(cls.gc_state) +
+            compose_gc_stats_rx(cls.gc_state)
+        )
+        super(TestGCStateBase, cls).setUpClass()
+
+
+class TestGCStatePause(TestGCStateBase):
+    gc_state = GCS_PAUSE
+    location = 'gc_mark_start'
+
+
+class TestGCStatePropagate(TestGCStateBase):
+    gc_state = GCS_PROPAGATE
+    location = 'propagatemark'
+
+
+class TestGCStateAtomic(TestGCStateBase):
+    gc_state = GCS_ATOMIC
+    location = 'atomic'
+
+
+class TestGCStateSweepString(TestGCStateBase):
+    gc_state = GCS_SWEEPSTRING
+    location = 'gc_sweep_str_chain'
+
+
+class TestGCStateSweep(TestGCStateBase):
+    gc_state = GCS_SWEEP
+    location = 'gc_sweep'
+
+
+class TestGCStateFinalize(TestGCStateBase):
+    gc_state = GCS_FINALIZE
+    location = 'gc_finalize'
 
 
 STACK_RX = (
