@@ -110,6 +110,10 @@ class Debugger(object):
                 self.write('{} command initialized\n'.format(name))
             self.write('LuaJIT debug extension is successfully loaded\n')
 
+    def print(self, msg):
+        '''Print the message with the new line.'''
+        self.write(msg + '\n')
+
     @abc.abstractmethod
     def cast(self, typestr, val):
         '''Cast the value to the required C type.'''
@@ -146,8 +150,8 @@ class Debugger(object):
         pass
 
     @abc.abstractmethod
-    def eval(self, command):
-        '''Parse and evaluate the given debugger command.'''
+    def eval(self, expr):
+        '''Parse and evaluate the given debugger expression.'''
         pass
 
     @abc.abstractmethod
@@ -268,14 +272,8 @@ class _GDBDebugger(Debugger):
         else:
             return None
 
-    def eval(self, command):
-        if not command:
-            return None
-
-        ret = gdb.parse_and_eval(command)
-        if not ret:
-            raise gdb.GdbError('table argument empty')
-        return ret
+    def eval(self, expr):
+        return gdb.parse_and_eval(expr)
 
     def detect_arch(self):
         if hasattr(self, 'arch'):
@@ -670,15 +668,26 @@ class _LLDBDebugger(Debugger):
         else:
             return None
 
-    def eval(self, command):
-        if not command:
-            return None
-
+    def eval(self, expr):
         process = self.target.GetProcess()
         thread = process.GetSelectedThread()
         frame = thread.GetSelectedFrame()
-        ret = frame.EvaluateExpression(command)
-        return ret
+        val = frame.EvaluateExpression(expr)
+        # LLDB doesn't throw an exception if it fails to
+        # evaluate an expression. In order to simplify handling
+        # of `Debugger.eval()` it is convenient to make it work
+        # similar to GDB, i.e. throw an exception in case of
+        # failure.
+        # Be aware that SBValue.IsValid() is necessary, but not
+        # sufficient as it only indicates that the value object
+        # does contain the relevant data (including the potential
+        # error), so it is necessary to check the `error` property
+        # as well.
+        if not val.IsValid():
+            raise self.error('{}: invalid expression'.format(expr))
+        if val.error.fail:
+            raise self.error(val.error)
+        return lldb.value(val)
 
     def detect_arch(self):
         if hasattr(self, 'arch'):
@@ -694,8 +703,13 @@ class _LLDBDebugger(Debugger):
     def write(self, msg):
         sys.stdout.write(msg)
 
+    class DbgError(Exception):
+        '''Raised to indicate an error during command execution.
+        Doesn't cause a traceback to be printed (like gdb.GdbError for GDB).'''
+        pass
+
     def error(self, errmsg):
-        return Exception(errmsg)
+        return self.DbgError(errmsg)
 
     def check_libluajit(self):
         # TODO: Implement postpone loading for LLDB too.
@@ -738,12 +752,27 @@ class _LLDBDebugger(Debugger):
         def __call__(ljbase, debugger, args, exe_ctx, result):
             try:
                 ljbase.execute(args)
-            except Exception as e:
+            except _LLDBDebugger.DbgError as e:
                 msg = 'Failed to execute command `{}`: {}'.format(
                     ljbase.name,
                     e
                 )
                 result.SetError(msg)
+                # `result` is an output argument of LLDB command
+                # handler. If error message is set, LLDB displays
+                # it in session. But such a message is missing in
+                # output when the same problem occurs in batch
+                # mode, so in order to be able to catch this kind
+                # of error in batch mode it is needed to put it
+                # into stderr explicitly.
+                # Also to avoid duplication of the same error
+                # message in interactive mode, it should be done
+                # in batch mode only. There is no official way to
+                # check if LLDB is in the batch mode so one of the
+                # recommended workarounds is used below that
+                # checks if tty is not used for standard input.
+                if not sys.stdin.isatty():
+                    result.PutError(lldb.SBFile.Create(sys.stderr, True))
 
         @abc.abstractmethod
         def execute(ljbase, args):
@@ -2399,7 +2428,7 @@ def dump_proto(proto):
     startbc = proto_bc(proto)
     func_loc = proto_loc(proto)
     # Location has the following format: '{chunk}:{firstline}'.
-    dump = '{func_loc}-{lastline}\n'.format(
+    dump = '{func_loc}-{lastline}'.format(
         func_loc=func_loc,
         lastline=proto['firstline'] + proto['numline'],
     )
@@ -2408,9 +2437,9 @@ def dump_proto(proto):
         return '=> ' + str(npc_from + delta).zfill(4)
 
     for bcnum in range(0, int(proto['sizebc'])):
-        dump += (str(bcnum).zfill(4) + ' ' + dump_bc(
+        dump += ('\n' + str(bcnum).zfill(4) + ' ' + dump_bc(
             startbc[bcnum], jmp_format=jmp_format, jmp_ctx=bcnum, proto=proto,
-        ) + '\n')
+        ))
     return dump
 
 
@@ -2421,9 +2450,9 @@ def dump_func(func):
         pt = funcproto(func)
         return dump_proto(pt)
     elif ffid == 1:
-        return 'C function @ {}\n'.format(strx64(func['f']))
+        return 'C function @ {}'.format(strx64(func['f']))
     else:
-        return 'fast function #{}\n'.format(int(ffid))
+        return 'fast function #{}'.format(int(ffid))
 
 
 # FFI dumpers.
@@ -2740,7 +2769,7 @@ def dump_irins(irins, trace=None):
         if op1 != -1:
             args = dump_call_args(trace, int(op1))
 
-        return '{flags} {type} {name:6} [{mode:2}] {f}({args}) {ct}\n'.format(
+        return '{flags} {type} {name:6} [{mode:2}] {f}({args}) {ct}'.format(
             flags=flags,
             name=irname,
             mode=ir_mode(irop),
@@ -2792,7 +2821,7 @@ def dump_irins(irins, trace=None):
     else:
         typename = IRTYPES[irt_type(irt)]
 
-    return '{flags} {type} {name:6} [{mode:2}] {left:<9s} {right}\n'.format(
+    return '{flags} {type} {name:6} [{mode:2}] {left:<9s} {right}'.format(
         flags=flags,
         name=irname,
         mode=ir_mode(irop),
@@ -2857,18 +2886,19 @@ def dump_regsp(irins, ins_number):
 
 
 def dump_trace(trace, flags):
-    dump = 'Trace {num} start\n\tproto: {start_pt}\n\tBC: {start_bc}\n'.format(
+    dump = 'Trace {num} start\n\tproto: {start_pt}\n\tBC: {start_bc}'.format(
         num=trace['traceno'],
         start_pt=gcref(trace['startpt']),
         start_bc=mref('BCIns *', trace['startpc']),
     )
 
     nins = trace['nins'] - REF_BIAS
-    dump += '---- TRACE IR\n'
+    dump += '\n---- TRACE IR'
     nsnap = 0
     snap = trace['snap'][nsnap]
     snapref = snap['ref']
     for irnum in range(1, nins):
+        dump += '\n'
         irref = REF_BIAS + irnum
         if 's' in flags and irref >= snapref and nsnap < trace['nsnap']:
             dump += '....          '
@@ -2894,27 +2924,32 @@ def dump_tref(tref):
     )
 
 
-def dump_jslots(coroutine):
-    lstate = L(None)
-    g = G(lstate or coroutine)
-    j = J(g)
-
-    dump = ''
-    maxslot = j['baseslot'] + j['maxslot']
+def dump_jslots(J):
+    dump = []
+    maxslot = J['baseslot'] + J['maxslot']
     first_base_slot = 1 + LJ_FR2
     for n in reversed(range(first_base_slot, maxslot)):
-        tref = j['slot'][n]
+        tref = J['slot'][n]
         ref = tref_ref(tref)
         address = dbg.address(tref)
-        dump += '{addr} {nslot:04d} {base:1s} {tref}{const}\n'.format(
+        dump.append('{addr} {nslot:04d} {base:1s} {tref}{const}'.format(
             addr=address,
-            base='B' if address == j['base'] else ' ',
+            base='B' if address == J['base'] else ' ',
             nslot=n,
             tref=dump_tref(tref),
-            const=' ' + dump_irk(j['cur'], ref - REF_BIAS)
-                if ref != 0 and ref < REF_BIAS else ''
-        )
-    return dump
+            const=' ' + dump_irk(J['cur'], ref - REF_BIAS)
+                  if ref != 0 and ref < REF_BIAS else ''
+        ))
+    return '\n'.join(dump)
+
+
+# Extension commands helpers. ####################################
+
+
+def cast_command_arg(typestr, arg):
+    if not arg:
+        raise dbg.error('Argument is required')
+    return dbg.cast(typestr, dbg.eval(arg))
 
 
 # Extension commands. ############################################
@@ -2931,8 +2966,8 @@ compile-time flag to inspect if LuaJIT is built in dual-number mode.
     '''
 
     def execute(self, arg):
-        dbg.write(
-            'LJ_64: {LJ_64}, LJ_GC64: {LJ_GC64}, LJ_DUALNUM: {LJ_DUALNUM}\n'
+        dbg.print(
+            'LJ_64: {LJ_64}, LJ_GC64: {LJ_GC64}, LJ_DUALNUM: {LJ_DUALNUM}'
             .format(
                 LJ_64=LJ_64,
                 LJ_GC64=LJ_GC64,
@@ -2964,9 +2999,7 @@ https://github.com/tarantool/tarantool/wiki/LuaJIT-Bytecodes.
     '''
 
     def execute(self, arg):
-        dbg.write('{}\n'.format(
-            dump_bc(dbg.cast('BCIns *', dbg.eval(arg))[0])
-        ))
+        dbg.print(dump_bc(cast_command_arg('BCIns *', arg)[0]))
 
 
 class LJDumpCType(dbg.LJBase):
@@ -2978,9 +3011,7 @@ and dumps the ID and the name for this C data type.
     '''
 
     def execute(self, arg):
-        dbg.write('{}\n'.format(
-            dump_ctype(dbg.cast('CType *', dbg.eval(arg)))
-        ))
+        dbg.print(dump_ctype(cast_command_arg('CType *', arg)))
 
 
 class LJDumpFunc(dbg.LJBase):
@@ -3005,7 +3036,7 @@ function:
     '''
 
     def execute(self, arg):
-        dbg.write('{}'.format(dump_func(dbg.cast('GCfuncC *', dbg.eval(arg)))))
+        dbg.print(dump_func(cast_command_arg('GCfuncC *', arg)))
 
 
 class LJGC(dbg.LJBase):
@@ -3029,7 +3060,7 @@ The command requires no args and dumps current GC stats:
 
     def execute(self, arg):
         g = G(L(None))
-        dbg.write('GC stats: {state}\n{stats}\n'.format(
+        dbg.print('GC stats: {state}\n{stats}'.format(
             state=gc_state(g),
             stats=dump_gc(g)
         ))
@@ -3060,8 +3091,7 @@ error message occurs.
     '''
 
     def execute(self, arg):
-        gcobj = dbg.cast('GCobj *', dbg.eval(arg))
-        dbg.write('{}\n'.format(dump_gcobj(gcobj)))
+        dbg.print(dump_gcobj(cast_command_arg('GCobj *', arg)))
 
 
 class LJDumpIR(dbg.LJBase):
@@ -3078,7 +3108,7 @@ https://github.com/tarantool/tarantool/wiki/LuaJIT-SSA-IR.
     '''
 
     def execute(self, arg):
-        dbg.write('{}'.format(dump_irins(dbg.cast('IRIns *', dbg.eval(arg)))))
+        dbg.print(dump_irins(cast_command_arg('IRIns *', arg)))
 
 
 class LJDumpJSlots(dbg.LJBase):
@@ -3095,9 +3125,8 @@ when there is no coroutine to be inspected in the debugged frame.
     '''
 
     def execute(self, arg):
-        dbg.write('{}'.format(
-            dump_jslots(dbg.cast('lua_State *', dbg.eval(arg)))
-        ))
+        lstate = L(dbg.eval(arg) if arg else None)
+        dbg.print(dump_jslots(J(G(lstate))))
 
 
 class LJDumpProto(dbg.LJBase):
@@ -3122,9 +3151,7 @@ function:
     '''
 
     def execute(self, arg):
-        dbg.write('{}'.format(
-            dump_proto(dbg.cast('GCproto *', dbg.eval(arg)))
-        ))
+        dbg.print(dump_proto(cast_command_arg('GCproto *', arg)))
 
 
 class LJDumpStack(dbg.LJBase):
@@ -3161,7 +3188,8 @@ If L is omitted, the main coroutine is used.
     '''
 
     def execute(self, arg):
-        dbg.write('{}\n'.format(dump_stack(L(dbg.eval(arg)))))
+        lstate = L(dbg.eval(arg) if arg else None)
+        dbg.print(dump_stack(lstate))
 
 
 class LJState(dbg.LJBase):
@@ -3175,13 +3203,13 @@ The command requires no args and dumps current VM and GC states:
 
     def execute(self, arg):
         g = G(L(None))
-        dbg.write('{}\n'.format('\n'.join(
+        dbg.print('\n'.join(
             map(lambda t: '{} state: {}'.format(*t), {
                 'VM':  vm_state(g),
                 'GC':  gc_state(g),
                 'JIT': jit_state(g),
             }.items())
-        )))
+        ))
 
 
 class LJDumpString(dbg.LJBase):
@@ -3196,8 +3224,8 @@ is replaced with the corresponding error when decoding fails.
     '''
 
     def execute(self, arg):
-        string = dbg.cast('GCstr *', dbg.eval(arg))
-        dbg.write("String: {body} [{len} bytes] with hash {hash}\n".format(
+        string = cast_command_arg('GCstr *', arg)
+        dbg.print("String: {body} [{len} bytes] with hash {hash}".format(
             body=strdata(string),
             hash=strx64(string['hash']),
             len=string['len'],
@@ -3217,7 +3245,7 @@ The command receives a GCtab address and dumps the table contents:
     '''
 
     def execute(self, arg):
-        t = dbg.cast('GCtab *', dbg.eval(arg))
+        t = cast_command_arg('GCtab *', arg)
         array = mref('TValue *', t['array'])
         nodes = mref('struct Node *', t['node'])
         mt = gcval(t['metatable'])
@@ -3227,22 +3255,22 @@ The command receives a GCtab address and dumps the table contents:
         }
 
         if mt != 0:
-            dbg.write('Metatable detected: {}\n'.format(strx64(mt)))
+            dbg.print('Metatable detected: {}'.format(strx64(mt)))
 
-        dbg.write('Array part: {} slots\n'.format(capacity['apart']))
+        dbg.print('Array part: {} slots'.format(capacity['apart']))
         for i in range(capacity['apart']):
             slot = array + i
-            dbg.write('{ptr}: [{index}]: {value}\n'.format(
+            dbg.print('{ptr}: [{index}]: {value}'.format(
                 ptr=slot,
                 index=i,
                 value=dump_tvalue(slot)
             ))
 
-        dbg.write('Hash part: {} nodes\n'.format(capacity['hpart']))
+        dbg.print('Hash part: {} nodes'.format(capacity['hpart']))
         # See hmask comment in lj_obj.h
         for i in range(capacity['hpart']):
             node = nodes + i
-            dbg.write('{ptr}: {{ {key} }} => {{ {val} }}; next = {n}\n'.format(
+            dbg.print('{ptr}: {{ {key} }} => {{ {val} }}; next = {n}'.format(
                 ptr=node,
                 key=dump_tvalue(node['key']),
                 val=dump_tvalue(node['val']),
@@ -3280,8 +3308,7 @@ error message occurs.
     '''
 
     def execute(self, arg):
-        tv = dbg.cast('TValue *', dbg.eval(arg))
-        dbg.write('{}\n'.format(dump_tvalue(tv)))
+        dbg.print(dump_tvalue(cast_command_arg('TValue *', arg)))
 
 
 class LJDumpTrace(dbg.LJBase):
@@ -3300,10 +3327,7 @@ Trace may be preceded with /FLAGS:
 
     def execute(self, arg):
         arg, flags = dbg.extract_flags(arg, 'rs')
-        dbg.write('{}'.format(dump_trace(
-            dbg.cast('GCtrace *', dbg.eval(arg)),
-            flags
-        )))
+        dbg.print(dump_trace(cast_command_arg('GCtrace *', arg), flags))
 
 
 def load(event=None):

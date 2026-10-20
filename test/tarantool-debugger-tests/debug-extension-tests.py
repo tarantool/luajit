@@ -68,7 +68,7 @@ def execute_process(cmd, timeout=TIMEOUT):
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             # This prevents sending of SIGSTTOU to the test when
             # running by `make'. Stdin is unused anyway.
             stdin=subprocess.DEVNULL
@@ -87,7 +87,7 @@ def execute_process(cmd, timeout=TIMEOUT):
         process = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             # This prevents sending of SIGSTTOU to the test when
             # running by `make'. Stdin is unused anyway.
             stdin=subprocess.DEVNULL,
@@ -1051,7 +1051,60 @@ class TestLJCTypeBase(TestCaseBase):
     pattern = r'\[\d+\] <int>'
 
 
-for test_cls in TestCaseBase.__subclasses__():
+class TestMissingArgBase(TestCaseBase):
+    location = 'lj_cf_print'
+    lua_script = 'print(1)'
+    pattern = r'Argument is required\n'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.extension_cmds = '{}\n'.format(cls.cmd_name)
+        super(TestMissingArgBase, cls).setUpClass()
+
+
+class TestMissingArgLJFunc(TestMissingArgBase):
+    cmd_name = 'lj-func'
+
+
+class TestMissingArgLJTValue(TestMissingArgBase):
+    cmd_name = 'lj-tv'
+
+
+class TestMissingArgLJBC(TestMissingArgBase):
+    cmd_name = 'lj-bc'
+
+
+class TestMissingArgLJStr(TestMissingArgBase):
+    cmd_name = 'lj-str'
+
+
+class TestMissingArgLJTable(TestMissingArgBase):
+    cmd_name = 'lj-tab'
+
+
+class TestMissingArgLJProto(TestMissingArgBase):
+    cmd_name = 'lj-proto'
+
+
+class TestMissingArgLJGCO(TestMissingArgBase):
+    cmd_name = 'lj-gco'
+
+
+class TestMissingArgLJCType(TestMissingArgBase):
+    cmd_name = 'lj-ctype'
+
+
+def get_leaf_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    if not subclasses:
+        yield cls
+    else:
+        for sub in subclasses:
+            for leaf in get_leaf_subclasses(sub):
+                yield leaf
+
+
+for test_cls in get_leaf_subclasses(TestCaseBase):
     test_cls.test = lambda self: self.check()
 
 if __name__ == '__main__':
