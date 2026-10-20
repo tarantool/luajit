@@ -19,30 +19,6 @@ LLDB = 'lldb' in DEBUGGER
 EXTENSION = EXTENSION_PATH + '/luajit_dbg.py'
 TIMEOUT = 10
 
-if LLDB:
-    INFERIOR_ARGS = '--'
-    LOAD_EXTENSION = 'command script import ' + EXTENSION
-    PROCESS_RUN = (
-        # Prevent errors in case when running tests in Docker.
-        'settings set target.disable-aslr false\n'
-        'process launch'
-    )
-    # Don't run any initialization scripts.
-    RUN_CMD_FILE = [
-        '--batch',
-        '--no-lldbinit',
-        '--no-use-colors',
-        '--source-quietly',
-        '--source'
-    ]
-else:
-    # GDB.
-    INFERIOR_ARGS = '--args'
-    LOAD_EXTENSION = 'source ' + EXTENSION
-    PROCESS_RUN = 'run'
-    # Don't run any initialization scripts.
-    RUN_CMD_FILE = ['--batch', '--nx', '--quiet', '--command']
-
 TEST_VERBOSE = os.getenv('DEBUGGER_TEST_VERBOSE', default=False)
 
 RX_ADDR = r'0x[a-f0-9]+'
@@ -60,7 +36,7 @@ def persist(data):
     return tmp
 
 
-def execute_process(cmd, timeout=TIMEOUT):
+def execute_process_raw(cmd, timeout=TIMEOUT):
     if LEGACY:
         # XXX: The Python 2.7 version of `subprocess.Popen`
         # doesn't have a timeout option, so the required
@@ -68,12 +44,12 @@ def execute_process(cmd, timeout=TIMEOUT):
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             # This prevents sending of SIGSTTOU to the test when
             # running by `make'. Stdin is unused anyway.
             stdin=subprocess.DEVNULL
         )
-        timer = Timer(TIMEOUT, process.kill)
+        timer = Timer(timeout, process.kill)
         timer.start()
         stdout, _ = process.communicate()
         timer.cancel()
@@ -87,15 +63,70 @@ def execute_process(cmd, timeout=TIMEOUT):
         process = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             # This prevents sending of SIGSTTOU to the test when
             # running by `make'. Stdin is unused anyway.
             stdin=subprocess.DEVNULL,
             universal_newlines=True,
-            timeout=TIMEOUT
+            timeout=timeout,
         )
         return process.stdout
 
+
+if LLDB:
+    INFERIOR_ARGS = '--'
+    LOAD_EXTENSION = 'command script import ' + EXTENSION
+    PROCESS_RUN = (
+        # Prevent errors in case when running tests in Docker.
+        'settings set target.disable-aslr false\n'
+        'process launch'
+    )
+    # Don't run any initialization scripts.
+    RUN_CMD_FILE = [
+        '--batch',
+        '--no-lldbinit',
+        '--no-use-colors',
+        '--source-quietly',
+        '--source'
+    ]
+    SET_EXEC = 'target create ' + LUAJIT_BINARY
+    SET_RUN_ARGS = 'settings set target.run-args'
+
+    def execute_process(cmd, timeout=TIMEOUT):
+        # While executing extension commands LLDB might produce
+        # errors that cannot be caught in extension. The internal
+        # parser does some processing in background and might
+        # emit an error message into stderr asynchronously. Also
+        # the internal parser has a kind of fallback mechanism
+        # that might resolve the problem, but is not able to
+        # "cancel" the error message which might fail tests in
+        # this case.
+        #
+        # List of regex that specifies lines to be wiped out from
+        # the LLDB output. In case additional cleaning is needed,
+        # just append this list with the correponding regex (use
+        # as strict regex as possible in order to avoid accidental
+        # removing of relevant data).
+        RX_LINES_TO_REMOVE = [
+            # This error occurs while parsing `union FPRCBArg` (it
+            # looks like either offset of `f`` field or size of
+            # `union FPRCBArg` is identified incorrectly).
+            r".*DW_TAG_member 'f' refers to type \w+ which extends beyond.*",
+        ]
+        raw_out = execute_process_raw(cmd, timeout)
+        return re.sub(r'^({})\n'.format('|'.join(RX_LINES_TO_REMOVE)),
+                      '', raw_out, flags=re.M)
+
+else:
+    # GDB.
+    INFERIOR_ARGS = '--args'
+    LOAD_EXTENSION = 'source ' + EXTENSION
+    PROCESS_RUN = 'run'
+    # Don't run any initialization scripts.
+    RUN_CMD_FILE = ['--batch', '--nx', '--quiet', '--command']
+    SET_EXEC = 'file ' + LUAJIT_BINARY
+    SET_RUN_ARGS = 'set args'
+    execute_process = execute_process_raw
 
 IS_DUALNUM = execute_process([
     LUAJIT_BINARY, '-e', "print(require('ffi').abi('dualnum'))"
@@ -129,42 +160,38 @@ else:
 
 class TestCaseBase(unittest.TestCase):
     @classmethod
-    def construct_cmds(cls):
-        return '\n'.join([
+    def construct_cmds(cls, deferred, *run_args):
+        cmds = [
+            SET_EXEC,
+            SET_RUN_ARGS + ' ' + ' '.join(run_args),
             'b {loc}'.format(loc=cls.location),
             PROCESS_RUN,
             'n',
-            LOAD_EXTENSION,
             cls.extension_cmds.strip(),
-            'q',
-        ])
+        ]
+        cmds.insert(0 if deferred else 1, LOAD_EXTENSION)
+        return '\n'.join(cmds)
 
-    @classmethod
-    def setUpClass(cls):
-        cmd_file = persist(cls.construct_cmds())
-        script_file = persist(cls.lua_script)
+    def check(self, deferred=False):
+        script_file = persist(self.lua_script)
+        cmd_file = persist(self.construct_cmds(deferred, script_file.name))
         process_cmd = [
             DEBUGGER,
             *RUN_CMD_FILE,
             cmd_file.name,
-            INFERIOR_ARGS,
-            LUAJIT_BINARY,
-            script_file.name,
         ]
         if TEST_VERBOSE:
-            print('# Test name: {}'.format(cls.__name__))
+            print('# Test name: {}'.format(self.__class__.__name__))
             print('# Test command: {}'.format(' '.join(process_cmd)))
-        cls.output = execute_process(process_cmd)
+        output = execute_process(process_cmd)
         if TEST_VERBOSE:
-            print('# Command output:\n{}'.format(cls.output))
+            print('# Command output:\n{}'.format(output))
         cmd_file.close()
         script_file.close()
-
-    def check(self):
         if LEGACY:
-            self.assertRegexpMatches(self.output, self.pattern.strip())
+            self.assertRegexpMatches(output, self.pattern.strip())
         else:
-            self.assertRegex(self.output, self.pattern.strip())
+            self.assertRegex(output, self.pattern.strip())
 
 
 # Test that the emitted debug information supports macro
@@ -1051,8 +1078,65 @@ class TestLJCTypeBase(TestCaseBase):
     pattern = r'\[\d+\] <int>'
 
 
-for test_cls in TestCaseBase.__subclasses__():
+class TestMissingArgBase(TestCaseBase):
+    location = 'lj_cf_print'
+    lua_script = 'print(1)'
+    pattern = r'Argument is required\n'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.extension_cmds = '{}\n'.format(cls.cmd_name)
+        super(TestMissingArgBase, cls).setUpClass()
+
+
+class TestMissingArgLJFunc(TestMissingArgBase):
+    cmd_name = 'lj-func'
+
+
+class TestMissingArgLJTValue(TestMissingArgBase):
+    cmd_name = 'lj-tv'
+
+
+class TestMissingArgLJBC(TestMissingArgBase):
+    cmd_name = 'lj-bc'
+
+
+class TestMissingArgLJStr(TestMissingArgBase):
+    cmd_name = 'lj-str'
+
+
+class TestMissingArgLJTable(TestMissingArgBase):
+    cmd_name = 'lj-tab'
+
+
+class TestMissingArgLJProto(TestMissingArgBase):
+    cmd_name = 'lj-proto'
+
+
+class TestMissingArgLJGCO(TestMissingArgBase):
+    cmd_name = 'lj-gco'
+
+
+class TestMissingArgLJCType(TestMissingArgBase):
+    cmd_name = 'lj-ctype'
+
+
+def get_leaf_subclasses(cls):
+    subclasses = cls.__subclasses__()
+    if not subclasses:
+        yield cls
+    else:
+        for sub in subclasses:
+            for leaf in get_leaf_subclasses(sub):
+                yield leaf
+
+
+for test_cls in get_leaf_subclasses(TestCaseBase):
     test_cls.test = lambda self: self.check()
+    test_cls.test_with_deferred_loading = \
+        unittest.skipIf(LLDB, "not supported for LLDB")(
+            lambda self: self.check(True)
+        )
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
