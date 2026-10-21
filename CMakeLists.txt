@@ -461,8 +461,8 @@ set(LUAJIT_TEST_INIT "${PROJECT_SOURCE_DIR}/test/luajit-test-init.lua" CACHE STR
 # directory root (hence, in this CMakeLists.txt).
 if(LUAJIT_USE_TEST)
   enable_testing()
+  add_subdirectory(test)
 endif()
-add_subdirectory(test)
 
 # --- Benchmarks source tree ---------------------------------------------------
 
