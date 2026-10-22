@@ -1073,16 +1073,16 @@ static void asm_tvptr(ASMState *as, Reg dest, IRRef ref)
       emit_rmro(as, XO_MOVto, tmp|REX_64, dest, 0);
       emit_loadu64(as, tmp, k.u64);
     } else {
-      /* TODO: 64 bit store + 32 bit load-modify-store is suboptimal. */
-      Reg src = ra_alloc1(as, ref, rset_exclude(RSET_GPR, dest));
-      if (irt_is64(ir->t)) {
-	emit_u32(as, irt_toitype(ir->t) << 15);
-	emit_rmro(as, XO_ARITHi, XOg_OR, dest, 4);
-      } else {
+      RegSet allow = rset_exclude(RSET_GPR, dest);
+      Reg src = ra_alloc1(as, ref, allow);
+      Reg tmp = ra_scratch(as, rset_exclude(allow, src));
+      emit_movtomro(as, tmp|REX_64, dest, 0);
+      if (irt_is64(ir->t))
+	emit_rr(as, XO_OR, tmp|REX_64, src|REX_64);
+      else
 	/* Currently, no caller passes integers that might end up here. */
-	emit_movmroi(as, dest, 4, (irt_toitype(ir->t) << 15));
-      }
-      emit_movtomro(as, REX_64IR(ir, src), dest, 0);
+	emit_rr(as, XO_MOV, tmp, src);
+      emit_loadu64(as, tmp, (uint64_t)irt_toitype(ir->t) << 47);
     }
 #else
     if (!irref_isk(ref)) {
@@ -1625,11 +1625,9 @@ static void asm_ahustore(ASMState *as, IRIns *ir)
       emit_i32(as, -1);
       emit_mrm(as, XO_MOVmi, REX_64, RID_MRM);
     } else {
-      emit_u32(as, k.u32.lo);
-      emit_mrm(as, XO_MOVmi, 0, RID_MRM);
-      as->mrm.ofs += 4;
-      emit_u32(as, k.u32.hi);
-      emit_mrm(as, XO_MOVmi, 0, RID_MRM);
+      Reg tmp = ra_scratch(as, RSET_GPR);
+      emit_mrm(as, XO_MOVto, tmp|REX_64, RID_MRM);
+      emit_loadu64(as, tmp, k.u64);
     }
 #endif
   } else {
@@ -1644,12 +1642,10 @@ static void asm_ahustore(ASMState *as, IRIns *ir)
     if (ra_hasreg(src)) {
 #if LJ_GC64
       if (!(LJ_DUALNUM && irt_isinteger(ir->t))) {
-	/* TODO: 64 bit store + 32 bit load-modify-store is suboptimal. */
-	as->mrm.ofs += 4;
-	emit_u32(as, irt_toitype(ir->t) << 15);
-	emit_mrm(as, XO_ARITHi, XOg_OR, RID_MRM);
-	as->mrm.ofs -= 4;
-	emit_mrm(as, XO_MOVto, src|REX_64, RID_MRM);
+	Reg tmp = ra_scratch(as, rset_exclude(allow, src));
+	emit_mrm(as, XO_MOVto, tmp|REX_64, RID_MRM);
+	emit_rr(as, XO_OR, tmp|REX_64, src|REX_64);
+	emit_loadu64(as, tmp, (uint64_t)irt_toitype(ir->t) << 47);
 	return;
       }
 #endif
@@ -2716,19 +2712,19 @@ static void asm_stack_restore(ASMState *as, SnapShot *snap)
 		 (LJ_DUALNUM && irt_isinteger(ir->t)),
 		 "restore of IR type %d", irt_type(ir->t));
       if (!irref_isk(ref)) {
-	Reg src = ra_alloc1(as, ref, rset_exclude(RSET_GPR, RID_BASE));
+	RegSet allow = rset_exclude(RSET_GPR, RID_BASE);
+	Reg src = ra_alloc1(as, ref, allow);
 #if LJ_GC64
-	if (irt_is64(ir->t)) {
-	  /* TODO: 64 bit store + 32 bit load-modify-store is suboptimal. */
-	  emit_u32(as, irt_toitype(ir->t) << 15);
-	  emit_rmro(as, XO_ARITHi, XOg_OR, RID_BASE, ofs+4);
-	} else if (LJ_DUALNUM && irt_isinteger(ir->t)) {
-	  emit_movmroi(as, RID_BASE, ofs+4, LJ_TISNUM << 15);
-	} else {
-	  emit_movmroi(as, RID_BASE, ofs+4, (irt_toitype(ir->t)<<15)|0x7fff);
-	}
-#endif
+	Reg tmp = ra_scratch(as, rset_exclude(allow, src));
+	emit_rmro(as, XO_MOVto, tmp|REX_64, RID_BASE, ofs);
+	uint64_t tag = (LJ_DUALNUM && !irt_is64(ir->t) && irt_isinteger(ir->t)) ?
+		       LJ_TISNUM :
+		       irt_toitype(ir->t);
+	emit_rr(as, XO_OR, tmp|REX_64, src|REX_64);
+	emit_loadu64(as, tmp, tag << 47);
+#else
 	emit_movtomro(as, REX_64IR(ir, src), RID_BASE, ofs);
+#endif
 #if LJ_GC64
       } else {
 	TValue k;
