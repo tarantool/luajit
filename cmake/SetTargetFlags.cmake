@@ -48,6 +48,9 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   AppendFlags(TARGET_SHARED_FLAGS -undefined dynamic_lookup)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
+  # OpenBSD has no libdl, its functionality lives in libc.
+  AppendFlags(TARGET_BIN_FLAGS -Wl,-E)
 else() # Linux and FreeBSD.
   AppendFlags(TARGET_BIN_FLAGS -Wl,-E)
   list(APPEND TARGET_LIBS dl)
