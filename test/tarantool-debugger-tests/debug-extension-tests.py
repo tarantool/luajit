@@ -19,38 +19,8 @@ LLDB = 'lldb' in DEBUGGER
 EXTENSION = EXTENSION_PATH + '/luajit_dbg.py'
 TIMEOUT = 10
 
-if LLDB:
-    INFERIOR_ARGS = '--'
-    LOAD_EXTENSION = 'command script import ' + EXTENSION
-    PROCESS_RUN = (
-        # Prevent errors in case when running tests in Docker.
-        'settings set target.disable-aslr false\n'
-        'process launch'
-    )
-    # Don't run any initialization scripts.
-    RUN_CMD_FILE = [
-        '--batch',
-        '--no-lldbinit',
-        '--no-use-colors',
-        '--source-quietly',
-        '--source'
-    ]
-
-    def modify_obj_cmd(obj, val):
-        return 'expression {} = {}'.format(obj, val)
-
-else:
-    # GDB.
-    INFERIOR_ARGS = '--args'
-    LOAD_EXTENSION = 'source ' + EXTENSION
-    PROCESS_RUN = 'run'
-    # Don't run any initialization scripts.
-    RUN_CMD_FILE = ['--batch', '--nx', '--quiet', '--command']
-
-    def modify_obj_cmd(obj, val):
-        return 'set var {} = {}'.format(obj, val)
-
 TEST_VERBOSE = os.getenv('DEBUGGER_TEST_VERBOSE', default=False)
+TEST_VERBOSE = '1'
 
 RX_ADDR = r'0x[a-f0-9]+'
 RX_HASH = RX_ADDR  # The same pattern for hexademic values.
@@ -67,7 +37,7 @@ def persist(data):
     return tmp
 
 
-def execute_process(cmd, timeout=TIMEOUT):
+def execute_process_raw(cmd, timeout=TIMEOUT):
     if LEGACY:
         # XXX: The Python 2.7 version of `subprocess.Popen`
         # doesn't have a timeout option, so the required
@@ -80,7 +50,7 @@ def execute_process(cmd, timeout=TIMEOUT):
             # running by `make'. Stdin is unused anyway.
             stdin=subprocess.DEVNULL
         )
-        timer = Timer(TIMEOUT, process.kill)
+        timer = Timer(timeout, process.kill)
         timer.start()
         stdout, _ = process.communicate()
         timer.cancel()
@@ -99,9 +69,57 @@ def execute_process(cmd, timeout=TIMEOUT):
             # running by `make'. Stdin is unused anyway.
             stdin=subprocess.DEVNULL,
             universal_newlines=True,
-            timeout=TIMEOUT
+            timeout=timeout,
         )
         return process.stdout
+
+
+if LLDB:
+    INFERIOR_ARGS = '--'
+    LOAD_EXTENSION = 'command script import ' + EXTENSION
+    PROCESS_RUN = (
+        # Prevent errors in case when running tests in Docker.
+        'settings set target.disable-aslr false\n'
+        'process launch'
+    )
+    # Don't run any initialization scripts.
+    RUN_CMD_FILE = [
+        '--batch',
+        '--no-lldbinit',
+        '--no-use-colors',
+        '--source-quietly',
+        '--source'
+    ]
+
+    def execute_process(cmd, timeout=TIMEOUT):
+        # List of regex that specifies lines to be wiped out from
+        # the LLDB output. In case additional cleaning is needed,
+        # just append this list with the correponding regex (use
+        # as strict regex as possible in order to avoid accidental
+        # removing of relevant data).
+        RX_LINES_TO_REMOVE = [
+            # This error might occurs when parse type complex with
+            # the array as its last member
+            r".*DW_TAG_member 'f' refers to type \w+ which extends beyond.*",
+        ]
+        raw_out = execute_process_raw(cmd, timeout)
+        return re.sub('^({})\n'.format('|'.join(RX_LINES_TO_REMOVE)),
+                      '', raw_out, flags=re.M)
+
+    def modify_obj_cmd(obj, val):
+        return 'expression {} = {}'.format(obj, val)
+
+else:
+    # GDB.
+    INFERIOR_ARGS = '--args'
+    LOAD_EXTENSION = 'source ' + EXTENSION
+    PROCESS_RUN = 'run'
+    # Don't run any initialization scripts.
+    RUN_CMD_FILE = ['--batch', '--nx', '--quiet', '--command']
+    execute_process = execute_process_raw
+
+    def modify_obj_cmd(obj, val):
+        return 'set var {} = {}'.format(obj, val)
 
 
 IS_DUALNUM = execute_process([
@@ -178,6 +196,7 @@ class TestCaseBase(unittest.TestCase):
         if TEST_VERBOSE:
             print('# Test name: {}'.format(cls.__name__))
             print('# Test command: {}'.format(' '.join(process_cmd)))
+            print('# Extension commands:\n{}'.format(cls.construct_cmds()))
         cls.output = execute_process(process_cmd)
         if TEST_VERBOSE:
             print('# Command output:\n{}'.format(cls.output))
