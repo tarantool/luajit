@@ -18,6 +18,9 @@ if LEGACY:
     int = long  # noqa: F821
     range = xrange  # noqa: F821
 
+def log(msg):
+    # dbg.print(msg)
+    pass
 
 # Debugger. ######################################################
 
@@ -502,7 +505,15 @@ class _LLDBDebugger(Debugger):
                             tp,
                     ))
             elif type(key) is str:
-                return lldb.value(lldbval.sbvalue.GetChildMemberWithName(key))
+                log('lldb__getitem__: key={}'.format(key))
+                childval = lldbval.sbvalue.GetChildMemberWithName(key)
+                log('lldb__getitem__: childval.IsValid={}'.format(childval.IsValid()))
+                log('lldb__getitem__: childval.error={}'.format(childval.error))
+                log('lldb__getitem__: childval.error.success={}'.format(childval.error.success))
+                childval = lldb.value(childval)
+                log('lldb__getitem__: key={} DONE'.format(key))
+                return childval
+                # return lldb.value(lldbval.sbvalue.GetChildMemberWithName(key))
             raise Exception(TypeError('No item of type %s' % str(type(key))))
 
         def lldb__gt__(lldbval, other):
@@ -707,6 +718,7 @@ class _LLDBDebugger(Debugger):
             return None
 
     def eval(self, expr):
+        log('Debugger.eval: 1 expr={}'.format(expr))
         process = self.target.GetProcess()
         thread = process.GetSelectedThread()
         frame = thread.GetSelectedFrame()
@@ -722,9 +734,14 @@ class _LLDBDebugger(Debugger):
         # error), so it is necessary to check the `error` property
         # as well.
         if not val.IsValid():
+            log('Debugger.eval: 2')
             raise self.error('{}: invalid expression'.format(expr))
         if val.error.fail:
+            log('Debugger.eval: 3 val.error={}'.format(val.error))
+            log('Debugger.eval: 3 val.error.success={}'.format(val.error.success))
             raise self.error(val.error)
+            # raise Exception(val.error)
+        log('Debugger.eval: 4')
         return lldb.value(val)
 
     def detect_arch(self):
@@ -859,7 +876,14 @@ class _LLDBDebugger(Debugger):
                 # recommended workarounds is used below that
                 # checks if tty is not used for standard input.
                 if not sys.stdin.isatty():
+                    log('$$$$$$$$$$$$ args={}\n'.format(args))
+                    log(msg)
                     result.PutError(lldb.SBFile.Create(sys.stderr, True))
+            except Exception as e:
+                # sys.stderr.write('$$$$$$$$$$$$ execute exception <{}> $$$$$$$$$$$\n'.format(e))
+                # sys.stderr.flush()
+                log('$$$$$$$$$$$$ execute exception <{}> $$$$$$$$$$$$'.format(e))
+                raise e
 
         @abc.abstractmethod
         def execute(ljbase, args):
@@ -1814,20 +1838,32 @@ def dump_lj_gco_trace(gcobj):
 
 
 def dump_lj_gco_cdata(gcobj):
+    log('dump_lj_gco_cdata: 1')
     cdata = dbg.cast('struct GCcdata *', gcobj)
+    log('dump_lj_gco_cdata: 2')
     cts = ctype_ctsG(G(L()))
+    log('dump_lj_gco_cdata: 3')
     cid = cdata['ctypeid']
+    log('dump_lj_gco_cdata: 4')
     ctype = ctype_get(cts, cid)
+    log('dump_lj_gco_cdata: 5')
     info = ctype['info']
+    log('dump_lj_gco_cdata: 6')
     size = ctype['size']
     value = ''
+    log('dump_lj_gco_cdata: 7')
     if ctype_iscomplex(info):
+        log('dump_lj_gco_cdata: 81')
         value = dump_cdata_val_complex(cdata, ctype)
     elif size == 8 and ctype_isinteger(info):
+        log('dump_lj_gco_cdata: 82')
         value = dump_cdata_val_int64(cdata, ctype)
     else:
+        log('dump_lj_gco_cdata: 83')
         value = cdataptr(cdata)
+        log('dump_lj_gco_cdata: 84')
         if ctype_isptr(info):
+            log('dump_lj_gco_cdata: 841')
             value = cdata_getptr(value, size)
     return 'cdata @ {addr} {ctype} {value}'.format(
         addr=strx64(gcobj),
@@ -1923,6 +1959,7 @@ tv_dumpers = {
 
 
 def dump_gcobj(gcobj):
+    log('dump_gcobj')
     return gco_dumpers.get(
         typenames(i2notu32(gcobj['gch']['gct'])), dump_lj_gco_invalid
     )(gcobj)
@@ -2325,9 +2362,13 @@ def ctype_repr(cts, id):
 
 
 def dump_ctype(ct):
+    log('dump_ctype: 1')
     cts = ctype_ctsG(G(L()))
+    log('dump_ctype: 2')
     cid = ctype_typeid(cts, ct)
+    log('dump_ctype: 3')
     name = ctype_repr(cts, cid)
+    log('dump_ctype: 4')
     return '[{id}] <{name}>'.format(
         id=cid,
         name=name,
@@ -2655,8 +2696,11 @@ def dump_jslots(J):
 
 
 def cast_command_arg(typestr, arg):
+    log('cast_command_arg: 1')
     if not arg:
+        log('cast_command_arg: 11')
         raise dbg.error('Argument is required')
+    log('cast_command_arg: 2')
     return dbg.cast(typestr, dbg.eval(arg))
 
 
@@ -2799,7 +2843,9 @@ error message occurs.
     '''
 
     def execute(self, arg):
+        log('LJDumpGCobj.execute: 1')
         dbg.print(dump_gcobj(cast_command_arg('GCobj *', arg)))
+        log('LJDumpGCobj.execute: 2')
 
 
 class LJDumpIR(dbg.LJBase):

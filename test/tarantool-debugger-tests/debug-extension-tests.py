@@ -51,6 +51,7 @@ else:
         return 'set var {} = {}'.format(obj, val)
 
 TEST_VERBOSE = os.getenv('DEBUGGER_TEST_VERBOSE', default=False)
+TEST_VERBOSE = '1'
 
 RX_ADDR = r'0x[a-f0-9]+'
 RX_HASH = RX_ADDR  # The same pattern for hexademic values.
@@ -1313,6 +1314,97 @@ class TestMissingArgLJCType(TestMissingArgBase):
     cmd_name = 'lj-ctype'
 
 
+DEBUGGING_ARGS = (
+    'nil,\n'
+    # '"hello",\n'
+    # 'coroutine.create(function() end),\n'
+    # 'function() end,\n'
+    # 'require,\n' +
+    'ffi.new("int*"),\n'
+    # '{1},\n'
+    ''
+)
+
+
+DEBUGGING_RX = (
+    r'nil\n'
+    # r'string \"hello\" @ ' + RX_ADDR + r'\n'
+    # r'thread @ ' + RX_ADDR + r'\n'
+    # r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
+    # r'C function @ ' + RX_ADDR + r'\n' +
+    r'cdata @ ' + RX_ADDR + r' \[\d+\] <int \*> 0x0\n'
+    # r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
+    ''
+)
+
+
+DEBUGGING2_ARGS = (
+    # 'nil,\n'
+    # '"hello",\n'
+    # 'coroutine.create(function() end),\n'
+    # 'function() end,\n'
+    # 'require,\n' +
+    'ffi.new("int*"),\n'
+    # '{1},\n'
+    ''
+)
+
+
+DEBUGGING2_RX = (
+    # r'nil\n'
+    # r'string \"hello\" @ ' + RX_ADDR + r'\n'
+    # r'thread @ ' + RX_ADDR + r'\n'
+    # r'Lua function @ ' + RX_ADDR + r', [0-9]+ upvalues, .+:[0-9]+\n'
+    # r'C function @ ' + RX_ADDR + r'\n' +
+    r'cdata @ ' + RX_ADDR + r' \[\d+\] <int \*> 0x0\n'
+    # r'table @ ' + RX_ADDR + r' \(asize: \d+, hmask: ' + RX_HASH + r'\)\n'
+    ''
+)
+
+
+class TestDebugging(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = ''.join(
+        # ('lj-gco ' + gcval('L->base + {}'.format(i)) + '\n'
+        ('lj-tv L->base+{}\n'.format(i)
+         for i in range(DEBUGGING_ARGS.count('\n')))
+    )
+
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'print(\n' +
+        DEBUGGING_ARGS +
+        '  1\n'  # Stub for the pattern.
+        ')\n'
+    )
+
+    pattern = DEBUGGING_RX
+
+
+class TestDebugging2(TestCaseBase):
+    location = 'lj_cf_print'
+    extension_cmds = ''.join(
+        # ('lj-gco ' + gcval('L->base + {}'.format(i)) + '\n'
+        ('lj-tv L->base+{}\n'.format(i)
+         for i in range(DEBUGGING2_ARGS.count('\n')))
+    )
+
+    lua_script = (
+        'local ffi = require("ffi")\n'
+        'print(\n' +
+        DEBUGGING2_ARGS +
+        '  1\n'  # Stub for the pattern.
+        ')\n'
+    )
+
+    pattern = DEBUGGING2_RX
+
+
+enabled_tests = [
+    TestDebugging,
+    # TestDebugging2,
+]
+
 def get_leaf_subclasses(cls):
     subclasses = cls.__subclasses__()
     if not subclasses:
@@ -1320,6 +1412,8 @@ def get_leaf_subclasses(cls):
     else:
         for sub in subclasses:
             for leaf in get_leaf_subclasses(sub):
+                if leaf not in enabled_tests:
+                    continue
                 yield leaf
 
 
@@ -1328,3 +1422,4 @@ for test_cls in get_leaf_subclasses(TestCaseBase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+    # unittest.main(verbosity=2, defaultTest='TestDebugging')
