@@ -6,20 +6,18 @@ test:plan(1)
 
 -- XXX: This is quite an exotic test case in that point of view
 -- that testing the debug interactive interface always ends with
--- sending commands to another instance via stdin. However, the
--- module with test helpers lacks the suitable routine.
--- `utils.makecmd()` doesn't fit for this, since `debug.debug()`
--- captures `io.stdin` and waits at `fgets()` in debug busy loop.
--- As it's already mentioned, such tests are not usual, so there
--- is no need to introduce a new helper to utils module (at least
--- for now). Hence, we use `utils.luacmd()` function to obtain the
--- interpreter command, run `debug.debug()` with it, send two
--- commands via pipeline to the launched process, capture its
--- stdout and stderr and test the resulting output against the
--- expected one.
+-- sending commands to another instance via stdin.
+-- Since `debug.debug()` captures `io.stdin` and waits at
+-- `fgets()` in debug busy loop, we use `utils.exec.luacmd()`
+-- function to obtain the interpreter command, run
+-- `debug.debug()` with it, send two commands from the
+-- `utils.exec.test_data('commands.lua')` file redirecting it to
+-- the process stdin, capture its stdout and stderr and test the
+-- resulting output against the expected one.
 --
 -- Debugger prompt.
 local ldb = 'lua_debug> '
+-- The magic number is passed via MAGIC environment variable.
 local magic = 42
 local luabin = utils.exec.luacmd(arg)
 local stderr = {
@@ -37,11 +35,13 @@ local stderr = {
 -- errors are yielded before the magic given to `print()` command
 local expected = table.concat(stderr)..magic
 
-local cmd = ([[cat <<EOF | %s -e 'debug.debug()' 2>&1
-error({})
-print(%d)
-EOF]]):format(luabin, magic)
-
-local res = io.popen(cmd):read('*all'):gsub('%s+$', '')
+local dbg_commands_file = utils.exec.test_data(arg, 'commands.lua')
+local command = utils.exec.makecmd_exec(luabin, {
+  env = {MAGIC = magic},
+  redirect = ('2>&1 <%s'):format(dbg_commands_file),
+  args = {'-e', "'debug.debug()'"},
+  trace = utils.exec.makecmd_tap_trace(test),
+})
+local res = command()
 test:ok(res == expected, 'handle non-string error in debug.debug()')
 test:done(true)

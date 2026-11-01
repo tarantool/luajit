@@ -22,6 +22,7 @@ end
 
 local function makeenv(tabenv)
   if tabenv == nil then return '' end
+  assert(type(tabenv) == 'table')
   local flatenv = {}
   for var, value in pairs(tabenv) do
     if var == 'LD_PRELOAD' then
@@ -43,32 +44,77 @@ local function makeenv(tabenv)
   return table.concat(flatenv, ' ')
 end
 
--- <makecmd> creates a command that runs %testname%/script.lua by
--- <LUAJIT_TEST_BINARY> with the given environment, launch options
--- and CLI arguments. The function yields an object (i.e. table)
--- with the aforementioned parameters. To launch the command just
--- call the object.
-function M.makecmd(arg, opts)
+-- <makecmd_exec> creates a command that runs given binary
+-- with the given environment, launch options and zero or
+-- more permanent arguments.
+-- The function yields an object (i.e. table) with the
+-- aforementioned parameters. To launch the command just call
+-- the object. Additional arguments which may vary from call
+-- to call are the `__call` args.
+-- Pass opts.trace function(event, value) for additional
+-- command/output processing.
+function M.makecmd_exec(bin, opts)
+  assert(type(bin) == 'string')
+  opts = opts or {}
+  assert(type(opts) == 'table')
+  local redirect = opts.redirect or ''
+  assert(type(redirect) == 'string')
+  local perm_args = opts.args or {}
+  assert(type(perm_args) == 'table')
+  assert(opts.trace == nil or type(opts.trace) == 'function')
   return setmetatable({
-    LUABIN = M.luacmd(arg),
-    SCRIPT = opts and opts.script or arg[0]:gsub('%.test%.lua$', '/script.lua'),
-    ENV = opts and makeenv(opts.env) or '',
-    REDIRECT = opts and opts.redirect or '',
+    BIN = bin,
+    ENV = makeenv(opts.env),
+    REDIRECT = redirect,
+    PERMARGS = table.concat(perm_args, ' '),
+    trace = opts.trace,
   }, {
     __call = function(self, ...)
       -- This line just makes the command for <io.popen> by the
       -- following steps:
       -- 1. Replace the placeholders with the corresponding values
-      --    given to the command constructor (e.g. script, env).
+      --    given to the command constructor (e.g. bin, env).
       -- 2. Join all CLI arguments given to the __call metamethod.
       -- 3. Concatenate the results of step 1 and step 2 to obtain
       --    the resulting command.
-      local cmd = ('<ENV> <LUABIN> <REDIRECT> <SCRIPT>'):gsub('%<(%w+)>', self)
+      local cmd = ('<ENV> <BIN> <REDIRECT> <PERMARGS>'):gsub('%<(%w+)>', self)
                   .. (' %s'):rep(select('#', ...)):format(...)
+      if self.trace ~= nil then self.trace('cmd', cmd) end
       -- Trim both leading and trailing whitespace from the output
       -- produced by the child process.
-      return io.popen(cmd):read('*all'):gsub('^%s+', ''):gsub('%s+$', '')
+      local output = io.popen(cmd):
+        read('*all'):gsub('^%s+', ''):gsub('%s+$', '')
+      if self.trace ~= nil then self.trace('output', output) end
+      return output
     end
+  })
+end
+
+-- Make a trace function for `makecmd_exec` script, which produces
+-- tap test diagnostic messages with the command and it's output.
+function M.makecmd_tap_trace(tap)
+  return function(ev, val) tap:diag('%s: %s', ev, val) end
+end
+
+-- Makes a file name for running test's data file in
+-- '%testname%' directory.
+function M.test_data(arg, name)
+  local fname, matches = arg[0]:gsub('%.test%.lua$', '/'..name)
+  assert(matches == 1, 'unexpected test filename')
+  return fname
+end
+
+-- <makecmd> creates a command that runs %testname%/script.lua by
+-- <LUAJIT_TEST_BINARY> with the given environment, launch options
+-- and CLI arguments.
+function M.makecmd(arg, opts)
+  local luabin = M.luacmd(arg)
+  local script = opts and opts.script or M.test_data(arg, 'script.lua')
+  return M.makecmd_exec(luabin, {
+    env = opts and opts.env or nil,
+    redirect = opts and opts.redirect or nil,
+    args = {script},
+    trace = opts and opts.trace or nil,
   })
 end
 
