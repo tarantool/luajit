@@ -367,6 +367,104 @@ static int test_terminate(void *state)
 ** this case, so the write functions must not touch the released
 ** buffer.
 */
+static int test_addbyte_failed_flush(void *state)
+{
+	uint8_t mem[BUFFER_SIZE];
+	struct lj_wbuf buf;
+	struct writer_ctx ctx;
+	size_t i;
+
+	UNUSED(state);
+
+	writer_ctx_init(&ctx, WMODE_FAIL);
+	lj_wbuf_init(&buf, test_writer, &ctx, mem, sizeof(mem));
+
+	/* Fill the buffer without flushes. */
+	for (i = 0; i < sizeof(mem); ++i)
+		lj_wbuf_addbyte(&buf, (uint8_t)i);
+	assert_sizet_equal(ctx.flushes, 0);
+	assert_sizet_equal(buf_len(&buf), sizeof(mem));
+
+	/* The buffer is full, so the byte below triggers a failed flush. */
+	lj_wbuf_addbyte(&buf, 0xaa);
+	assert_stream_stopped_with_error(&buf);
+	assert_sizet_equal(ctx.flushes, 1);
+
+	return TEST_EXIT_SUCCESS;
+}
+
+static int test_addu64_failed_flush(void *state)
+{
+	uint8_t mem[BUFFER_SIZE];
+	struct lj_wbuf buf;
+	struct writer_ctx ctx;
+
+	UNUSED(state);
+
+	writer_ctx_init(&ctx, WMODE_FAIL);
+	lj_wbuf_init(&buf, test_writer, &ctx, mem, sizeof(mem));
+
+	/* The maximal value takes exactly BUFFER_SIZE bytes. */
+	lj_wbuf_addu64(&buf, UINT64_MAX);
+	assert_sizet_equal(buf_len(&buf), sizeof(mem));
+
+	/* There is no space left, so the next write triggers a failed flush. */
+	lj_wbuf_addu64(&buf, 0);
+	assert_stream_stopped_with_error(&buf);
+	assert_sizet_equal(ctx.flushes, 1);
+
+	return TEST_EXIT_SUCCESS;
+}
+
+static int test_addn_failed_flush(void *state)
+{
+	uint8_t mem[BUFFER_SIZE];
+	uint8_t payload[BUFFER_SIZE];
+	struct lj_wbuf buf;
+	struct writer_ctx ctx;
+
+	UNUSED(state);
+
+	memset(payload, 'a', sizeof(payload));
+	writer_ctx_init(&ctx, WMODE_FAIL);
+	lj_wbuf_init(&buf, test_writer, &ctx, mem, sizeof(mem));
+
+	/* Fill the buffer without flushes. */
+	lj_wbuf_addn(&buf, payload, sizeof(payload));
+	assert_sizet_equal(ctx.flushes, 0);
+
+	/* There is no space left, so the next write triggers a failed flush. */
+	lj_wbuf_addn(&buf, "b", 1);
+	assert_stream_stopped_with_error(&buf);
+	assert_sizet_equal(ctx.flushes, 1);
+
+	return TEST_EXIT_SUCCESS;
+}
+
+static int test_addn_failed_flush_in_loop(void *state)
+{
+	uint8_t mem[BUFFER_SIZE];
+	uint8_t payload[PAYLOAD_SIZE];
+	struct lj_wbuf buf;
+	struct writer_ctx ctx;
+
+	UNUSED(state);
+
+	memset(payload, 'a', sizeof(payload));
+	writer_ctx_init(&ctx, WMODE_FAIL);
+	lj_wbuf_init(&buf, test_writer, &ctx, mem, sizeof(mem));
+
+	/*
+	 * The payload does not fit into the buffer, so it is pumped through
+	 * it. The flush fails in the middle of the pump loop.
+	 */
+	lj_wbuf_addn(&buf, payload, sizeof(payload));
+	assert_stream_stopped_with_error(&buf);
+	assert_sizet_equal(ctx.flushes, 1);
+
+	return TEST_EXIT_SUCCESS;
+}
+
 int main(void)
 {
 	const struct test_unit tgroup[] = {
@@ -381,6 +479,10 @@ int main(void)
 		test_unit_def(test_flush_stopped_stream),
 		test_unit_def(test_write_to_stopped_stream),
 		test_unit_def(test_terminate),
+		test_unit_def(test_addbyte_failed_flush),
+		test_unit_def(test_addu64_failed_flush),
+		test_unit_def(test_addn_failed_flush),
+		test_unit_def(test_addn_failed_flush_in_loop),
 	};
 	const int test_result = test_run_group(tgroup, NULL);
 

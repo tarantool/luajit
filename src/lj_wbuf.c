@@ -51,11 +51,18 @@ void LJ_FASTCALL lj_wbuf_terminate(struct lj_wbuf *buf)
   lj_wbuf_init(buf, NULL, NULL, NULL, 0);
 }
 
-static LJ_AINLINE void wbuf_reserve(struct lj_wbuf *buf, size_t n)
+/*
+** Reserve n bytes in the buffer. Returns non-zero if the space is reserved
+** and zero if the stream was stopped during the flush. In the latter case
+** the writer may release the buffer (buf->buf == NULL), so it must not be
+** used by the caller.
+*/
+static LJ_AINLINE int wbuf_reserve(struct lj_wbuf *buf, size_t n)
 {
   lj_assertX(n <= buf->size, "wbuf overflow");
   if (LJ_UNLIKELY(wbuf_left(buf) < n))
     lj_wbuf_flush(buf);
+  return !lj_wbuf_test_flag(buf, STREAM_STOP);
 }
 
 /* Writes a byte to the output buffer. */
@@ -63,7 +70,8 @@ void LJ_FASTCALL lj_wbuf_addbyte(struct lj_wbuf *buf, uint8_t b)
 {
   if (LJ_UNLIKELY(lj_wbuf_test_flag(buf, STREAM_STOP)))
     return;
-  wbuf_reserve(buf, sizeof(b));
+  if (LJ_UNLIKELY(!wbuf_reserve(buf, sizeof(b))))
+    return;
   *buf->pos++ = b;
 }
 
@@ -72,7 +80,8 @@ void LJ_FASTCALL lj_wbuf_addu64(struct lj_wbuf *buf, uint64_t n)
 {
   if (LJ_UNLIKELY(lj_wbuf_test_flag(buf, STREAM_STOP)))
     return;
-  wbuf_reserve(buf, LEB128_U64_MAXSIZE);
+  if (LJ_UNLIKELY(!wbuf_reserve(buf, LEB128_U64_MAXSIZE)))
+    return;
   buf->pos += (ptrdiff_t)lj_utils_write_uleb128(buf->pos, n);
 }
 
@@ -91,11 +100,14 @@ void lj_wbuf_addn(struct lj_wbuf *buf, const void *src, size_t n)
     memcpy(buf->pos, src, left);
     buf->pos += (ptrdiff_t)left;
     lj_wbuf_flush(buf);
+    if (LJ_UNLIKELY(lj_wbuf_test_flag(buf, STREAM_STOP)))
+      return;
     src = (uint8_t *)src + (ptrdiff_t)left;
     n -= left;
   }
 
-  wbuf_reserve(buf, n);
+  if (LJ_UNLIKELY(!wbuf_reserve(buf, n)))
+    return;
   memcpy(buf->pos, src, n);
   buf->pos += (ptrdiff_t)n;
 }
