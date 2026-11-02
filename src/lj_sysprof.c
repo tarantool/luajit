@@ -509,9 +509,11 @@ int lj_sysprof_stop(lua_State *L)
   lj_profile_timer_stop(&sp->timer);
 
   if (SPS_HALT == sp->state) {
-    errno = sp->saved_errno;
+    const int saved_errno = sp->saved_errno;
     sp->state = SPS_IDLE;
     /* wbuf was terminated when error occurred. */
+    sp->on_stop(sp->opt.ctx, sp->out.buf);
+    errno = saved_errno;
     return PROFILE_ERRIO;
   }
 
