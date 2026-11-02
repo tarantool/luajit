@@ -120,6 +120,8 @@ static int sysprof_enospc_during_sampling(void *test_state)
 	errno = 0;
 	assert_int_equal(luaM_sysprof_stop(L), PROFILE_ERRIO);
 	assert_int_equal(errno, ENOSPC);
+	/* The error path releases the profiler resources. */
+	assert_int_equal(ctx.on_stop_calls, 1);
 
 	/* Counters are still available. */
 	assert_true(luaM_sysprof_report(&counters) == PROFILE_SUCCESS);
