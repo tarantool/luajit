@@ -469,7 +469,7 @@
 |  set_vmstate INTERP
 |.if not X64
 |  mov SPILLECX, ecx
-|  mov LFUNC:ecx, [BASE - 4]
+|  mov LFUNC:ecx, [BASE - 8]
 |  mov cl, LFUNC:ecx->ffid
 |  mov byte [DISPATCH+DISPATCH_GL(top_frame_info.ffid)], cl
 |  mov ecx, SPILLECX
